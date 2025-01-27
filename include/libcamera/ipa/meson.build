@@ -69,6 +69,7 @@ pipeline_ipa_mojom_mapping = {
     'rpi/vc4': 'raspberrypi.mojom',
     'simple': 'soft.mojom',
     'vimc': 'vimc.mojom',
+    'libplacebo': 'libplacebo.mojom'
 }
 
 #
