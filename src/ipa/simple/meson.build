@@ -10,12 +10,30 @@ soft_simple_sources = files([
     'soft_simple.cpp',
 ])
 
+libplacebo = dependency('libplacebo', required : false)
+
+#libplacebo = cc.find_library('libplacebo', required : false)
+
+if not libplacebo.found()
+    cmake = import('cmake')
+
+    libplacebo_vars = cmake.subproject_options()
+    libplacebo_vars.add_cmake_defines({'CMAKE_POSITION_INDEPENDENT_CODE': 'ON'})
+    libplacebo_vars.append_compile_args('c', '-Wno-unused-value')
+    libplacebo_wrap = cmake.subproject('libplacebo', options : libplacebo_vars)
+    libplacebo = libplacebo_wrap.dependency('libplacebo')
+endif
+
+libplacebo_ipa_deps = [
+    libplacebo,
+]
+
 soft_simple_sources += soft_simple_ipa_algorithms
 
 mod = shared_module(ipa_name, soft_simple_sources,
                     name_prefix : '',
                     include_directories : [ipa_includes],
-                    dependencies : [libcamera_private, libipa_dep],
+                    dependencies : [libcamera_private, libipa_dep, libplacebo_ipa_deps],
                     install : true,
                     install_dir : ipa_install_dir)
 

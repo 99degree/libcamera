@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: CC0-1.0
+
+[wrap-git]
+directory = libplacebo
+url = https://github.com/haasn/libplacebo
+# tags/0.2.5
+revision = 056b852018db04aa2ebc0982e27713afcea8106b
