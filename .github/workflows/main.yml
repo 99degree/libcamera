@@ -2,7 +2,7 @@ name: Build Libcamera Android HAL
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
 
 jobs:
