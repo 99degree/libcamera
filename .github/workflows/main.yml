@@ -20,6 +20,7 @@ jobs:
           build-essential ninja-build meson \
           python3-pip pkg-config \
           libprotobuf-dev protobuf-compiler
+        pip3 install --upgrade meson
 
     - name: Setup Android NDK
       uses: nttld/setup-ndk@v1
