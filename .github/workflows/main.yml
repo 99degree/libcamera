@@ -17,7 +17,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          build-essential cmake ninja-build \
+          build-essential ninja-build meson \
           python3-pip pkg-config \
           libprotobuf-dev protobuf-compiler
 
@@ -26,18 +26,32 @@ jobs:
       with:
         ndk-version: r26d
 
+    - name: Configure Meson cross file
+      run: |
+        cat > android-cross.txt <<EOF
+        [binaries]
+        c = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang'
+        cpp = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++'
+        ar = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
+        strip = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+
+        [host_machine]
+        system = 'android'
+        cpu_family = 'aarch64'
+        cpu = 'armv8'
+        endian = 'little'
+        EOF
+
     - name: Configure build
       run: |
-        cmake -B build-android -G Ninja \
-          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=arm64-v8a \
-          -DANDROID_PLATFORM=android-29 \
-          -DENABLE_ANDROID=ON \
-          -DENABLE_HAL=ON \
-          -DCMAKE_BUILD_TYPE=Release
+        meson setup build-android \
+          --cross-file android-cross.txt \
+          -Dandroid=true \
+          -Dhal=true \
+          --buildtype=release
 
     - name: Build libcamera + HAL
-      run: cmake --build build-android --target libcamera_android_hal
+      run: ninja -C build-android
 
     - name: Archive artifacts
       uses: actions/upload-artifact@v4
