@@ -48,6 +48,7 @@ jobs:
         meson setup build-android \
           --cross-file android-cross.txt \
           -Dandroid=enabled \
+          -Dpipeline-rpi=disabled \
           --buildtype=release
 
     - name: Build libcamera + HAL
