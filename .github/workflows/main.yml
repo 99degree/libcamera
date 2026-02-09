@@ -49,6 +49,7 @@ jobs:
           --cross-file android-cross.txt \
           -Dandroid=enabled \
           -Dpipelines=simple,uvcvideo \
+          -Dlibexif=disabled 
           --buildtype=release
 
     - name: Build libcamera + HAL
