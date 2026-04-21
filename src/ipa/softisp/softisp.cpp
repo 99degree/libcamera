@@ -63,12 +63,37 @@ std::string SoftIsp::logPrefix() const
 }
 
 int32_t SoftIsp::init(const IPASettings &settings, const SharedFD &fdStats, const SharedFD &fdParams,
-                      const IPACameraSensorInfo &sensorInfo, const ControlInfoMap &sensorControls,
-                      ControlInfoMap *ipaControls, bool *ccmEnabled)
+		     const IPACameraSensorInfo &sensorInfo, const ControlInfoMap &sensorControls,
+		     ControlInfoMap *ipaControls, bool *ccmEnabled)
 {
 	LOG(SoftIsp, Info) << "Initializing SoftISP algorithm";
-	// TODO: Load ONNX models from settings or environment variable
+
+	/* Get model directory from environment variable */
+	const char *modelDir = getenv("SOFTISP_MODEL_DIR");
+	if (!modelDir) {
+		LOG(SoftIsp, Error) << "SOFTISP_MODEL_DIR environment variable not set";
+		return -EINVAL;
+	}
+
+	std::string algoPath = std::string(modelDir) + "/algo.onnx";
+	std::string applierPath = std::string(modelDir) + "/applier.onnx";
+
+	LOG(SoftIsp, Info) << "Looking for algo.onnx at " << algoPath;
+	if (access(algoPath.c_str(), R_OK) != 0) {
+		LOG(SoftIsp, Error) << "algo.onnx not found at " << algoPath;
+		return -ENOENT;
+	}
+	LOG(SoftIsp, Info) << "algo.onnx found (model loading to be implemented)";
+
+	LOG(SoftIsp, Info) << "Looking for applier.onnx at " << applierPath;
+	if (access(applierPath.c_str(), R_OK) != 0) {
+		LOG(SoftIsp, Error) << "applier.onnx not found at " << applierPath;
+		return -ENOENT;
+	}
+	LOG(SoftIsp, Info) << "applier.onnx found (model loading to be implemented)";
+
 	*ccmEnabled = true;
+	LOG(SoftIsp, Info) << "SoftISP initialization complete (models detected)";
 	return 0;
 }
 
