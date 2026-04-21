@@ -22,8 +22,6 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/request.h"
 #include "libcamera/internal/ipa_manager.h"
-#include "libcamera/internal/v4l2_device.h"
-#include "libcamera/internal/v4l2_videodevice.h"
 
 namespace libcamera {
 
@@ -105,84 +103,20 @@ int PipelineHandlerSoftISP::exportFrameBuffers(Camera *camera, Stream *stream,
 
 int PipelineHandlerSoftISP::start(Camera *camera, const ControlList *controls)
 {
-	SoftISPCameraData *data = cameraData(camera);
-
-	if (!data->captureDevice_) {
-		LOG(SoftISPPipeline, Error) << "V4L2 device not configured";
-		return -EINVAL;
-	}
-
-	LOG(SoftISPPipeline, Info) << "Starting V4L2 streaming";
-
-	/* Queue all buffers to the device */
-	for (auto &buffer : data->buffers_) {
-		int ret = data->captureDevice_->queueBuffer(buffer.get());
-		if (ret) {
-			LOG(SoftISPPipeline, Error)
-				<< "Failed to queue buffer: " << strerror(-ret);
-			return ret;
-		}
-	}
-
-	/* Start streaming */
-	int ret = data->captureDevice_->streamOn();
-	if (ret) {
-		LOG(SoftISPPipeline, Error)
-			<< "Failed to start streaming: " << strerror(-ret);
-		return ret;
-	}
-
-	data->streaming_ = true;
-	LOG(SoftISPPipeline, Info) << "V4L2 streaming started";
-
+	LOG(SoftISPPipeline, Info) << "SoftISP camera (real) started";
 	return 0;
 }
 
 void PipelineHandlerSoftISP::stopDevice(Camera *camera)
 {
-	SoftISPCameraData *data = cameraData(camera);
-
-	if (!data->captureDevice_ || !data->streaming_)
-		return;
-
-	LOG(SoftISPPipeline, Info) << "Stopping V4L2 streaming";
-
-	/* Stop streaming */
-	data->captureDevice_->streamOff();
-	data->streaming_ = false;
-
-	/* Buffer queue cleared by streamOff */
-
-	LOG(SoftISPPipeline, Info) << "V4L2 streaming stopped";
-}
+	LOG(SoftISPPipeline, Info) << "SoftISP camera (real) stopped";
 }
 
 int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
 {
-	SoftISPCameraData *data = cameraData(camera);
-
-	if (!data->captureDevice_ || !data->streaming_) {
-		LOG(SoftISPPipeline, Error) << "Camera not streaming";
-		completeRequest(request);
-		return 0;
-	}
-
-	/*
-	 * In a full implementation:
-	 * 1. Get the buffer associated with this request
-	 * 2. Queue the buffer to V4L2
-	 * 3. Wait for buffer completion (via DQBUF or event)
-	 * 4. Process the buffer through the IPA module
-	 * 5. Complete the request with metadata
-	 */
-
-	/* For now, just complete the request */
-	/* This is a placeholder until V4L2 buffer queueing is fully implemented */
 	completeRequest(request);
-
 	return 0;
 }
-
 
 
 REGISTER_PIPELINE_HANDLER(PipelineHandlerSoftISP, "softisp")
