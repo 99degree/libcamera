@@ -250,7 +250,7 @@ These are quick fixes that don't require major implementation:
 | ONNX Integration | 6 | 6 | 0 | 0 |
 | Buffer Allocation | 3 | 3 | 0 | 0 |
 | V4L2 Integration | 4 | 4 | 0 | 0 |
-| Test App | 4 | 0 | 0 | 0 |
+| Request Processing | 1 | 1 | 0 | 0 |
 | Unit Tests | 3 | 0 | 0 | 0 |
 | Documentation | 3 | 1 | 0 | 0 |
 | Performance | 3 | 0 | 0 | 0 |
