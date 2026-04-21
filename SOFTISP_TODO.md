@@ -248,7 +248,7 @@ These are quick fixes that don't require major implementation:
 | Category | Total Items | Completed | In Progress | Blocked |
 |----------|-------------|-----------|-------------|---------|
 | ONNX Integration | 6 | 6 | 0 | 0 |
-| Buffer Allocation | 3 | 0 | 0 | 0 |
+| Buffer Allocation | 3 | 3 | 0 | 0 |
 | V4L2 Integration | 4 | 0 | 0 | 1 |
 | Test App | 4 | 0 | 0 | 0 |
 | Unit Tests | 3 | 0 | 0 | 0 |
