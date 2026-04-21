@@ -52,7 +52,7 @@ int SoftISPCameraData::loadIPA()
 	 * - pipelineName matches the pipeline handler name ("softisp")
 	 * - pipelineVersion is within the specified range (0, 0 = any)
 	 */
-	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(pipe(), 0, 0);
+	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(this->pipe(), 0, 0);
 	if (!ipa_) {
 		LOG(SoftISPPipeline, Error)
 			<< "Failed to create SoftISP IPA module for real camera";
@@ -143,7 +143,7 @@ void PipelineHandlerSoftISP::stopDevice(Camera *camera)
 int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
 {
 	/* Placeholder: Request processing not implemented yet */
-	pipe()->completeRequest(request);
+	this->pipe()->completeRequest(request);
 	return 0;
 }
 
