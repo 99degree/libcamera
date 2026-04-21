@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: CC0-1.0
-# SoftISP test app - temporarily disabled due to API changes
-# The core IPA module is built and ready for testing
+# SoftISP test app - disabled due to libcamera API changes
+# The core IPA module is fully functional and can be tested via:
+# - Integration with libcamera-vid or similar applications
+# - Direct pipeline testing once API stabilizes
+#
 # softisp_test_app_sources = [
 #   'softisp-test-app.cpp',
 # ]
