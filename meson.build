@@ -207,6 +207,7 @@ py_modules = []
 
 # Libraries used by multiple components
 liblttng = dependency('lttng-ust', required : get_option('tracing'))
+onnxruntime_dep = dependency('onnxruntime', required : false)
 
 # Pipeline handlers
 #
