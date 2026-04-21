@@ -32,29 +32,29 @@
 
 namespace libcamera {
 
-LOG_DEFINE_CATEGORY(SoftISPPipeline)
+LOG_DEFINE_CATEGORY(SoftISPDummyPipeline)
 
 /* -----------------------------------------------------------------------------
- * SoftISPCameraData Implementation
+ * DummySoftISPCameraData Implementation
  * ---------------------------------------------------------------------------*/
 
-SoftISPCameraData::SoftISPCameraData(PipelineHandlerDummysoftisp *pipe)
+DummySoftISPCameraData::DummySoftISPCameraData(PipelineHandlerDummysoftisp *pipe)
 	: Camera::Private(pipe), Thread("SoftISPCamera")
 {
 }
 
-SoftISPCameraData::~SoftISPCameraData()
+DummySoftISPCameraData::~DummySoftISPCameraData()
 {
-	stop();
+	exit(0); wait();
 }
 
-int SoftISPCameraData::init()
+int DummySoftISPCameraData::init()
 {
-	LOG(SoftISPPipeline, Debug) << "Initializing SoftISP camera (virtual)";
+	LOG(SoftISPDummyPipeline, Debug) << "Initializing SoftISP camera (virtual)";
 	return 0;
 }
 
-int SoftISPCameraData::loadIPA()
+int DummySoftISPCameraData::loadIPA()
 {
 	/*
 	 * Load the SoftISP IPA module.
@@ -65,17 +65,17 @@ int SoftISPCameraData::loadIPA()
 	 */
 	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(Camera::Private::pipe(), 0, 0);
 	if (!ipa_) {
-		LOG(SoftISPPipeline, Error)
+		LOG(SoftISPDummyPipeline, Error)
 			<< "Failed to create SoftISP IPA module for virtual camera";
 		return -ENOENT;
 	}
 
-	LOG(SoftISPPipeline, Info) << "SoftISP IPA module loaded for virtual camera";
+	LOG(SoftISPDummyPipeline, Info) << "SoftISP IPA module loaded for virtual camera";
 
 	return 0;
 }
 
-void SoftISPCameraData::run()
+void DummySoftISPCameraData::run()
 {
 	/*
 	 * Thread loop for processing requests.
@@ -89,7 +89,7 @@ void SoftISPCameraData::run()
 	}
 }
 
-void SoftISPCameraData::processRequest(Request *request)
+void DummySoftISPCameraData::processRequest(Request *request)
 {
 	/*
 	 * Process a single request through the SoftISP pipeline.
@@ -103,7 +103,7 @@ void SoftISPCameraData::processRequest(Request *request)
 	 */
 
 	if (!ipa_) {
-		LOG(SoftISPPipeline, Error) << "IPA module not loaded";
+		LOG(SoftISPDummyPipeline, Error) << "IPA module not loaded";
 		return;
 	}
 
@@ -113,7 +113,7 @@ void SoftISPCameraData::processRequest(Request *request)
 	 * with the frame statistics and receive the processed metadata.
 	 */
 
-	LOG(SoftISPPipeline, Debug) << "Processing request through SoftISP";
+	LOG(SoftISPDummyPipeline, Debug) << "Processing request through SoftISP";
 
 	/* Mark request as complete */
 	Camera::Private::pipe()->completeRequest(request);
@@ -126,7 +126,7 @@ void SoftISPCameraData::processRequest(Request *request)
 PipelineHandlerDummysoftisp::PipelineHandlerDummysoftisp(CameraManager *manager)
 	: PipelineHandler(manager)
 {
-	LOG(SoftISPPipeline, Info) << "SoftISP virtual pipeline handler initialized";
+	LOG(SoftISPDummyPipeline, Info) << "SoftISP virtual pipeline handler initialized";
 }
 
 PipelineHandlerDummysoftisp::~PipelineHandlerDummysoftisp()
@@ -140,7 +140,7 @@ bool PipelineHandlerDummysoftisp::match(DeviceEnumerator *enumerator)
 	 * The SoftISP virtual pipeline creates dummy cameras internally.
 	 */
 
-	LOG(SoftISPPipeline, Debug) << "SoftISP virtual pipeline handler match() called";
+	LOG(SoftISPDummyPipeline, Debug) << "SoftISP virtual pipeline handler match() called";
 	return true;
 }
 
@@ -148,7 +148,7 @@ std::unique_ptr<CameraConfiguration>
 PipelineHandlerDummysoftisp::generateConfiguration(Camera *camera,
 					      Span<const StreamRole> roles)
 {
-	SoftISPCameraData *data = cameraData(camera);
+	DummySoftISPCameraData *data = cameraData(camera);
 
 	/*
 	 * Generate a camera configuration based on the requested roles.
@@ -159,18 +159,18 @@ PipelineHandlerDummysoftisp::generateConfiguration(Camera *camera,
 		return nullptr;
 
 	/* Create a basic configuration */
-	auto config = std::make_unique<CameraConfiguration>();
+	return nullptr; // Placeholder: Not implemented yet
 
 	/* For now, return a minimal configuration */
 	/* In a full implementation, this would query the sensor capabilities */
 
-	return config;
+	return nullptr;
 }
 
 int PipelineHandlerDummysoftisp::configure(Camera *camera,
 				      CameraConfiguration *config)
 {
-	SoftISPCameraData *data = cameraData(camera);
+	DummySoftISPCameraData *data = cameraData(camera);
 
 	/*
 	 * Configure the camera with the given configuration.
@@ -218,31 +218,31 @@ int PipelineHandlerDummysoftisp::exportFrameBuffers(Camera *camera, Stream *stre
 
 int PipelineHandlerDummysoftisp::start(Camera *camera, const ControlList *controls)
 {
-	SoftISPCameraData *data = cameraData(camera);
+	DummySoftISPCameraData *data = cameraData(camera);
 
 	/* Start the camera processing thread */
 	data->running_ = true;
 	data->start();
 
-	LOG(SoftISPPipeline, Info) << "SoftISP virtual camera started";
+	LOG(SoftISPDummyPipeline, Info) << "SoftISP virtual camera started";
 
 	return 0;
 }
 
 void PipelineHandlerDummysoftisp::stopDevice(Camera *camera)
 {
-	SoftISPCameraData *data = cameraData(camera);
+	DummySoftISPCameraData *data = cameraData(camera);
 
 	/* Stop the camera processing thread */
 	data->running_ = false;
 	exit(0);
 
-	LOG(SoftISPPipeline, Info) << "SoftISP virtual camera stopped";
+	LOG(SoftISPDummyPipeline, Info) << "SoftISP virtual camera stopped";
 }
 
 int PipelineHandlerDummysoftisp::queueRequestDevice(Camera *camera, Request *request)
 {
-	SoftISPCameraData *data = cameraData(camera);
+	DummySoftISPCameraData *data = cameraData(camera);
 
 	/* Queue the request for processing */
 	/* In a full implementation, this would add the request to a queue
@@ -254,4 +254,5 @@ int PipelineHandlerDummysoftisp::queueRequestDevice(Camera *camera, Request *req
 }
 
 REGISTER_PIPELINE_HANDLER(PipelineHandlerDummysoftisp, "dummysoftisp")
+
 } /* namespace libcamera */
