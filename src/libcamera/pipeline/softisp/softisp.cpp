@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+#include <sys/stat.h>
 /*
  * Copyright (C) 2024
 #include <sys/mman.h>
@@ -69,7 +70,11 @@ PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
 
 bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
 {
-	LOG(SoftISPPipeline, Debug) << "Matching devices for SoftISP pipeline (real)";
+	/* SoftISP is for real cameras only - check for V4L2 video devices */
+	struct stat st;
+	if (stat("/dev/video0", &st) != 0) {
+		return false;  /* No real camera, don't match */
+	}
 	return true;
 }
 
