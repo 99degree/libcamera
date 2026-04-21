@@ -23,7 +23,7 @@
 namespace libcamera {
 
 /* Forward declarations */
-class SoftISPCameraData;
+class PipelineHandlerDummysoftisp; // Forward declare before SoftISPCameraData uses it
 
 /*
  * SoftISPCameraData - Camera data structure for SoftISP dummy pipeline.
