@@ -4,6 +4,7 @@ ipa_name = 'ipa_softisp'
 
 softisp_sources = files([
     'softisp.cpp',
+    'softisp_module.cpp',
 ])
 
 mod = shared_module(ipa_name,
