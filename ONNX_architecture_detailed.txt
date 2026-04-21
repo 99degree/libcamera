@@ -1,0 +1,178 @@
+Layered Architecture Diagram: SoftISP IPA Plugin for libcamera (Detailed ONNX Focus)
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Application Layer                           │
+│  (e.g., camera app, HAL consumer using libcamera)                   │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                          libcamera Core                             │
+│  - Camera pipeline management                                       │
+│  - IPA interface consumer (libcamera::IPA)                          │
+│  - Frame delivery to IPA (via submitBuffers)                        │
+│  - Metadata handling (control flags, results)                       │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                   SoftISP IPA Plugin Layer                          │
+│  - Implements libcamera::IPA interface (ipa_softisp.cpp)            │
+│  - Methods:                                                         │
+│      • PreviewFrame(request) -> renders preview using coefficients  │
+│      • ApplyMetadata(request) -> applies ONNX-derived ISP coeffs    │
+│      • GetExtraMetadata(request) -> retrieves diagnostic metadata   │
+│  - Manages ONNX model lifecycle:                                    │
+│        * Loading: Ort::Session::SessionOptions, Ort::Env            │
+│        * Execution: Ort::Session::Run                               │
+│        * Profiling: Ort::SessionOptions::SetSessionLogId,           │
+│                      Ort::RunOptions::SetRunTag                     │
+│  - Microblock orchestration:                                        │
+│        * CCM (Color Correction Matrix)                              │
+│        * AWB (Auto White Balance)                                   │
+│        * LSC (Lens Shading Correction)                              │
+│        * GDC (Geometry Distortion Correction)                       │
+│        * AWB Coordinator (stabilizes WB gains)                      │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                   ONNX Runtime Integration Layer                    │
+│  - Execution Provider (EP) Configuration:                           │
+│        • OrtSessionOptionsAppendExecutionProvider_CPU(0)            │
+│        • OrtSessionOptionsAppendExecutionProvider_CUDA(0)           │
+│        • OrtSessionOptionsAppendExecutionProvider_Vulkan(0)         │
+│        • OrtSessionOptionsAppendExecutionProvider_DirectML(0)       │
+│  - EP Selection Logic:                                              │
+│        * Priority: CUDA > Vulkan > DirectML > CPU (if available)    │
+│        * Fallback to CPU on EP failure or unsupported ops           │
+│  - SSA Compliance Enforcement:                                      │
+│        * Input/output name filtering to avoid collisions            │
+│        * Renaming via Ort::SessionOptions::AddSessionConfigEntry    │
+│          "session.set_layout_braces", "1"                           │
+│  - Graph Input Seeding:                                             │
+│        * Stage needs (e.g., sensor stats, AE results) mapped to     │
+│          graph inputs via name matching                             │
+│        * Missing inputs filled with defaults (zeros, ones)          │
+│  - Profiling Hooks:                                                 │
+│        * Per-session: Ort::SessionOptions::SetSessionLogId          │
+│        * Per-run: Ort::RunOptions::SetRunTag                        │
+│        * Metrics: latency (ms), throughput (fps) per microblock     │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                  Hardware Acceleration Layer                        │
+│  - CPU:                                                             │
+│        • ONNX Runtime CPU EP (MKL-DNN, OpenMP)                      │
+│        • Fallback for unsupported GPU ops                           │
+│  - GPU:                                                             │
+│        • CUDA EP:                                                   │
+│              - Requires CUDA Toolkit >=11.0                         │
+│              - Uses cuDNN, TensorRT (if available) for optimization │
+│              - GPU memory: Ort::MemoryInfo::CreateCuda(0, OrtArenaAllocator) │
+│        • Vulkan EP:                                                 │
+│              - Uses Vulkan shader modules for ops (Gemv, Add, etc.) │
+│              - Works on any Vulkan 1.0+ capable GPU                 │
+│        • DirectML EP:                                               │
+│              - Windows only, uses DirectX 12                        │
+│              - Optimized for AMD/NVIDIA/Intel GPUs via D3D12        │
+│  - EP Selection Fallback Chain:                                     │
+│        Try CUDA -> Vulkan -> DirectML -> CPU                        │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     ONNX Model Zoo Layer                            │
+│  - Model Format:                                                    │
+│        * ONNX IR version 0.0.8, opset 13                            │
+│        * Data types: FP32 (inputs/outputs), FP16 (internal opts)    │
+│        * All models SSA-formatted (unique intermediate values)      │
+│                                                                     │
+│  - Microblock Models (ISP Stages):                                  │
+│        • CCM.onnx (Color Correction Matrix)                         │
+│              Inputs:  [1, 3, H, W] FP32 (raw Bayer RGB)             │
+│              Outputs: [1, 3, H, W] FP32 (CCM coefficients 3x3)      │
+│              Ops:     ReduceMean -> Gemm -> Add -> Reshape          │
+│              Function: Computes per-channel gain from image stats   │
+│                                                                     │
+│        • AWB.onnx (Auto White Balance)                              │
+│              Inputs:  [1, 3] FP32 (R/G, B/G ratios from AE)         │
+│              Outputs: [1, 3] FP32 (WB gains: R_gain, G_gain, B_gain)│
+│              Ops:     Clip -> Mul -> Add                            │
+│              Function: Applies blackbody lookup + green symmetry    │
+│                                                                     │
+│        • LSC.onnx (Lens Shading Correction)                         │
+│              Inputs:  [1, 2] FP32 (lens position: VCM_DAC, temp)    │
+│              Outputs: [1, 1, H, W] FP32 (radial shading map)        │
+│              Ops:     Polynomial (deg 4) -> BilinearWarp -> Sigmoid │
+│              Function: VCM-modulated polynomial for falloff         │
+│                                                                     │
+│        • GDC.onnx (Geometry Distortion Correction)                  │
+│              Inputs:  [1, 2] FP32 (VCM_DAC, focus_distance)         │
+│              Outputs: [1, 2, H, W] FP32 (x,y displacement map)      │
+│              Ops:     Polynomial (deg 3) -> MeshGrid -> Remap       │
+│              Function: Radial/tangential distortion model           │
+│                                                                     │
+│  - Coordinator Models:                                              │
+│        • AWB_coordinator.onnx                                       │
+│              Inputs:  [1, 3] FP32 (current WB gains)                │
+│              Outputs: [1, 3] FP32 (stabilized WB gains)             │
+│              Ops:     DeltaClip -> TemporalFilter                   │
+│              Function: Clips delta gains, applies IIR filter        │
+│                                                                     │
+│  - Unified Lens Correction Model (used by LSC & GDC):               │
+│        • lens_polynomial.onnx                                       │
+│              Inputs:  [1, 2] FP32 (VCM_DAC, wavelength)             │
+│              Outputs: [1, 8] FP32 (polynomial coefficients: k0..k7) │
+│              Ops:     Gemm -> Add (VCM-wavelength basis)            │
+│              Function: Shared polynomial base for distortion        │
+│                                                                     │
+│  - Golden Coefficients (for unit tests):                            │
+│        * Generated via buildgoldencoeffs.py                         │
+│        * Saved as .onnx with constant nodes                         │
+│        * Used to validate applier outputs against expected values   │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                  Python Harness Layer (Reference)                   │
+│  - Located at: https://github.com/99degree/softisp-python/tree/main/onnx│
+│  - Inference harness (run_onnx.py):                                 │
+│        import onnxruntime as ort                                  │
+│        sess = ort.InferenceSession(model_path, providers)         │
+│        input_name = sess.get_inputs()[0].name                     │
+│        output_name = sess.get_outputs()[0].name                   │
+│        # Preprocess: normalize, resize, transpose to NCHW          │
+│        input_data = preprocess(raw_image).astype(np.float32)      │
+│        result = sess.run([output_name], {input_name: input_data}) │
+│        # Postprocess: scale, convert to uint8, apply to ISP pipe   │
+│  - Key APIs:                                                        │
+│        * Ort::Session::GetInputCount, GetInputName, GetInputTypeShape│
+│        * Ort::Session::Run (with Ort::Value tensors)              │
+│        * Ort::MemoryInfo::CreateCpu (for CPU tensors)             │
+│        * Ort::GetApi()->GetVersionString()                        │
+└─────────────────────────────────────────────────────────────────────┘
+
+Key Data Flow (Detailed):
+1. libcamera submits buffer + metadata → SoftISP::ApplyMetadata
+2. SoftISP extracts stage needs (AE, AWB, VCM, etc.) from metadata
+3. For each microblock:
+      a. Map needs to ONNX graph input tensors (name, shape, type)
+      b. Execute session.Run with EP-specific Ort::Value inputs
+      c. Fetch output tensors (coefficients/maps)
+      d. Apply coefficients to image buffer (CPU/GPU via libcamera buffers)
+4. SoftISP::GetExtraMetadata returns:
+        * Inference timing per microblock
+        * Input/output tensor statistics (min, max, mean)
+        * EP used and fallback reason (if any)
+5. PreviewFrame uses final coefficients for real-time display
+
+Notes:
+- ONNX Runtime abstraction enables portable CPU/GPU execution
+- Microblock graphs are minimal (<10 nodes) for low latency
+- All models use dynamic axes for batch=1, variable H/W (LSC/GDC)
+- Vulkan EP requires shader compilation at first run (cached)
+- CUDA EP uses async execution with Ort::RunOptions::SetRunLogVerbosityLevel(0)
+- SSA compliance: All intermediate tensor names are unique per graph
+- Demo CLI (softisp_demo) validates end-to-end with --verify flag

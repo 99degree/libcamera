@@ -1,0 +1,82 @@
+Layered Architecture Diagram: SoftISP IPA Plugin for libcamera (ONNX Focus)
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Application Layer                           │
+│  (e.g., camera app, HAL consumer using libcamera)                   │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                          libcamera Core                             │
+│  - Camera pipeline management                                       │
+│  - IPA interface consumer                                           │
+│  - Frame delivery to IPA                                            │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                   SoftISP IPA Plugin Layer                          │
+│  - Implements libcamera::IPA interface                              │
+│  - PreviewFrame: Renders preview using ONNX-derived coefficients    │
+│  - ApplyMetadata: Applies ONNX-generated ISP coefficients           │
+│  - GetExtraMetadata: Retrieves diagnostic metadata                  │
+│  - Manages ONNX model lifecycle (loading, execution)                │
+│  - Microblock orchestration (CCM, AWB, LSC, GDC, Coordinator)       │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                   ONNX Runtime Integration Layer                    │
+│  - Loads ISP microblock ONNX graphs                                 │
+│  - Configures Execution Providers (EPs):                            │
+│        • CPU EP (default)                                           │
+│        • CUEP (CUDA GPU)                                            │
+│        • VEP (Vulkan GPU)                                           │
+│        • DML EP (DirectML GPU)                                      │
+│  - Profiles inference latency/throughput per microblock             │
+│  - Enforces SSA compliance via input/output filtering               │
+│  - Seeds graph inputs from stage needs                              │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                  Hardware Acceleration Layer                        │
+│  - CPU: Standard inference via ONNX Runtime CPU EP                  │
+│  - GPU:                                                             │
+│        • CUDA: NVIDIA GPUs via CUDA EP                              │
+│        • Vulkan: Cross-platform GPUs via Vulkan EP                  │
+│        • DirectML: Windows GPUs via DirectML EP                     │
+│  - Fallback to CPU if GPU EP unavailable or unsuitable              │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     ONNX Model Zoo Layer                            │
+│  - Microblock Models (ISP Stages):                                  │
+│        • CCM.onnx      : Color Correction Matrix                    │
+│        • AWB.onnx      : Auto White Balance gains                   │
+│        • LSC.onnx      : Lens Shading Correction                    │
+│        • GDC.onnx      : Geometry Distortion Correction             │
+│  - Coordinator Models:                                              │
+│        • AWB_coordinator.onnx : Stabilizes WB gains via delta clip  │
+│  - Unified Lens Correction Model:                                   │
+│        • Polynomial distortion modulated by VCM position            │
+│        • Used by GDC (geometry) and LSC (radiometric) via Jacobian  │
+│  - All models built with SSA-compliant inputs/outputs               │
+│  - Golden coefficients generated for unit test validation           │
+└─────────────────────────────────────────────────────────────────────┘
+
+Key Data Flow:
+1. libcamera delivers preview frame → SoftISP IPA
+2. SoftISP applies metadata (ONNX-derived coefficients) → ISP processing
+3. SoftISP requests extra metadata → ONNX microblocks provide diagnostics
+4. ONNX Runtime executes models using selected EP (CPU/GPU)
+5. GPU backends accelerate inference when available and beneficial
+6. Results flow back up the stack for display/storage
+
+Notes:
+- ONNX Runtime abstraction enables portability across CPU/GPU backends
+- Microblock design isolates ISP stages as independent ONNX graphs
+- Registry recursion fixed for ONNX subfolder model discovery
+- Pipeline refinements ensure proper needs/outputs declaration
+- Demo CLI (softisp_demo) validates end-to-end ONNX pipeline

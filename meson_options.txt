@@ -131,3 +131,7 @@ option('v4l2',
         value : 'auto',
         description : 'Compile the V4L2 compatibility layer',
         deprecated : {'true': 'enabled', 'false': 'disabled'})
+
+# SoftISP option
+option('softisp', type : 'feature', value : 'auto', description : 'Enable SoftISP (two‑stage ONNX IPA for AWB/ISP processing)')
+
