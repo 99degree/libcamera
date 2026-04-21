@@ -126,8 +126,8 @@ std::string SoftISPModule::logPrefix() const
 const struct IPAModuleInfo ipaModuleInfo = {
 	IPA_MODULE_API_VERSION,
 	0,
-	"softisp",
-	"softisp",
+	"softisp",      /* Module name */
+	"simple",       /* Pipeline name - matches "simple" pipeline handler */
 };
 
 /* IPA Module Creation Function */
