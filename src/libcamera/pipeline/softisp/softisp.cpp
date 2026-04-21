@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
  * Copyright (C) 2024
+#include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
  *
  * Pipeline handler for SoftISP (real cameras)
  */

@@ -12,6 +12,9 @@
 #include <cstring>
 #include <memory>
 #include <queue>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include <libcamera/base/log.h>
 #include <libcamera/control_ids.h>
