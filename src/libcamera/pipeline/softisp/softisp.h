@@ -11,8 +11,6 @@
 #include <vector>
 
 #include <libcamera/base/object.h>
-#include <libcamera/base/thread.h>
-
 #include <libcamera/camera.h>
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/pipeline_handler.h"
@@ -22,13 +20,27 @@
 
 namespace libcamera {
 
+/* Forward declarations */
 class SoftISPCameraData;
 
 /*
+ * SoftISPCameraData - Camera data structure for SoftISP pipeline.
+ * Must be defined BEFORE PipelineHandlerSoftISP to ensure inheritance is visible.
+ */
+class SoftISPCameraData : public Camera::Private
+{
+public:
+	SoftISPCameraData(PipelineHandlerSoftISP *pipe);
+	~SoftISPCameraData();
+
+	int init();
+	int loadIPA();
+
+	std::unique_ptr<ipa::soft::IPAProxySoft> ipa_;
+};
+
+/*
  * Pipeline handler for SoftISP with real cameras.
- *
- * This pipeline handler is designed to work with actual V4L2 camera devices
- * and uses the SoftISP IPA module for AI-based image processing.
  */
 class PipelineHandlerSoftISP : public PipelineHandler
 {
@@ -57,21 +69,6 @@ private:
 	{
 		return static_cast<SoftISPCameraData *>(camera->_d());
 	}
-};
-
-/*
- * SoftISPCameraData - Camera data structure for SoftISP pipeline.
- */
-class SoftISPCameraData : public Camera::Private
-{
-public:
-	SoftISPCameraData(PipelineHandlerSoftISP *pipe);
-	~SoftISPCameraData();
-
-	int init();
-	int loadIPA();
-
-	std::unique_ptr<ipa::soft::IPAProxySoft> ipa_;
 };
 
 } /* namespace libcamera */

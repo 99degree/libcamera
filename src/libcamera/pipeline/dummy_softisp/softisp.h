@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2024
  *
- * Pipeline handler for SoftISP (virtual cameras)
+ * Pipeline handler for SoftISP (dummy cameras)
  */
 #pragma once
 
@@ -13,7 +13,6 @@
 #include <libcamera/base/object.h>
 #include <libcamera/base/thread.h>
 #include <libcamera/base/mutex.h>
-
 #include <libcamera/camera.h>
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/pipeline_handler.h"
@@ -23,19 +22,44 @@
 
 namespace libcamera {
 
+/* Forward declarations */
 class SoftISPCameraData;
 
 /*
- * Pipeline handler for SoftISP with virtual cameras.
- *
- * This pipeline handler creates dummy/test cameras for testing
- * the SoftISP IPA module without requiring real hardware.
+ * SoftISPCameraData - Camera data structure for SoftISP dummy pipeline.
+ * Must be defined BEFORE PipelineHandlerDummySoftISP.
  */
-class PipelineHandlerVirtualSoftISP : public PipelineHandler
+class SoftISPCameraData : public Camera::Private, public Thread
 {
 public:
-	PipelineHandlerVirtualSoftISP(CameraManager *manager);
-	~PipelineHandlerVirtualSoftISP();
+	SoftISPCameraData(PipelineHandlerDummySoftISP *pipe);
+	~SoftISPCameraData();
+
+	int init();
+	int loadIPA();
+
+	void run() override;
+	void processRequest(Request *request);
+
+	struct StreamConfig {
+		Stream *stream = nullptr;
+		unsigned int seq = 0;
+	};
+
+	std::unique_ptr<ipa::soft::IPAProxySoft> ipa_;
+	std::vector<StreamConfig> streamConfigs_;
+	bool running_ = false;
+	Mutex mutex_;
+};
+
+/*
+ * Pipeline handler for SoftISP with dummy cameras.
+ */
+class PipelineHandlerDummySoftISP : public PipelineHandler
+{
+public:
+	PipelineHandlerDummySoftISP(CameraManager *manager);
+	~PipelineHandlerDummySoftISP();
 
 	std::unique_ptr<CameraConfiguration> generateConfiguration(
 		Camera *camera, Span<const StreamRole> roles) override;
@@ -63,32 +87,6 @@ private:
 	void bufferCompleted(FrameBuffer *buffer);
 
 	DmaBufAllocator dmaBufAllocator_;
-};
-
-/*
- * SoftISPCameraData - Camera data structure for SoftISP virtual pipeline.
- */
-class SoftISPCameraData : public Camera::Private, public Thread
-{
-public:
-	SoftISPCameraData(PipelineHandlerVirtualSoftISP *pipe);
-	~SoftISPCameraData();
-
-	int init();
-	int loadIPA();
-
-	void run() override;
-	void processRequest(Request *request);
-
-	struct StreamConfig {
-		Stream *stream = nullptr;
-		unsigned int seq = 0;
-	};
-
-	std::unique_ptr<ipa::soft::IPAProxySoft> ipa_;
-	std::vector<StreamConfig> streamConfigs_;
-	bool running_ = false;
-	Mutex mutex_;
 };
 
 } /* namespace libcamera */
