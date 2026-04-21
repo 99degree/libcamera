@@ -138,12 +138,26 @@ PipelineHandlerDummysoftisp::~PipelineHandlerDummysoftisp()
 
 bool PipelineHandlerDummysoftisp::match(DeviceEnumerator *enumerator)
 {
-	/*
-	 * For now, we don't automatically match any devices.
-	 * The SoftISP virtual pipeline creates dummy cameras internally.
-	 */
+	static bool created = false;
+	if (created)
+		return false;
+	created = true;
 
-	LOG(SoftISPDummyPipeline, Debug) << "SoftISP virtual pipeline handler match() called";
+	/* Create camera data */
+	auto cameraData = std::make_unique<DummySoftISPCameraData>(this);
+	if (!cameraData || cameraData->init())
+		return false;
+
+	/* Create camera */
+	std::string id = "SoftISP Dummy Camera";
+	std::set<Stream *> streams;
+	auto camera = Camera::create(std::move(cameraData), id, streams);
+	if (!camera)
+		return false;
+
+	/* Register camera */
+	registerCamera(std::move(camera));
+
 	return true;
 }
 
