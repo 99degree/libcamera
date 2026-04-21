@@ -21,6 +21,7 @@
 #include "libcamera/internal/formats.h"
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/request.h"
+#include "libcamera/controls.h"
 #include "libcamera/internal/ipa_manager.h"
 
 namespace libcamera {
