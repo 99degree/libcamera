@@ -61,12 +61,9 @@ DummySoftISPConfiguration::DummySoftISPConfiguration() {
 }
 
 CameraConfiguration::Status DummySoftISPConfiguration::validate() {
-	fprintf(stderr, "DEBUG [validate]: called, empty=%zu\n", size());
 	if (empty()) {
-		fprintf(stderr, "DEBUG [validate]: returning Invalid (empty)\n");
-		return Invalid;
+			return Invalid;
 	}
-	fprintf(stderr, "DEBUG [validate]: checking %zu configurations\n", size());
 
 	/* Adjust and validate */
 	Status status = Valid;
@@ -79,7 +76,6 @@ CameraConfiguration::Status DummySoftISPConfiguration::validate() {
 			return Invalid;
 	}
 
-	fprintf(stderr, "DEBUG [validate]: returning %d\n", status);
 	return status;
 }
 
@@ -91,9 +87,7 @@ CameraConfiguration::Status DummySoftISPConfiguration::validate() {
 DummySoftISPCameraData::DummySoftISPCameraData(PipelineHandlerDummysoftisp *pipe)
 	: Camera::Private(pipe), Thread("SoftISPCamera")
 {
-	fprintf(stderr, "DEBUG [ctor]: Creating dummy stream\n");
 	dummyStream_ = std::make_unique<Stream>();
-	fprintf(stderr, "DEBUG [ctor]: dummyStream_ = %p\n", static_cast<void*>(dummyStream_.get()));
 }
 
 DummySoftISPCameraData::~DummySoftISPCameraData()
@@ -190,9 +184,6 @@ PipelineHandlerDummysoftisp::~PipelineHandlerDummysoftisp()
 
 bool PipelineHandlerDummysoftisp::match(DeviceEnumerator *enumerator)
 {
-	fprintf(stderr, "=== DEBUG [match]: ENTERED match() ===\n");
-	fprintf(stderr, "DEBUG [match]: this (pipeline) = %p\n", static_cast<void*>(this));
-	fprintf(stderr, "DEBUG [match]: static created flag = %d\n", created_);
 	static bool created = false;
 	if (created)
 		return false;
@@ -201,15 +192,10 @@ bool PipelineHandlerDummysoftisp::match(DeviceEnumerator *enumerator)
 	LOG(SoftISPDummyPipeline, Info) << "Creating SoftISP dummy camera";
 
 	/* Create camera data */
-	fprintf(stderr, "DEBUG [match]: About to create cameraData\n");
 	auto cameraData = std::make_unique<DummySoftISPCameraData>(this);
-	fprintf(stderr, "DEBUG [match]: cameraData created: %p\n", static_cast<void*>(cameraData.get()));
 	if (cameraData) {
-		fprintf(stderr, "DEBUG [match]: cameraData->dummyStream_ = %p\n", static_cast<void*>(cameraData->dummyStream_.get()));
-		fprintf(stderr, "DEBUG [match]: cameraData->dummyStream_ is null? %s\n", cameraData->dummyStream_ ? "NO" : "YES");
 	} else {
-		fprintf(stderr, "DEBUG [match]: cameraData is nullptr!\n");
-	}
+		}
 	LOG(SoftISPDummyPipeline, Info) << "cameraData created: " << (cameraData ? "yes" : "no");
 	if (!cameraData || cameraData->init()) {
 		LOG(SoftISPDummyPipeline, Error) << "Failed to create camera data";
@@ -219,30 +205,15 @@ bool PipelineHandlerDummysoftisp::match(DeviceEnumerator *enumerator)
 	/* Create camera */
 	std::string id = "SoftISP Dummy Camera";
 	std::set<Stream *> streams;
-	fprintf(stderr, "DEBUG [match]: About to insert stream\n");
 	if (cameraData && cameraData->dummyStream_) {
-		fprintf(stderr, "DEBUG [match]: Inserting dummy stream %p into streams set\n", static_cast<void*>(cameraData->dummyStream_.get()));
 		streams.insert(cameraData->dummyStream_.get());
-		fprintf(stderr, "DEBUG [match]: streams set size after insert = %zu\n", streams.size());
 	} else {
-		fprintf(stderr, "DEBUG [match]: dummyStream_ is nullptr! cameraData=%p\n", static_cast<void*>(cameraData.get()));
 	}
-	fprintf(stderr, "DEBUG [match]: About to call Camera::create with streams.size() = %zu\n", streams.size());
 	auto camera = Camera::create(std::move(cameraData), id, streams);
-	fprintf(stderr, "DEBUG [match]: Camera::create returned: %p\n", static_cast<void*>(camera.get()));
 	if (camera) {
-		fprintf(stderr, "DEBUG [match]: camera->streams().size() = %zu\n", camera->streams().size());
 	}
 	LOG(SoftISPDummyPipeline, Info) << "Camera::create() returned: " << (camera ? "valid camera" : "nullptr");
-	fprintf(stderr, "DEBUG [match]: Created Camera Object Address: %p\n", static_cast<void*>(camera.get()));
-	fprintf(stderr, "DEBUG [match]: camera->_d() = %p\n", static_cast<void*>(camera->_d()));
-	fprintf(stderr, "DEBUG [match]: camera->_d()->pipe() = %p\n", static_cast<void*>(camera->_d()->pipe()));
-	fprintf(stderr, "DEBUG [match]: this (pipeline) = %p\n", static_cast<void*>(this));
-	fprintf(stderr, "DEBUG [match]: pipe match? %s\n", (camera->_d()->pipe() == this) ? "YES" : "NO");
 	/* Check the camera state */
-	fprintf(stderr, "DEBUG [match]: Camera state check: trying to call generateConfiguration\n");
-	fprintf(stderr, "DEBUG [match]: camera->streams().size() = %zu\n", camera->streams().size());
-	fprintf(stderr, "DEBUG [match]: roles.size() = 1\n");
 	if (camera) {
 		LOG(SoftISPDummyPipeline, Info) << "Camera ID: " << camera->id();
 	}
@@ -252,21 +223,16 @@ bool PipelineHandlerDummysoftisp::match(DeviceEnumerator *enumerator)
 	}
 
 	/* Register camera */
-		fprintf(stderr, "DEBUG [match]: About to call registerCamera\n");
-	registerCamera(std::move(camera));
-	fprintf(stderr, "DEBUG [match]: registerCamera completed\n");
+		registerCamera(std::move(camera));
 	LOG(SoftISPDummyPipeline, Info) << "Camera registered successfully";
 	LOG(SoftISPDummyPipeline, Info) << "Camera registered";
 
-fprintf(stderr, "DEBUG [match]: Returning true from match()\n");
-	fprintf(stderr, "=== DEBUG [match]: EXITING match() ===\n");
 	return true;
 }
 
 std::unique_ptr<CameraConfiguration> PipelineHandlerDummysoftisp::generateConfiguration(
 	Camera *camera, Span<const StreamRole> roles)
 {
-	LOG(SoftISPDummyPipeline, Info) << ">>> generateConfiguration called for camera: " << camera->id() << " with " << roles.size() << " roles";
 	DummySoftISPCameraData *data = cameraData(camera);
 	if (!data) {
 		LOG(SoftISPDummyPipeline, Error) << "No camera data!";
@@ -325,126 +291,109 @@ int PipelineHandlerDummysoftisp::configure(Camera *camera,
 	/* Placeholder for IPA configuration */
 
 	/* Set the stream for each configuration entry */
-	fprintf(stderr, "DEBUG [configure]: Setting streams for %zu configurations\n", config->size());
 	for (auto it = config->begin(); it != config->end(); ++it) {
 		StreamConfiguration &cfg = *it;
-		fprintf(stderr, "DEBUG [configure]: Config %zu: size=%dx%d, format=%d, stream=%p\n", 
-				std::distance(config->begin(), it), cfg.size.width, cfg.size.height, cfg.pixelFormat, static_cast<void*>(cfg.stream()));
+				LOG(SoftISPDummyPipeline, Info) << "Configuring stream " << std::distance(config->begin(), it) << ": " << cfg.size.width << "x" << cfg.size.height << "-" << cfg.pixelFormat.toString();
 		if (data->dummyStream_) {
 			cfg.setStream(data->dummyStream_.get());
-			fprintf(stderr, "DEBUG [configure]: Set stream to %p\n", static_cast<void*>(data->dummyStream_.get()));
 			LOG(SoftISPDummyPipeline, Info) << "Configured stream: " << cfg.size.toString() << "-" << cfg.pixelFormat.toString();
 		} else {
-			fprintf(stderr, "DEBUG [configure]: No dummy stream available!\n");
-			LOG(SoftISPDummyPipeline, Error) << "No dummy stream available!";
+					LOG(SoftISPDummyPipeline, Error) << "No dummy stream available!";
 			return -EINVAL;
 		}
 	}
-	fprintf(stderr, "DEBUG [configure]: configure() succeeded\n");
 	return 0;
 }
 
 int PipelineHandlerDummysoftisp::exportFrameBuffers(Camera *camera, Stream *stream, std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
-	fprintf(stderr, "DEBUG [exportFrameBuffers]: ENTERED for stream %p\n", static_cast<void*>(stream));
+	if (!stream || !buffers) {
+		fprintf(stderr, "ERROR [exportFrameBuffers]: Invalid parameters\n");
+		return -EINVAL;
+	}
+
 	const StreamConfiguration &config = stream->configuration();
 	const PixelFormatInfo &info = PixelFormatInfo::info(config.pixelFormat);
 
-	/* Try DmaBufAllocator first */
-	if (dmaBufAllocator_.isValid()) {
-		fprintf(stderr, "DEBUG [exportFrameBuffers]: Using DmaBufAllocator\n");
-		std::vector<unsigned int> planeSizes;
-		for (size_t i = 0; i < info.numPlanes(); ++i) {
-			planeSizes.push_back(info.planeSize(config.size, i));
-		}
-		int ret = dmaBufAllocator_.exportBuffers(config.bufferCount, planeSizes, buffers);
-		fprintf(stderr, "DEBUG [exportFrameBuffers]: DmaBufAllocator returned: %d, buffers: %zu\n", ret, buffers->size());
-		if (ret == 0) return 0;
-		fprintf(stderr, "DEBUG [exportFrameBuffers]: DmaBufAllocator failed, trying fallback\n");
-	}
-
-	/* Fallback: Manual buffer allocation */
-	buffers->clear();
-	uint32_t size = 0;
+	/* Calculate buffer size for each plane */
+	std::vector<uint32_t> planeSizes;
+	uint32_t totalSize = 0;
 	for (size_t i = 0; i < info.numPlanes(); ++i) {
-		size += info.planeSize(config.size, i);
+		uint32_t size = info.planeSize(config.size, i);
+		planeSizes.push_back(size);
+		totalSize += size;
 	}
-	fprintf(stderr, "DEBUG [exportFrameBuffers]: Total buffer size: %u\n", size);
 
+	buffers->clear();
+	DummySoftISPCameraData *data = cameraData(camera);
+
+	/* Iteratively create each buffer */
 	for (unsigned int i = 0; i < config.bufferCount; ++i) {
-		int fd = -1;
-		void *map = nullptr;
-		bool useAnonymous = false;
 
-		/* Try memfd_create first */
-		fd = memfd_create("softisp_buffer", MFD_CLOEXEC);
-		if (fd >= 0) {
-			fprintf(stderr, "DEBUG [exportFrameBuffers]: Using memfd: fd=%d\n", fd);
-			if (ftruncate(fd, size) < 0) {
-				fprintf(stderr, "DEBUG [exportFrameBuffers]: ftruncate failed: %d\n", errno);
-				close(fd);
-				fd = -1;
-			}
-		}
-
+		/* Try memfd first */
+		int fd = memfd_create("softisp_buf", MFD_CLOEXEC);
 		if (fd < 0) {
-			/* Fallback to anonymous memory */
-			fprintf(stderr, "DEBUG [exportFrameBuffers]: memfd failed, using anonymous memory\n");
-			useAnonymous = true;
-			map = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-			if (map == MAP_FAILED) {
-				fprintf(stderr, "DEBUG [exportFrameBuffers]: mmap failed: %d\n", errno);
+			fprintf(stderr, "WARN [exportFrameBuffers]: memfd_create failed (%d), trying mkstemp\n", errno);
+			/* Fallback: mkstemp */
+			char tmpname[] = "/tmp/softisp_XXXXXX";
+			fd = mkstemp(tmpname);
+			if (fd < 0) {
+				fprintf(stderr, "ERROR [exportFrameBuffers]: mkstemp failed: %d\n", errno);
 				return -errno;
 			}
-			memset(map, 0, size);
-			fd = -1; /* No fd for anonymous memory */
-		} else {
-			/* Map the memfd */
-			map = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-			if (map == MAP_FAILED) {
-				fprintf(stderr, "DEBUG [exportFrameBuffers]: mmap failed: %d\n", errno);
+			unlink(tmpname); /* Unlink immediately */
+			if (ftruncate(fd, totalSize) < 0) {
+				fprintf(stderr, "ERROR [exportFrameBuffers]: ftruncate (mkstemp) failed: %d\n", errno);
 				close(fd);
 				return -errno;
 			}
-			memset(map, 0, size);
+		} else {
+			/* memfd succeeded, set size */
+			if (ftruncate(fd, totalSize) < 0) {
+				fprintf(stderr, "ERROR [exportFrameBuffers]: ftruncate (memfd) failed: %d\n", errno);
+				close(fd);
+				return -errno;
+			}
 		}
 
-		/* Create a FrameBuffer */
+		/* Map and initialize */
+		void *map = mmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+		if (map == MAP_FAILED) {
+			fprintf(stderr, "ERROR [exportFrameBuffers]: mmap failed: %d\n", errno);
+			close(fd);
+			return -errno;
+		}
+		memset(map, 0x80, totalSize); /* Gray pattern */
+		munmap(map, totalSize);
+
+		/* Build planes vector */
 		std::vector<FrameBuffer::Plane> planes;
-		FrameBuffer::Plane plane;
-		plane.fd = SharedFD(fd);
-		plane.length = size;
-		plane.offset = 0;
-		planes.push_back(plane);
+		uint32_t offset = 0;
+		for (size_t p = 0; p < planeSizes.size(); ++p) {
+			FrameBuffer::Plane plane;
+			plane.fd = SharedFD(fd); /* Each plane references the same fd */
+			plane.length = planeSizes[p];
+			plane.offset = offset;
+			planes.push_back(plane);
+			offset += planeSizes[p];
+		}
 
-		/* Create the buffer */
-		std::unique_ptr<FrameBuffer> buffer(new FrameBuffer(planes));
-
-		fprintf(stderr, "DEBUG [exportFrameBuffers]: Created buffer %u: fd=%d, size=%u, map=%p\n", i, fd, size, map);
+		/* Create FrameBuffer using Span */
+		auto buffer = std::unique_ptr<FrameBuffer>(new FrameBuffer(libcamera::Span<const FrameBuffer::Plane>(planes)));
 
 		buffers->push_back(std::move(buffer));
+
+		/* Note: buffers are owned by the caller (FrameBufferAllocator) */
 	}
 
-	/* Store buffers in the camera data for later use */
-	DummySoftISPCameraData *data = cameraData(camera);
-	if (data) {
-		for (auto &buffer : *buffers) {
-			data->bufferPool_.push_back(std::move(buffer));
-		}
-		fprintf(stderr, "DEBUG [exportFrameBuffers]: Stored %zu buffers in pool\n", data->bufferPool_.size());
-	}
-
-	fprintf(stderr, "DEBUG [exportFrameBuffers]: Successfully exported %zu buffers (fallback)\n", buffers->size());
 	return 0;
 }
 
 int PipelineHandlerDummysoftisp::start(Camera *camera, const ControlList *controls)
 {
-	fprintf(stderr, "DEBUG [start]: ENTERED\n");
 	DummySoftISPCameraData *data = cameraData(camera);
 	if (!data) {
-		fprintf(stderr, "DEBUG [start]: No camera data!\n");
-		return -EINVAL;
+			return -EINVAL;
 	}
 
 	/* Buffers will be exported automatically by libcamera when needed */
@@ -453,7 +402,6 @@ int PipelineHandlerDummysoftisp::start(Camera *camera, const ControlList *contro
 	data->running_ = true;
 	data->start();
 	LOG(SoftISPDummyPipeline, Info) << "SoftISP virtual camera started";
-	fprintf(stderr, "DEBUG [start]: EXITED\n");
 	return 0;
 }
 
@@ -470,21 +418,17 @@ void PipelineHandlerDummysoftisp::stopDevice(Camera *camera)
 
 int PipelineHandlerDummysoftisp::queueRequestDevice(Camera *camera, Request *request)
 {
-	fprintf(stderr, "DEBUG [queueRequestDevice]: ENTERED\n");
 	DummySoftISPCameraData *data = cameraData(camera);
 	if (!data) {
-		fprintf(stderr, "DEBUG [queueRequestDevice]: No camera data!\n");
-		return -EINVAL;
+			return -EINVAL;
 	}
 
 	/* Check if request has buffers */
 	const auto &buffers = request->buffers();
-	fprintf(stderr, "DEBUG [queueRequestDevice]: Request has %zu buffers\n", buffers.size());
 
 	/* For dummy pipeline, we can proceed even without buffers */
 	if (buffers.empty()) {
-		fprintf(stderr, "DEBUG [queueRequestDevice]: Request has no buffers, completing immediately\n");
-		/* request->complete() not available */
+			/* request->complete() not available */
 		return 0;
 	}
 

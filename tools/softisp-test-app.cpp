@@ -17,6 +17,7 @@
 
 #include <libcamera/base/log.h>
 #include <libcamera/camera.h>
+#include <libcamera/framebuffer_allocator.h>
 #include <libcamera/camera_manager.h>
 #include <libcamera/controls.h>
 #include <libcamera/formats.h>
@@ -170,14 +171,11 @@ int main(int argc, char *argv[]) {
 	std::cout << std::endl;
 
 	/* Select first camera */
-	fprintf(stderr, "DEBUG [testapp]: Selecting camera ID: %s\n", cameras[0]->id().c_str());
 	std::shared_ptr<Camera> camera = cm->get(cameras[0]->id());
 	if (!camera) {
 		std::cerr << "Failed to get camera" << std::endl;
-		fprintf(stderr, "DEBUG [testapp]: camera is nullptr!\n");
-		return -1;
+			return -1;
 	}
-	fprintf(stderr, "DEBUG [testapp]: Got camera object at %p\n", static_cast<void*>(camera.get()));
 
 	std::cout << "Selected camera: " << camera->id() << std::endl;
 
@@ -213,6 +211,16 @@ int main(int argc, char *argv[]) {
 	std::cout << "Stream configured: " << kTestSize.toString()
 	          << " " << kPixelFormat.toString() << std::endl;
 
+	/* Create allocator and allocate buffers BEFORE starting the camera */
+	libcamera::FrameBufferAllocator allocator(camera);
+	for (auto *stream : camera->streams()) {
+		ret = allocator.allocate(stream);
+		if (ret < 0) {
+			std::cerr << "Failed to allocate buffers: " << ret << std::endl;
+			return -1;
+		}
+	}
+
 	/* Start camera */
 	ret = camera->start();
 	if (ret) {
@@ -241,11 +249,16 @@ int main(int argc, char *argv[]) {
 		 * We need to get a buffer to use.
 		 * For now, we'll create a new request which should allocate a buffer.
 		 */
-		fprintf(stderr, "DEBUG [testapp]: Checking request buffers\n");
-	fprintf(stderr, "DEBUG [testapp]: Request buffers size: %zu\n", request->buffers().size());
 	for (const auto &[stream, buffer] : request->buffers()) {
-		fprintf(stderr, "DEBUG [testapp]: Buffer for stream %p: %p\n", static_cast<const void*>(stream), static_cast<const void*>(buffer));
 	}
+		/* Attach buffers from allocator to the request */
+		for (auto *stream : camera->streams()) {
+			const auto &bufs = allocator.buffers(stream);
+			for (size_t j = 0; j < bufs.size(); ++j) {
+				request->addBuffer(stream, bufs[j].get());
+			}
+		}
+
 	ret = camera->queueRequest(request.get());
 		if (ret) {
 			std::cerr << "Failed to queue request: " << ret << std::endl;

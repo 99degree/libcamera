@@ -40,7 +40,6 @@ public:
 
 	void run() override;
 	std::unique_ptr<Stream> dummyStream_;
-	std::vector<std::unique_ptr<FrameBuffer>> bufferPool_;
 	void processRequest(Request *request);
 
 	struct StreamConfig {
