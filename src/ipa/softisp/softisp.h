@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include <libcamera/ipa/algorithm.h>
+#include "algorithm.h"
 #include <string>
 
 namespace libcamera {
