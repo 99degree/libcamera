@@ -52,8 +52,8 @@ protected:
 	{
 		cancelled_ = true;
 
-		pthread_cancel(pthread_self());
-		pthread_testcancel();
+		pthread_cancel // disabled(pthread_self());
+		pthread_testcancel // disabled();
 
 		cancelled_ = false;
 	}

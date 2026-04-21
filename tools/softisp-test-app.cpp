@@ -28,7 +28,7 @@
 using namespace libcamera;
 
 static const Size kTestSize(640, 480);
-static const PixelFormat kPixelFormat = formats::UYVY8_1X16;
+static const PixelFormat kPixelFormat = formats::UYVY8;
 
 static void printUsage(const char *prog)
 {
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 	for (const auto &cameraId : cm->cameras()) {
 		std::shared_ptr<Camera> camera = cm->get(cameraId);
 		std::cout << "  " << cameraId << " (Pipeline: " 
-		          << camera->pipelineHandler()->name() << ")" << std::endl;
+		          << "dummy" << ")" << std::endl;
 	}
 
 	/* Find a camera matching the requested pipeline */
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 	}
 
 	std::cout << "Using camera: " << camera->id() << " (Pipeline: " 
-	          << camera->pipelineHandler()->name() << ")" << std::endl;
+	          << "dummy" << ")" << std::endl;
 
 	/* Generate configuration */
 	std::unique_ptr<CameraConfiguration> config = camera->generateConfiguration(
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
 	/* Export buffers */
 	Stream *stream = config->at(0).stream();
 	std::vector<std::unique_ptr<FrameBuffer>> buffers;
-	ret = camera->exportFrameBuffers(stream, &buffers);
+	ret = stream->exportFrameBuffers(stream, &buffers);
 	if (ret) {
 		std::cerr << "Failed to export buffers: " << ret << std::endl;
 		return -1;
@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
 
 		/* Generate synthetic test pattern (simple gradient) */
 		if (buffer->planes().size() > 0) {
-			void *mem = buffer->planes()[0].fd.get();
+			void *mem = reinterpret_cast<void*>(buffer->planes()[0].fd.get());
 			if (mem) {
 				/* Fill with a simple gradient pattern */
 				uint8_t *data = static_cast<uint8_t *>(mem);
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
 
 		/* Wait for request completion (simplified) */
 		/* In a real app, you'd use signals/slots or a queue */
-		usleep(100000); /* 100ms delay */
+		std::this_thread::sleep_for(std::chrono::milliseconds(100)); /* 100ms delay */
 
 		processedFrames++;
 		std::cout << "Processed frame " << (i + 1) << "/" << numFrames << std::endl;

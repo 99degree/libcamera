@@ -23,17 +23,17 @@
 namespace libcamera {
 
 /* Forward declarations */
-class PipelineHandlerDummysoftisp; // Forward declare before SoftISPCameraData uses it
+class PipelineHandlerDummysoftisp; // Forward declare before DummySoftISPCameraData uses it
 
 /*
- * SoftISPCameraData - Camera data structure for SoftISP dummy pipeline.
+ * DummySoftISPCameraData - Camera data structure for SoftISP dummy pipeline.
  * Must be defined BEFORE PipelineHandlerDummysoftisp.
  */
-class SoftISPCameraData : public Camera::Private, public Thread
+class DummySoftISPCameraData : public Camera::Private, public Thread
 {
 public:
-	SoftISPCameraData(PipelineHandlerDummysoftisp *pipe);
-	~SoftISPCameraData();
+	DummySoftISPCameraData(PipelineHandlerDummysoftisp *pipe);
+	~DummySoftISPCameraData();
 
 	int init();
 	int loadIPA();
@@ -78,9 +78,9 @@ public:
 	bool match(DeviceEnumerator *enumerator) override;
 
 private:
-	SoftISPCameraData *cameraData(Camera *camera)
+	DummySoftISPCameraData *cameraData(Camera *camera)
 	{
-		return static_cast<SoftISPCameraData *>(camera->_d());
+		return static_cast<DummySoftISPCameraData *>(camera->_d());
 	}
 
 	bool initFrameGenerator(Camera *camera);

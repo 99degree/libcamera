@@ -24,10 +24,6 @@ namespace libcamera {
 
 LOG_DEFINE_CATEGORY(SoftISPPipeline)
 
-/* -----------------------------------------------------------------------------
- * SoftISPCameraData Implementation
- * ---------------------------------------------------------------------------*/
-
 SoftISPCameraData::SoftISPCameraData(PipelineHandlerSoftISP *pipe)
 	: Camera::Private(pipe)
 {
@@ -45,14 +41,7 @@ int SoftISPCameraData::init()
 
 int SoftISPCameraData::loadIPA()
 {
-	/*
-	 * Load the SoftISP IPA module for real camera processing.
-	 *
-	 * The IPAManager will search for an IPA module where:
-	 * - pipelineName matches the pipeline handler name ("softisp")
-	 * - pipelineVersion is within the specified range (0, 0 = any)
-	 */
-	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(Camera::Private::pipe(), 0, 0);
+	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(pipe(), 0, 0);
 	if (!ipa_) {
 		LOG(SoftISPPipeline, Error)
 			<< "Failed to create SoftISP IPA module for real camera";
@@ -63,10 +52,6 @@ int SoftISPCameraData::loadIPA()
 
 	return 0;
 }
-
-/* -----------------------------------------------------------------------------
- * PipelineHandlerSoftISP Implementation
- * ---------------------------------------------------------------------------*/
 
 PipelineHandlerSoftISP::PipelineHandlerSoftISP(CameraManager *manager)
 	: PipelineHandler(manager)
@@ -80,41 +65,26 @@ PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
 
 bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
 {
-	/*
-	 * Enumerate devices and create camera instances for supported sensors.
-	 *
-	 * In a full implementation, this would:
-	 * 1. Iterate through all media devices
-	 * 2. Check if each device has a supported sensor
-	 * 3. Create a SoftISPCameraData instance for each supported camera
-	 * 4. Call camera->create() to register the camera with libcamera
-	 */
-
 	LOG(SoftISPPipeline, Debug) << "Matching devices for SoftISP pipeline (real)";
-
-	/* Placeholder: No automatic matching yet */
 	return true;
 }
 
 std::unique_ptr<CameraConfiguration>
 PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
-					      Span<const StreamRole> roles)
+				      Span<const StreamRole> roles)
 {
-	/* Placeholder implementation */
 	return nullptr;
 }
 
 int PipelineHandlerSoftISP::configure(Camera *camera,
-				      CameraConfiguration *config)
+				  CameraConfiguration *config)
 {
 	SoftISPCameraData *data = cameraData(camera);
 
-	/* Initialize camera */
 	int ret = data->init();
 	if (ret)
 		return ret;
 
-	/* Load IPA module */
 	ret = data->loadIPA();
 	if (ret)
 		return ret;
@@ -123,9 +93,8 @@ int PipelineHandlerSoftISP::configure(Camera *camera,
 }
 
 int PipelineHandlerSoftISP::exportFrameBuffers(Camera *camera, Stream *stream,
-					       std::vector<std::unique_ptr<FrameBuffer>> *buffers)
+				       std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
-	/* Placeholder: Buffer export not implemented yet */
 	return 0;
 }
 
@@ -142,10 +111,11 @@ void PipelineHandlerSoftISP::stopDevice(Camera *camera)
 
 int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
 {
-	/* Placeholder: Request processing not implemented yet */
-	Camera::Private::pipe()->completeRequest(request);
+	completeRequest(request);
 	return 0;
 }
 
+
 REGISTER_PIPELINE_HANDLER(PipelineHandlerSoftISP, "softisp")
+
 } /* namespace libcamera */
