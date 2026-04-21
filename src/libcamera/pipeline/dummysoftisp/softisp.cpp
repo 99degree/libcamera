@@ -59,13 +59,15 @@ DummySoftISPConfiguration::DummySoftISPConfiguration() {
 }
 
 CameraConfiguration::Status DummySoftISPConfiguration::validate() {
-	fprintf(stderr, "DEBUG: DummySoftISPConfiguration::validate() called, empty=%d\n", empty());
+	fprintf(stderr, "DEBUG [validate]: called, empty=%zu\n", size());
 	if (empty()) {
+		fprintf(stderr, "DEBUG [validate]: returning Invalid (empty)\n");
 		return Invalid;
 	}
+	fprintf(stderr, "DEBUG [validate]: checking %zu configurations\n", size());
 
 	/* Adjust and validate */
-	Status status = Adjusted;
+	Status status = Valid;
 	for (auto it = begin(); it != end(); ++it) {
 		StreamConfiguration &cfg = *it;
 		/* Validate stream configuration */
@@ -75,6 +77,7 @@ CameraConfiguration::Status DummySoftISPConfiguration::validate() {
 			return Invalid;
 	}
 
+	fprintf(stderr, "DEBUG [validate]: returning %d\n", status);
 	return status;
 }
 
@@ -311,14 +314,31 @@ int PipelineHandlerDummysoftisp::configure(Camera *camera,
 	if (ret)
 		return ret;
 
-	/* Load the IPA module */
-	ret = data->loadIPA();
-	if (ret)
-		return ret;
+	/* Load the IPA module - skipped for dummy pipeline */
+	// ret = data->loadIPA();
+	// if (ret)
+	// 	return ret;
 
 	/* Configure the IPA module */
 	/* Placeholder for IPA configuration */
 
+	/* Set the stream for each configuration entry */
+	fprintf(stderr, "DEBUG [configure]: Setting streams for %zu configurations\n", config->size());
+	for (auto it = config->begin(); it != config->end(); ++it) {
+		StreamConfiguration &cfg = *it;
+		fprintf(stderr, "DEBUG [configure]: Config %zu: size=%dx%d, format=%d, stream=%p\n", 
+				std::distance(config->begin(), it), cfg.size.width, cfg.size.height, cfg.pixelFormat, static_cast<void*>(cfg.stream()));
+		if (data->dummyStream_) {
+			cfg.setStream(data->dummyStream_.get());
+			fprintf(stderr, "DEBUG [configure]: Set stream to %p\n", static_cast<void*>(data->dummyStream_.get()));
+			LOG(SoftISPDummyPipeline, Info) << "Configured stream: " << cfg.size.toString() << "-" << cfg.pixelFormat.toString();
+		} else {
+			fprintf(stderr, "DEBUG [configure]: No dummy stream available!\n");
+			LOG(SoftISPDummyPipeline, Error) << "No dummy stream available!";
+			return -EINVAL;
+		}
+	}
+	fprintf(stderr, "DEBUG [configure]: configure() succeeded\n");
 	return 0;
 }
 
