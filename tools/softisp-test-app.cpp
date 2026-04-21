@@ -170,11 +170,14 @@ int main(int argc, char *argv[]) {
 	std::cout << std::endl;
 
 	/* Select first camera */
+	fprintf(stderr, "DEBUG [testapp]: Selecting camera ID: %s\n", cameras[0]->id().c_str());
 	std::shared_ptr<Camera> camera = cm->get(cameras[0]->id());
 	if (!camera) {
 		std::cerr << "Failed to get camera" << std::endl;
+		fprintf(stderr, "DEBUG [testapp]: camera is nullptr!\n");
 		return -1;
 	}
+	fprintf(stderr, "DEBUG [testapp]: Got camera object at %p\n", static_cast<void*>(camera.get()));
 
 	std::cout << "Selected camera: " << camera->id() << std::endl;
 
@@ -183,6 +186,8 @@ int main(int argc, char *argv[]) {
 		camera->generateConfiguration({ StreamRole::Raw });
 	if (!config) {
 		std::cerr << "Failed to generate configuration" << std::endl;
+		std::cerr << "Note: This camera may not have any streams defined." << std::endl;
+		std::cerr << "The dummysoftisp pipeline needs to create at least one stream." << std::endl;
 		return -1;
 	}
 

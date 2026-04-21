@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <thread>
+#include <cstdio>
 /*
  * Copyright (C) 2024
  *
@@ -22,20 +23,61 @@
 #include <libcamera/property_ids.h>
 
 #include "libcamera/internal/camera.h"
+#include "libcamera/stream.h"
 #include "libcamera/internal/camera_manager.h"
 #include "libcamera/internal/camera_sensor.h"
 #include "libcamera/internal/device_enumerator.h"
 #include "libcamera/internal/formats.h"
+#include <libcamera/formats.h>
 #include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/request.h"
 #include "libcamera/internal/v4l2_subdevice.h"
 #include "libcamera/internal/v4l2_videodevice.h"
 #include "libcamera/internal/ipa_manager.h"
+#include "libcamera/base/object.h"
 
 namespace libcamera {
 
+
+/* DummySoftISPConfiguration class declaration */
+class DummySoftISPConfiguration : public CameraConfiguration {
+public:
+	DummySoftISPConfiguration();
+	Status validate() override;
+};
+
 LOG_DEFINE_CATEGORY(SoftISPDummyPipeline)
+
+/* -----------------------------------------------------------------------------
+ * DummySoftISPConfiguration Implementation
+ * ---------------------------------------------------------------------------*/
+
+bool PipelineHandlerDummysoftisp::created_ = false;
+
+DummySoftISPConfiguration::DummySoftISPConfiguration() {
+}
+
+CameraConfiguration::Status DummySoftISPConfiguration::validate() {
+	fprintf(stderr, "DEBUG: DummySoftISPConfiguration::validate() called, empty=%d\n", empty());
+	if (empty()) {
+		return Invalid;
+	}
+
+	/* Adjust and validate */
+	Status status = Adjusted;
+	for (auto it = begin(); it != end(); ++it) {
+		StreamConfiguration &cfg = *it;
+		/* Validate stream configuration */
+		if (cfg.size.width == 0 || cfg.size.height == 0)
+			return Invalid;
+		if (cfg.pixelFormat == 0)
+			return Invalid;
+	}
+
+	return status;
+}
+
 
 /* -----------------------------------------------------------------------------
  * DummySoftISPCameraData Implementation
@@ -44,6 +86,9 @@ LOG_DEFINE_CATEGORY(SoftISPDummyPipeline)
 DummySoftISPCameraData::DummySoftISPCameraData(PipelineHandlerDummysoftisp *pipe)
 	: Camera::Private(pipe), Thread("SoftISPCamera")
 {
+	fprintf(stderr, "DEBUG [ctor]: Creating dummy stream\n");
+	dummyStream_ = std::make_unique<Stream>();
+	fprintf(stderr, "DEBUG [ctor]: dummyStream_ = %p\n", static_cast<void*>(dummyStream_.get()));
 }
 
 DummySoftISPCameraData::~DummySoftISPCameraData()
@@ -122,6 +167,8 @@ void DummySoftISPCameraData::processRequest(Request *request)
 	Camera::Private::pipe()->completeRequest(request);
 }
 
+
+
 /* -----------------------------------------------------------------------------
  * PipelineHandlerDummysoftisp Implementation
  * ---------------------------------------------------------------------------*/
@@ -138,52 +185,114 @@ PipelineHandlerDummysoftisp::~PipelineHandlerDummysoftisp()
 
 bool PipelineHandlerDummysoftisp::match(DeviceEnumerator *enumerator)
 {
+	fprintf(stderr, "=== DEBUG [match]: ENTERED match() ===\n");
+	fprintf(stderr, "DEBUG [match]: this (pipeline) = %p\n", static_cast<void*>(this));
+	fprintf(stderr, "DEBUG [match]: static created flag = %d\n", created_);
 	static bool created = false;
 	if (created)
 		return false;
 	created = true;
 
+	LOG(SoftISPDummyPipeline, Info) << "Creating SoftISP dummy camera";
+
 	/* Create camera data */
+	fprintf(stderr, "DEBUG [match]: About to create cameraData\n");
 	auto cameraData = std::make_unique<DummySoftISPCameraData>(this);
-	if (!cameraData || cameraData->init())
+	fprintf(stderr, "DEBUG [match]: cameraData created: %p\n", static_cast<void*>(cameraData.get()));
+	if (cameraData) {
+		fprintf(stderr, "DEBUG [match]: cameraData->dummyStream_ = %p\n", static_cast<void*>(cameraData->dummyStream_.get()));
+		fprintf(stderr, "DEBUG [match]: cameraData->dummyStream_ is null? %s\n", cameraData->dummyStream_ ? "NO" : "YES");
+	} else {
+		fprintf(stderr, "DEBUG [match]: cameraData is nullptr!\n");
+	}
+	LOG(SoftISPDummyPipeline, Info) << "cameraData created: " << (cameraData ? "yes" : "no");
+	if (!cameraData || cameraData->init()) {
+		LOG(SoftISPDummyPipeline, Error) << "Failed to create camera data";
 		return false;
+	}
 
 	/* Create camera */
 	std::string id = "SoftISP Dummy Camera";
 	std::set<Stream *> streams;
+	fprintf(stderr, "DEBUG [match]: About to insert stream\n");
+	if (cameraData && cameraData->dummyStream_) {
+		fprintf(stderr, "DEBUG [match]: Inserting dummy stream %p into streams set\n", static_cast<void*>(cameraData->dummyStream_.get()));
+		streams.insert(cameraData->dummyStream_.get());
+		fprintf(stderr, "DEBUG [match]: streams set size after insert = %zu\n", streams.size());
+	} else {
+		fprintf(stderr, "DEBUG [match]: dummyStream_ is nullptr! cameraData=%p\n", static_cast<void*>(cameraData.get()));
+	}
+	fprintf(stderr, "DEBUG [match]: About to call Camera::create with streams.size() = %zu\n", streams.size());
 	auto camera = Camera::create(std::move(cameraData), id, streams);
-	if (!camera)
+	fprintf(stderr, "DEBUG [match]: Camera::create returned: %p\n", static_cast<void*>(camera.get()));
+	if (camera) {
+		fprintf(stderr, "DEBUG [match]: camera->streams().size() = %zu\n", camera->streams().size());
+	}
+	LOG(SoftISPDummyPipeline, Info) << "Camera::create() returned: " << (camera ? "valid camera" : "nullptr");
+	fprintf(stderr, "DEBUG [match]: Created Camera Object Address: %p\n", static_cast<void*>(camera.get()));
+	fprintf(stderr, "DEBUG [match]: camera->_d() = %p\n", static_cast<void*>(camera->_d()));
+	fprintf(stderr, "DEBUG [match]: camera->_d()->pipe() = %p\n", static_cast<void*>(camera->_d()->pipe()));
+	fprintf(stderr, "DEBUG [match]: this (pipeline) = %p\n", static_cast<void*>(this));
+	fprintf(stderr, "DEBUG [match]: pipe match? %s\n", (camera->_d()->pipe() == this) ? "YES" : "NO");
+	/* Check the camera state */
+	fprintf(stderr, "DEBUG [match]: Camera state check: trying to call generateConfiguration\n");
+	fprintf(stderr, "DEBUG [match]: camera->streams().size() = %zu\n", camera->streams().size());
+	fprintf(stderr, "DEBUG [match]: roles.size() = 1\n");
+	if (camera) {
+		LOG(SoftISPDummyPipeline, Info) << "Camera ID: " << camera->id();
+	}
+	if (!camera) {
+		LOG(SoftISPDummyPipeline, Error) << "Failed to create camera";
 		return false;
+	}
 
 	/* Register camera */
+		fprintf(stderr, "DEBUG [match]: About to call registerCamera\n");
 	registerCamera(std::move(camera));
+	fprintf(stderr, "DEBUG [match]: registerCamera completed\n");
+	LOG(SoftISPDummyPipeline, Info) << "Camera registered successfully";
+	LOG(SoftISPDummyPipeline, Info) << "Camera registered";
 
+fprintf(stderr, "DEBUG [match]: Returning true from match()\n");
+	fprintf(stderr, "=== DEBUG [match]: EXITING match() ===\n");
 	return true;
 }
 
-std::unique_ptr<CameraConfiguration>
-PipelineHandlerDummysoftisp::generateConfiguration(Camera *camera,
-					      Span<const StreamRole> roles)
+std::unique_ptr<CameraConfiguration> PipelineHandlerDummysoftisp::generateConfiguration(
+	Camera *camera, Span<const StreamRole> roles)
 {
+	LOG(SoftISPDummyPipeline, Info) << ">>> generateConfiguration called for camera: " << camera->id() << " with " << roles.size() << " roles";
 	DummySoftISPCameraData *data = cameraData(camera);
-
-	/*
-	 * Generate a camera configuration based on the requested roles.
-	 * This is a simplified implementation that assumes a single stream.
-	 */
-
-	if (roles.empty())
+	if (!data) {
+		LOG(SoftISPDummyPipeline, Error) << "No camera data!";
+		return nullptr;
+	}
+	if (roles.empty()) {
+		LOG(SoftISPDummyPipeline, Error) << "No roles!";
+		return nullptr;
+	}
+	if (!data || roles.empty())
 		return nullptr;
 
-	/* Create a basic configuration */
-	return nullptr; // Placeholder: Not implemented yet
+	auto config = std::make_unique<DummySoftISPConfiguration>();
 
-	/* For now, return a minimal configuration */
-	/* In a full implementation, this would query the sensor capabilities */
+	/* Use formats::NV12 which is known to work */
+	std::map<PixelFormat, std::vector<SizeRange>> streamFormats;
+	streamFormats[formats::NV12] = { SizeRange(libcamera::Size(640, 480), Size(1920, 1080)) };
+	
+	StreamFormats sf(streamFormats);
+	StreamConfiguration streamCfg(sf);
+	streamCfg.pixelFormat = formats::NV12;
+	streamCfg.size = Size(640, 480);
+	streamCfg.bufferCount = 4;
 
-	return nullptr;
+	config->addConfiguration(streamCfg);
+
+	if (config->validate() == CameraConfiguration::Invalid)
+		return nullptr;
+
+	return config;
 }
-
 int PipelineHandlerDummysoftisp::configure(Camera *camera,
 				      CameraConfiguration *config)
 {
@@ -273,3 +382,4 @@ int PipelineHandlerDummysoftisp::queueRequestDevice(Camera *camera, Request *req
 REGISTER_PIPELINE_HANDLER(PipelineHandlerDummysoftisp, "dummysoftisp")
 
 } /* namespace libcamera */
+
