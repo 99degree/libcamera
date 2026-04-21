@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+#include <thread>
 /*
  * Copyright (C) 2024
  *
- * Pipeline handler for SoftISP
+ * Pipeline handler for SoftISP (virtual cameras)
  */
 
 #include "softisp.h"
@@ -49,7 +50,7 @@ SoftISPCameraData::~SoftISPCameraData()
 
 int SoftISPCameraData::init()
 {
-	LOG(SoftISPPipeline, Debug) << "Initializing SoftISP camera";
+	LOG(SoftISPPipeline, Debug) << "Initializing SoftISP camera (virtual)";
 	return 0;
 }
 
@@ -59,27 +60,17 @@ int SoftISPCameraData::loadIPA()
 	 * Load the SoftISP IPA module.
 	 *
 	 * The IPAManager will search for an IPA module where:
-	 * - pipelineName matches the pipeline handler name ("softisp")
+	 * - pipelineName matches the pipeline handler name ("virtual_softisp")
 	 * - pipelineVersion is within the specified range (0, 0 = any)
-	 *
-	 * The matched module's ipaCreate() function will be called to
-	 * create the IPA context.
 	 */
 	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(pipe(), 0, 0);
 	if (!ipa_) {
 		LOG(SoftISPPipeline, Error)
-			<< "Failed to create SoftISP IPA module";
+			<< "Failed to create SoftISP IPA module for virtual camera";
 		return -ENOENT;
 	}
 
-	LOG(SoftISPPipeline, Info) << "SoftISP IPA module loaded successfully";
-
-	/*
-	 * Get the configuration file path from the IPA module.
-	 * The IPA module can provide a tuning file based on the sensor model.
-	 */
-	std::string ipaTuningFile = ipa_->configurationFile("uncalibrated.yaml");
-	LOG(SoftISPPipeline, Debug) << "IPA tuning file: " << ipaTuningFile;
+	LOG(SoftISPPipeline, Info) << "SoftISP IPA module loaded for virtual camera";
 
 	return 0;
 }
@@ -94,7 +85,7 @@ void SoftISPCameraData::run()
 	while (running_) {
 		/* Wait for requests to be processed */
 		/* This is a placeholder for the actual implementation */
-		sleep(1);
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 }
 
@@ -125,7 +116,7 @@ void SoftISPCameraData::processRequest(Request *request)
 	LOG(SoftISPPipeline, Debug) << "Processing request through SoftISP";
 
 	/* Mark request as complete */
-	request->complete();
+	pipe()->completeRequest(request);
 }
 
 /* -----------------------------------------------------------------------------
@@ -135,7 +126,7 @@ void SoftISPCameraData::processRequest(Request *request)
 PipelineHandlerVirtualSoftISP::PipelineHandlerVirtualSoftISP(CameraManager *manager)
 	: PipelineHandler(manager)
 {
-	LOG(SoftISPPipeline, Info) << "SoftISP pipeline handler initialized";
+	LOG(SoftISPPipeline, Info) << "SoftISP virtual pipeline handler initialized";
 }
 
 PipelineHandlerVirtualSoftISP::~PipelineHandlerVirtualSoftISP()
@@ -146,15 +137,10 @@ bool PipelineHandlerVirtualSoftISP::match(DeviceEnumerator *enumerator)
 {
 	/*
 	 * For now, we don't automatically match any devices.
-	 * The SoftISP pipeline can be used with:
-	 * - Virtual cameras for testing
-	 * - Specific cameras configured explicitly
-	 *
-	 * In a full implementation, this would enumerate devices and create
-	 * camera instances for supported sensors.
+	 * The SoftISP virtual pipeline creates dummy cameras internally.
 	 */
 
-	LOG(SoftISPPipeline, Debug) << "SoftISP pipeline handler match() called";
+	LOG(SoftISPPipeline, Debug) << "SoftISP virtual pipeline handler match() called";
 	return true;
 }
 
@@ -238,7 +224,7 @@ int PipelineHandlerVirtualSoftISP::start(Camera *camera, const ControlList *cont
 	data->running_ = true;
 	data->start();
 
-	LOG(SoftISPPipeline, Info) << "SoftISP camera started";
+	LOG(SoftISPPipeline, Info) << "SoftISP virtual camera started";
 
 	return 0;
 }
@@ -249,9 +235,9 @@ void PipelineHandlerVirtualSoftISP::stopDevice(Camera *camera)
 
 	/* Stop the camera processing thread */
 	data->running_ = false;
-	data->stop();
+	Thread::stop();
 
-	LOG(SoftISPPipeline, Info) << "SoftISP camera stopped";
+	LOG(SoftISPPipeline, Info) << "SoftISP virtual camera stopped";
 }
 
 int PipelineHandlerVirtualSoftISP::queueRequestDevice(Camera *camera, Request *request)
@@ -270,4 +256,4 @@ int PipelineHandlerVirtualSoftISP::queueRequestDevice(Camera *camera, Request *r
 } /* namespace libcamera */
 
 /* Register the pipeline handler */
-REGISTER_PIPELINE_HANDLER(PipelineHandlerVirtualSoftISP, "virtual-softisp")
+REGISTER_PIPELINE_HANDLER(PipelineHandlerVirtualSoftISP, "virtual_softisp")

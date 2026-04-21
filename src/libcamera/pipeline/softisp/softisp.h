@@ -13,9 +13,12 @@
 #include <libcamera/base/object.h>
 #include <libcamera/base/thread.h>
 
+#include <libcamera/camera.h>
+#include "libcamera/internal/camera.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/ipa_manager.h"
-#include "libcamera/ipa/soft_ipa_interface.h"
+#include <libcamera/ipa/soft_ipa_interface.h>
+#include <libcamera/ipa/soft_ipa_proxy.h>
 
 namespace libcamera {
 

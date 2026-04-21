@@ -5,7 +5,7 @@
  * SoftISP IPA Module for Virtual-SoftISP pipeline
  *
  * This module is identical to softisp_module.cpp but has a different
- * pipelineName to match the "virtual-softisp" pipeline handler.
+ * pipelineName to match the "virtual_softisp" pipeline handler.
  */
 
 #include "softisp.h"
@@ -101,15 +101,15 @@ extern "C" {
 /*
  * Module info for the Virtual-SoftISP pipeline.
  *
- * Note: The pipelineName is set to "virtual-softisp" to match the
- * virtual-softisp pipeline handler, unlike the regular softisp module
+ * Note: The pipelineName is set to "virtual_softisp" to match the
+ * virtual_softisp pipeline handler, unlike the regular softisp module
  * which uses "softisp".
  */
 const struct IPAModuleInfo ipaModuleInfo = {
 	IPA_MODULE_API_VERSION,
 	0,
 	"softisp-virtual",  /* Module name */
-	"virtual-softisp",  /* Pipeline name - matches "virtual-softisp" handler */
+	"virtual_softisp",  /* Pipeline name - matches "virtual_softisp" handler */
 };
 
 IPAInterface *ipaCreate()

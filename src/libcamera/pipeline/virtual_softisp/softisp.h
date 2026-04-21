@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2024
  *
- * Pipeline handler for SoftISP
+ * Pipeline handler for SoftISP (virtual cameras)
  */
 #pragma once
 
@@ -14,21 +14,22 @@
 #include <libcamera/base/thread.h>
 #include <libcamera/base/mutex.h>
 
+#include <libcamera/camera.h>
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/dma_buf_allocator.h"
-#include "libcamera/ipa/soft_ipa_interface.h"
+#include <libcamera/ipa/soft_ipa_interface.h>
+#include <libcamera/ipa/soft_ipa_proxy.h>
 
 namespace libcamera {
 
 class SoftISPCameraData;
 
 /*
- * Pipeline handler for SoftISP.
+ * Pipeline handler for SoftISP with virtual cameras.
  *
- * This pipeline handler is designed to work with the SoftISP IPA module
- * which uses ONNX models for image processing. It provides a software-based
- * pipeline that can be used with any V4L2 camera device.
+ * This pipeline handler creates dummy/test cameras for testing
+ * the SoftISP IPA module without requiring real hardware.
  */
 class PipelineHandlerVirtualSoftISP : public PipelineHandler
 {
@@ -58,18 +59,14 @@ private:
 		return static_cast<SoftISPCameraData *>(camera->_d());
 	}
 
-	bool initIPA(SoftISPCameraData *data);
-	void processRequest(SoftISPCameraData *data, Request *request);
+	bool initFrameGenerator(Camera *camera);
 	void bufferCompleted(FrameBuffer *buffer);
 
 	DmaBufAllocator dmaBufAllocator_;
 };
 
 /*
- * SoftISPCameraData - Camera data structure for SoftISP pipeline.
- *
- * This structure holds all the data needed to manage a camera instance
- * in the SoftISP pipeline, including the IPA module interface.
+ * SoftISPCameraData - Camera data structure for SoftISP virtual pipeline.
  */
 class SoftISPCameraData : public Camera::Private, public Thread
 {
