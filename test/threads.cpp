@@ -52,8 +52,8 @@ protected:
 	{
 		cancelled_ = true;
 
-		pthread_cancel // disabled(pthread_self());
-		pthread_testcancel // disabled();
+		// pthread_cancel(pthread_self()); // Disabled for Termux
+		// pthread_testcancel(); // Disabled for Termux
 
 		cancelled_ = false;
 	}

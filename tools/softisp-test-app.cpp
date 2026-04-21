@@ -28,7 +28,7 @@
 using namespace libcamera;
 
 static const Size kTestSize(640, 480);
-static const PixelFormat kPixelFormat = formats::UYVY8;
+static const PixelFormat kPixelFormat = formats::UYVY;
 
 static void printUsage(const char *prog)
 {

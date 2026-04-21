@@ -11,7 +11,10 @@
 
 #include <algorithm>
 #include <vector>
+#include <memory>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
 
 namespace libcamera {
 
@@ -31,6 +34,7 @@ struct SoftIsp::Impl {
 	std::unique_ptr<Ort::Session> algoSession;
 	std::unique_ptr<Ort::Session> applierSession;
 	Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+		Ort::AllocatorWithDefaultOptions allocator;
 
 	// Model paths
 	std::string algoModelPath;

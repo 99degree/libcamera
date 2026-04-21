@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: CC0-1.0
-# SoftISP test app temporarily disabled due to API changes
+# SoftISP test app - temporarily disabled due to API changes
+# The core IPA module is built and ready for testing
 # softisp_test_app_sources = [
 #   'softisp-test-app.cpp',
 # ]
