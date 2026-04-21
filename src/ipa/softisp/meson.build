@@ -14,7 +14,7 @@ ipa_name = 'ipa_softisp'
 ipa_softisp = shared_module(ipa_name,
     softisp_module_sources,
     name_prefix : '',
-    include_directories : [ipa_includes, include_directories(.)],
+    include_directories : [ipa_includes, include_directories(meson.current_source_dir)],
     dependencies : [libcamera_private, libipa_dep, onnxruntime_dep],
     install : true,
     install_dir : ipa_install_dir
@@ -29,7 +29,7 @@ ipa_name = 'ipa_softisp_virtual'
 ipa_softisp_virtual = shared_module(ipa_name,
     softisp_virtual_module_sources,
     name_prefix : '',
-    include_directories : [ipa_includes, include_directories(.)],
+    include_directories : [ipa_includes, include_directories(meson.current_source_dir)],
     dependencies : [libcamera_private, libipa_dep, onnxruntime_dep],
     install : true,
     install_dir : ipa_install_dir
