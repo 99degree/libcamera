@@ -20,7 +20,7 @@ ipa_softisp = shared_module(ipa_name,
     install_dir : ipa_install_dir
 )
 
-# Module 2: For "virtual_softisp" pipeline (virtual cameras)
+# Module 2: For "dummy_softisp" pipeline (virtual cameras)
 softisp_virtual_module_sources = softisp_common_sources + [
     'softisp_virtual_module.cpp',
 ]
