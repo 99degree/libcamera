@@ -60,6 +60,11 @@ foreach pipeline : pipelines
     # overwritten it.
 endforeach
 
+# Conditionally build SoftISP IPA if the feature is enabled
+if get_option('softisp').enabled()
+    subdir('softisp')
+endif
+
 # The ipa-sign-install.sh script which uses the enabled_ipa_modules variable
 # will itself prepend MESON_INSTALL_DESTDIR_PREFIX to each ipa module name,
 # therefore we must not include the prefix string here.
