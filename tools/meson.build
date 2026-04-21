@@ -9,7 +9,5 @@ softisp_test_app = executable('softisp-test-app',
     include_directories : [
         libcamera_includes,
     ],
-    dependencies : [libcamera_private],
-    install : true,
-    install_dir : libcamera_bindir
+    dependencies : [libcamera_private]
 )
