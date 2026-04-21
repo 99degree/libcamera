@@ -39,6 +39,7 @@ public:
 	int loadIPA();
 
 	void run() override;
+	std::unique_ptr<Stream> dummyStream_;
 	void processRequest(Request *request);
 
 	struct StreamConfig {
@@ -58,6 +59,7 @@ public:
 class PipelineHandlerDummysoftisp : public PipelineHandler
 {
 public:
+	static bool created_;
 	PipelineHandlerDummysoftisp(CameraManager *manager);
 	~PipelineHandlerDummysoftisp();
 
