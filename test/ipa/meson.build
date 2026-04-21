@@ -5,6 +5,7 @@ subdir('libipa')
 ipa_test = [
     {'name': 'ipa_module_test', 'sources': ['ipa_module_test.cpp']},
     {'name': 'ipa_interface_test', 'sources': ['ipa_interface_test.cpp']},
+    {'name': 'softisp_module_test', 'sources': ['softisp_module_test.cpp']},
 ]
 
 foreach test : ipa_test
