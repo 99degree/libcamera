@@ -2,31 +2,22 @@
 /*
  * Copyright (C) 2024
  *
- * Pipeline handler for SoftISP
+ * Pipeline handler for SoftISP (real cameras)
  */
 
 #include "softisp.h"
 
 #include <algorithm>
-#include <cstring>
 #include <memory>
-#include <queue>
 
 #include <libcamera/base/log.h>
-#include <libcamera/control_ids.h>
-#include <libcamera/controls.h>
-#include <libcamera/property_ids.h>
 
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/camera_manager.h"
-#include "libcamera/internal/camera_sensor.h"
 #include "libcamera/internal/device_enumerator.h"
 #include "libcamera/internal/formats.h"
-#include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/request.h"
-#include "libcamera/internal/v4l2_subdevice.h"
-#include "libcamera/internal/v4l2_videodevice.h"
 #include "libcamera/internal/ipa_manager.h"
 
 namespace libcamera {
@@ -38,94 +29,39 @@ LOG_DEFINE_CATEGORY(SoftISPPipeline)
  * ---------------------------------------------------------------------------*/
 
 SoftISPCameraData::SoftISPCameraData(PipelineHandlerSoftISP *pipe)
-	: Camera::Private(pipe), Thread("SoftISPCamera")
+	: Camera::Private(pipe)
 {
 }
 
 SoftISPCameraData::~SoftISPCameraData()
 {
-	stop();
 }
 
 int SoftISPCameraData::init()
 {
-	LOG(SoftISPPipeline, Debug) << "Initializing SoftISP camera";
+	LOG(SoftISPPipeline, Debug) << "Initializing SoftISP camera (real)";
 	return 0;
 }
 
 int SoftISPCameraData::loadIPA()
 {
 	/*
-	 * Load the SoftISP IPA module.
+	 * Load the SoftISP IPA module for real camera processing.
 	 *
 	 * The IPAManager will search for an IPA module where:
 	 * - pipelineName matches the pipeline handler name ("softisp")
 	 * - pipelineVersion is within the specified range (0, 0 = any)
-	 *
-	 * The matched module's ipaCreate() function will be called to
-	 * create the IPA context.
 	 */
 	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(pipe(), 0, 0);
 	if (!ipa_) {
 		LOG(SoftISPPipeline, Error)
-			<< "Failed to create SoftISP IPA module";
+			<< "Failed to create SoftISP IPA module for real camera";
 		return -ENOENT;
 	}
 
-	LOG(SoftISPPipeline, Info) << "SoftISP IPA module loaded successfully";
-
-	/*
-	 * Get the configuration file path from the IPA module.
-	 * The IPA module can provide a tuning file based on the sensor model.
-	 */
-	std::string ipaTuningFile = ipa_->configurationFile("uncalibrated.yaml");
-	LOG(SoftISPPipeline, Debug) << "IPA tuning file: " << ipaTuningFile;
+	LOG(SoftISPPipeline, Info) << "SoftISP IPA module loaded for real camera";
 
 	return 0;
-}
-
-void SoftISPCameraData::run()
-{
-	/*
-	 * Thread loop for processing requests.
-	 * In a full implementation, this would process incoming requests
-	 * and coordinate with the IPA module.
-	 */
-	while (running_) {
-		/* Wait for requests to be processed */
-		/* This is a placeholder for the actual implementation */
-		sleep(1);
-	}
-}
-
-void SoftISPCameraData::processRequest(Request *request)
-{
-	/*
-	 * Process a single request through the SoftISP pipeline.
-	 *
-	 * This would typically:
-	 * 1. Extract statistics from the captured frame
-	 * 2. Pass statistics to the IPA module
-	 * 3. Get metadata (gains, coefficients) from the IPA
-	 * 4. Apply metadata to the frame
-	 * 5. Complete the request
-	 */
-
-	if (!ipa_) {
-		LOG(SoftISPPipeline, Error) << "IPA module not loaded";
-		return;
-	}
-
-	/*
-	 * Placeholder for actual IPA processing.
-	 * In a full implementation, this would call the IPA's process() method
-	 * with the frame statistics and receive the processed metadata.
-	 */
-
-	LOG(SoftISPPipeline, Debug) << "Processing request through SoftISP";
-
-	/* Mark request as complete */
-	request->complete();
 }
 
 /* -----------------------------------------------------------------------------
@@ -135,7 +71,7 @@ void SoftISPCameraData::processRequest(Request *request)
 PipelineHandlerSoftISP::PipelineHandlerSoftISP(CameraManager *manager)
 	: PipelineHandler(manager)
 {
-	LOG(SoftISPPipeline, Info) << "SoftISP pipeline handler initialized";
+	LOG(SoftISPPipeline, Info) << "SoftISP pipeline handler (real cameras) initialized";
 }
 
 PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
@@ -145,16 +81,18 @@ PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
 bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
 {
 	/*
-	 * For now, we don't automatically match any devices.
-	 * The SoftISP pipeline can be used with:
-	 * - Virtual cameras for testing
-	 * - Specific cameras configured explicitly
+	 * Enumerate devices and create camera instances for supported sensors.
 	 *
-	 * In a full implementation, this would enumerate devices and create
-	 * camera instances for supported sensors.
+	 * In a full implementation, this would:
+	 * 1. Iterate through all media devices
+	 * 2. Check if each device has a supported sensor
+	 * 3. Create a SoftISPCameraData instance for each supported camera
+	 * 4. Call camera->create() to register the camera with libcamera
 	 */
 
-	LOG(SoftISPPipeline, Debug) << "SoftISP pipeline handler match() called";
+	LOG(SoftISPPipeline, Debug) << "Matching devices for SoftISP pipeline (real)";
+
+	/* Placeholder: No automatic matching yet */
 	return true;
 }
 
@@ -162,23 +100,8 @@ std::unique_ptr<CameraConfiguration>
 PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
 					      Span<const StreamRole> roles)
 {
-	SoftISPCameraData *data = cameraData(camera);
-
-	/*
-	 * Generate a camera configuration based on the requested roles.
-	 * This is a simplified implementation that assumes a single stream.
-	 */
-
-	if (roles.empty())
-		return nullptr;
-
-	/* Create a basic configuration */
-	auto config = std::make_unique<CameraConfiguration>();
-
-	/* For now, return a minimal configuration */
-	/* In a full implementation, this would query the sensor capabilities */
-
-	return config;
+	/* Placeholder implementation */
+	return nullptr;
 }
 
 int PipelineHandlerSoftISP::configure(Camera *camera,
@@ -186,26 +109,15 @@ int PipelineHandlerSoftISP::configure(Camera *camera,
 {
 	SoftISPCameraData *data = cameraData(camera);
 
-	/*
-	 * Configure the camera with the given configuration.
-	 * This would typically:
-	 * 1. Validate the configuration
-	 * 2. Set up streams
-	 * 3. Configure the IPA module
-	 */
-
-	/* Initialize the camera data */
+	/* Initialize camera */
 	int ret = data->init();
 	if (ret)
 		return ret;
 
-	/* Load the IPA module */
+	/* Load IPA module */
 	ret = data->loadIPA();
 	if (ret)
 		return ret;
-
-	/* Configure the IPA module */
-	/* Placeholder for IPA configuration */
 
 	return 0;
 }
@@ -213,61 +125,29 @@ int PipelineHandlerSoftISP::configure(Camera *camera,
 int PipelineHandlerSoftISP::exportFrameBuffers(Camera *camera, Stream *stream,
 					       std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
-	/*
-	 * Export frame buffers for the given stream.
-	 * This would typically allocate DMA buffers and return them.
-	 */
-
-	unsigned int count = stream->configuration().bufferCount;
-
-	for (unsigned int i = 0; i < count; ++i) {
-		/* Allocate a buffer */
-		std::unique_ptr<FrameBuffer> buffer;
-		/* Placeholder for buffer allocation */
-		buffers->push_back(std::move(buffer));
-	}
-
+	/* Placeholder: Buffer export not implemented yet */
 	return 0;
 }
 
 int PipelineHandlerSoftISP::start(Camera *camera, const ControlList *controls)
 {
-	SoftISPCameraData *data = cameraData(camera);
-
-	/* Start the camera processing thread */
-	data->running_ = true;
-	data->start();
-
-	LOG(SoftISPPipeline, Info) << "SoftISP camera started";
-
+	LOG(SoftISPPipeline, Info) << "SoftISP camera (real) started";
 	return 0;
 }
 
 void PipelineHandlerSoftISP::stopDevice(Camera *camera)
 {
-	SoftISPCameraData *data = cameraData(camera);
-
-	/* Stop the camera processing thread */
-	data->running_ = false;
-	data->stop();
-
-	LOG(SoftISPPipeline, Info) << "SoftISP camera stopped";
+	LOG(SoftISPPipeline, Info) << "SoftISP camera (real) stopped";
 }
 
 int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
 {
-	SoftISPCameraData *data = cameraData(camera);
-
-	/* Queue the request for processing */
-	/* In a full implementation, this would add the request to a queue
-	 * and signal the processing thread */
-
-	data->processRequest(request);
-
+	/* Placeholder: Request processing not implemented yet */
+	request->complete();
 	return 0;
 }
 
 } /* namespace libcamera */
 
-/* Register the pipeline handler */
+/* Register the pipeline handler for real cameras */
 REGISTER_PIPELINE_HANDLER(PipelineHandlerSoftISP, "softisp")
