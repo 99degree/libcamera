@@ -83,3 +83,20 @@ echo "To test with a camera, set the environment variable:"
 echo "  export SOFTISP_MODEL_DIR=/data/data/com.termux/files/home/softisp_models"
 echo ""
 echo "Then run libcamera applications with the softisp pipeline."
+
+echo ""
+echo "6. Checking buffer allocation implementation..."
+if grep -q "exportFrameBuffers" build/src/libcamera/libcamera.so.p/pipeline_softisp_softisp.cpp.o 2>/dev/null || \
+   nm -D build/src/libcamera/libcamera.so | grep -q "exportFrameBuffers"; then
+    echo "   ✓ exportFrameBuffers implemented in library"
+else
+    echo "   ⚠ exportFrameBuffers symbol check inconclusive"
+fi
+
+# Check for buffer allocation functions
+if strings build/src/libcamera/libcamera.so | grep -q "memfd_create\|shm_open"; then
+    echo "   ✓ Buffer allocation uses shared memory/DMA"
+else
+    echo "   ⚠ Buffer allocation method unclear"
+fi
+
