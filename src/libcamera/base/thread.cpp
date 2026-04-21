@@ -462,7 +462,7 @@ void Thread::setThreadAffinityInternal()
 		return;
 
 	const cpu_set_t &cpuset = data_->cpuset_.value();
-	pthread_setaffinity_np(thread_.native_handle(), sizeof(cpuset), &cpuset);
+	sched_setaffinity(thread_.native_handle(), sizeof(cpuset), &cpuset);
 }
 
 /**
