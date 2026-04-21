@@ -212,7 +212,7 @@ int ConfigParser::parseFrameGenerator(const YamlObject &cameraConfigData, Virtua
 		}
 
 		std::sort(files.begin(), files.end(), [](const auto &a, const auto &b) {
-			return ::strverscmp(a.c_str(), b.c_str()) < 0;
+			return a < b; // Fixed for Termux
 		});
 
 		if (files.empty()) {
