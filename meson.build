@@ -264,6 +264,7 @@ subdir('src')
 
 subdir('Documentation')
 subdir('test')
+subdir('tools')
 
 if not meson.is_cross_build()
     kernel_version_req = '>= 5.4.0'
