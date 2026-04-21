@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
- * IPA Module for SoftISP (real cameras)
+ * SoftISP IPA Module for "softisp" pipeline
  */
 
 #include "softisp.h"
@@ -9,20 +9,26 @@
 #include <libcamera/ipa/ipa_module_info.h>
 
 namespace libcamera {
-
-LOG_DEFINE_CATEGORY(SoftISPModule)
-
 namespace ipa::soft {
+
+// SoftIsp class implementation is in softisp.cpp
 
 } /* namespace ipa::soft */
 
-/*
- * ipaCreate() - Create a new SoftISP IPA instance.
- */
-extern "C" IPAInterface *ipaCreate()
-{
-	LOG(SoftISPModule, Info) << "Creating SoftISP IPA module (real camera)";
+/* External IPA module interface */
+extern "C" {
+
+const struct IPAModuleInfo ipaModuleInfo = {
+	IPA_MODULE_API_VERSION,
+	0,
+	"softisp",
+	"SoftISP",
+};
+
+IPAInterface *ipaCreate() {
 	return new ipa::soft::SoftIsp();
 }
+
+} /* extern "C" */
 
 } /* namespace libcamera */
