@@ -17,7 +17,7 @@
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/ipa_manager.h"
-#include "libcamera/internal/v4l2_device.h"
+#include "libcamera/internal/v4l2_videodevice.h"
 
 #include <libcamera/ipa/soft_ipa_interface.h>
 #include <libcamera/ipa/soft_ipa_proxy.h>
