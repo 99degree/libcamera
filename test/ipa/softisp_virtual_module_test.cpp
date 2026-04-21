@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2024
  *
- * Test loading of the SoftISP IPA module and verify its info
+ * Test loading of the SoftISP Virtual IPA module and verify its info
  */
 
 #include <iostream>
@@ -14,7 +14,7 @@
 using namespace std;
 using namespace libcamera;
 
-class SoftISPModuleTest : public Test
+class SoftISPVirtualModuleTest : public Test
 {
 protected:
 	int runTest(const string &path, const struct IPAModuleInfo &testInfo)
@@ -23,7 +23,7 @@ protected:
 		IPAModule *ll = new IPAModule(path);
 
 		if (!ll->isValid()) {
-			cerr << "SoftISP IPA module " << path << " is invalid" << endl;
+			cerr << "SoftISP Virtual IPA module " << path << " is invalid" << endl;
 			delete ll;
 			return -1;
 		}
@@ -31,7 +31,7 @@ protected:
 		const struct IPAModuleInfo &info = ll->info();
 
 		if (memcmp(&info, &testInfo, sizeof(info))) {
-			cerr << "SoftISP IPA module information mismatch:" << endl;
+			cerr << "SoftISP Virtual IPA module information mismatch:" << endl;
 			cerr << "Expected:" << endl;
 			cerr << "  moduleAPIVersion = " << testInfo.moduleAPIVersion << endl;
 			cerr << "  pipelineVersion = " << testInfo.pipelineVersion << endl;
@@ -44,7 +44,7 @@ protected:
 			cerr << "  name = " << info.name << endl;
 			ret = -1;
 		} else {
-			cout << "SoftISP IPA module loaded successfully:" << endl;
+			cout << "SoftISP Virtual IPA module loaded successfully:" << endl;
 			cout << "  name = " << info.name << endl;
 			cout << "  pipelineName = " << info.pipelineName << endl;
 		}
@@ -57,15 +57,15 @@ protected:
 	{
 		int count = 0;
 
-		/* Test the softisp module (for real camera pipeline) */
+		/* Test the virtual-softisp module */
 		const struct IPAModuleInfo testInfo = {
 			IPA_MODULE_API_VERSION,
 			0,
-			"softisp",
-			"softisp",
+			"softisp-virtual",
+			"virtual-softisp",
 		};
 
-		count += runTest("src/ipa/softisp/ipa_softisp.so", testInfo);
+		count += runTest("src/ipa/softisp/ipa_softisp_virtual.so", testInfo);
 
 		if (count < 0)
 			return TestFail;
@@ -74,4 +74,4 @@ protected:
 	}
 };
 
-TEST_REGISTER(SoftISPModuleTest)
+TEST_REGISTER(SoftISPVirtualModuleTest)
