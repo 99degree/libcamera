@@ -10,78 +10,46 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <queue>
 
 #include <libcamera/base/log.h>
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
+#include <libcamera/property_ids.h>
 
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/camera_manager.h"
 #include "libcamera/internal/camera_sensor.h"
 #include "libcamera/internal/device_enumerator.h"
 #include "libcamera/internal/formats.h"
+#include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/request.h"
 #include "libcamera/internal/v4l2_subdevice.h"
 #include "libcamera/internal/v4l2_videodevice.h"
 #include "libcamera/internal/ipa_manager.h"
-#include "libcamera/internal/ipa_module.h"
-#include "libcamera/ipa/soft_ipa_interface.h"
 
 namespace libcamera {
 
 LOG_DEFINE_CATEGORY(SoftISPPipeline)
 
-/*
- * SoftISPCameraData - Camera data structure for SoftISP pipeline.
- *
- * This structure holds all the data needed to manage a camera instance
- * in the SoftISP pipeline, including the IPA module interface.
- */
-class SoftISPCameraData : public Camera::Private
-{
-public:
-	SoftISPCameraData(PipelineHandlerSoftISP *pipe, MediaEntity *entity);
-	~SoftISPCameraData();
-
-	int init();
-	int loadIPA();
-
-	/* Placeholder for future implementation */
-	void updateControls(const ControlInfoMap &ipaControls);
-
-	std::unique_ptr<CameraSensor> sensor_;
-	MediaEntity *entity_;
-	std::unique_ptr<V4L2Subdevice> sensorSubdev_;
-	std::unique_ptr<V4L2VideoDevice> videoCapture_;
-	std::unique_ptr<ipa::soft::IPAProxySoft> ipa_;
-	ControlInfoMap controlInfo_;
-};
-
 /* -----------------------------------------------------------------------------
  * SoftISPCameraData Implementation
  * ---------------------------------------------------------------------------*/
 
-SoftISPCameraData::SoftISPCameraData(PipelineHandlerSoftISP *pipe,
-				     MediaEntity *entity)
-	: Camera::Private(pipe), entity_(entity)
+SoftISPCameraData::SoftISPCameraData(PipelineHandlerSoftISP *pipe)
+	: Camera::Private(pipe), Thread("SoftISPCamera")
 {
 }
 
 SoftISPCameraData::~SoftISPCameraData()
 {
+	stop();
 }
 
 int SoftISPCameraData::init()
 {
-	/*
-	 * Initialize camera sensor and subdevices.
-	 * This would typically enumerate the media graph and create
-	 * V4L2Subdevice/V4L2VideoDevice objects for each entity.
-	 */
 	LOG(SoftISPPipeline, Debug) << "Initializing SoftISP camera";
-
-	/* For now, just return success */
 	return 0;
 }
 
@@ -95,8 +63,7 @@ int SoftISPCameraData::loadIPA()
 	 * - pipelineVersion is within the specified range (0, 0 = any)
 	 *
 	 * The matched module's ipaCreate() function will be called to
-	 * create the IPA context, which will be wrapped in an
-	 * IPAProxySoft object.
+	 * create the IPA context.
 	 */
 	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(pipe(), 0, 0);
 	if (!ipa_) {
@@ -108,47 +75,57 @@ int SoftISPCameraData::loadIPA()
 	LOG(SoftISPPipeline, Info) << "SoftISP IPA module loaded successfully";
 
 	/*
-	 * Connect IPA signals to camera data handlers.
-	 * These would be implemented when full frame processing is added.
-	 */
-	/*
-	ipa_->setSensorControls.connect(
-		this, &SoftISPCameraData::setSensorControls);
-	ipa_->metadataReady.connect(
-		this, &SoftISPCameraData::metadataReady);
-	*/
-
-	/*
 	 * Get the configuration file path from the IPA module.
 	 * The IPA module can provide a tuning file based on the sensor model.
 	 */
-	std::string ipaTuningFile;
-	if (sensor_) {
-		ipaTuningFile = ipa_->configurationFile(
-			sensor_->model() + ".yaml", "uncalibrated.yaml");
-		LOG(SoftISPPipeline, Debug)
-			<< "IPA tuning file: " << ipaTuningFile;
-	}
-
-	/*
-	 * Get the controls supported by the IPA module.
-	 * These would be merged with the sensor controls.
-	 */
-	/*
-	ControlInfoMap ipaControls = ipa_->controls();
-	updateControls(ipaControls);
-	*/
+	std::string ipaTuningFile = ipa_->configurationFile("uncalibrated.yaml");
+	LOG(SoftISPPipeline, Debug) << "IPA tuning file: " << ipaTuningFile;
 
 	return 0;
 }
 
-void SoftISPCameraData::updateControls(const ControlInfoMap &ipaControls)
+void SoftISPCameraData::run()
 {
 	/*
-	 * Merge IPA controls with sensor controls.
-	 * This would be implemented when full camera control is added.
+	 * Thread loop for processing requests.
+	 * In a full implementation, this would process incoming requests
+	 * and coordinate with the IPA module.
 	 */
-	controlInfo_ = ipaControls;
+	while (running_) {
+		/* Wait for requests to be processed */
+		/* This is a placeholder for the actual implementation */
+		sleep(1);
+	}
+}
+
+void SoftISPCameraData::processRequest(Request *request)
+{
+	/*
+	 * Process a single request through the SoftISP pipeline.
+	 *
+	 * This would typically:
+	 * 1. Extract statistics from the captured frame
+	 * 2. Pass statistics to the IPA module
+	 * 3. Get metadata (gains, coefficients) from the IPA
+	 * 4. Apply metadata to the frame
+	 * 5. Complete the request
+	 */
+
+	if (!ipa_) {
+		LOG(SoftISPPipeline, Error) << "IPA module not loaded";
+		return;
+	}
+
+	/*
+	 * Placeholder for actual IPA processing.
+	 * In a full implementation, this would call the IPA's process() method
+	 * with the frame statistics and receive the processed metadata.
+	 */
+
+	LOG(SoftISPPipeline, Debug) << "Processing request through SoftISP";
+
+	/* Mark request as complete */
+	request->complete();
 }
 
 /* -----------------------------------------------------------------------------
@@ -165,53 +142,128 @@ PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
 {
 }
 
-int PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
+bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
 {
 	/*
-	 * Enumerate devices and create camera instances for supported sensors.
+	 * For now, we don't automatically match any devices.
+	 * The SoftISP pipeline can be used with:
+	 * - Virtual cameras for testing
+	 * - Specific cameras configured explicitly
 	 *
-	 * In a full implementation, this would:
-	 * 1. Iterate through all media devices
-	 * 2. Check if each device has a supported sensor
-	 * 3. Create a SoftISPCameraData instance for each supported camera
-	 * 4. Call camera->create() to register the camera with libcamera
+	 * In a full implementation, this would enumerate devices and create
+	 * camera instances for supported sensors.
 	 */
 
-	LOG(SoftISPPipeline, Debug) << "Matching devices for SoftISP pipeline";
+	LOG(SoftISPPipeline, Debug) << "SoftISP pipeline handler match() called";
+	return true;
+}
+
+std::unique_ptr<CameraConfiguration>
+PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
+					      Span<const StreamRole> roles)
+{
+	SoftISPCameraData *data = cameraData(camera);
 
 	/*
-	 * For now, we don't automatically match any devices.
-	 * This is a placeholder that can be expanded to support specific
-	 * cameras or used with the virtual camera for testing.
+	 * Generate a camera configuration based on the requested roles.
+	 * This is a simplified implementation that assumes a single stream.
 	 */
+
+	if (roles.empty())
+		return nullptr;
+
+	/* Create a basic configuration */
+	auto config = std::make_unique<CameraConfiguration>();
+
+	/* For now, return a minimal configuration */
+	/* In a full implementation, this would query the sensor capabilities */
+
+	return config;
+}
+
+int PipelineHandlerSoftISP::configure(Camera *camera,
+				      CameraConfiguration *config)
+{
+	SoftISPCameraData *data = cameraData(camera);
+
+	/*
+	 * Configure the camera with the given configuration.
+	 * This would typically:
+	 * 1. Validate the configuration
+	 * 2. Set up streams
+	 * 3. Configure the IPA module
+	 */
+
+	/* Initialize the camera data */
+	int ret = data->init();
+	if (ret)
+		return ret;
+
+	/* Load the IPA module */
+	ret = data->loadIPA();
+	if (ret)
+		return ret;
+
+	/* Configure the IPA module */
+	/* Placeholder for IPA configuration */
 
 	return 0;
 }
 
-SoftISPCameraData *PipelineHandlerSoftISP::cameraData(const Camera *camera)
-{
-	return static_cast<SoftISPCameraData *>(camera->privateData());
-}
-
-int PipelineHandlerSoftISP::createCamera(DeviceEnumerator *enumerator,
-					 const std::string &name)
+int PipelineHandlerSoftISP::exportFrameBuffers(Camera *camera, Stream *stream,
+					       std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
 	/*
-	 * Create a new camera instance for the given device.
-	 *
-	 * This would typically:
-	 * 1. Open the media device
-	 * 2. Create a MediaDevice object
-	 * 3. Enumerate subdevices and video nodes
-	 * 4. Create a SoftISPCameraData instance
-	 * 5. Call cameraData->init() to initialize the camera
-	 * 6. Call cameraData->loadIPA() to load the IPA module
-	 * 7. Create and register the Camera object
+	 * Export frame buffers for the given stream.
+	 * This would typically allocate DMA buffers and return them.
 	 */
 
-	LOG(SoftISPPipeline, Info) << "Creating camera: " << name;
+	unsigned int count = stream->configuration().bufferCount;
 
-	/* Placeholder implementation */
+	for (unsigned int i = 0; i < count; ++i) {
+		/* Allocate a buffer */
+		std::unique_ptr<FrameBuffer> buffer;
+		/* Placeholder for buffer allocation */
+		buffers->push_back(std::move(buffer));
+	}
+
+	return 0;
+}
+
+int PipelineHandlerSoftISP::start(Camera *camera, const ControlList *controls)
+{
+	SoftISPCameraData *data = cameraData(camera);
+
+	/* Start the camera processing thread */
+	data->running_ = true;
+	data->start();
+
+	LOG(SoftISPPipeline, Info) << "SoftISP camera started";
+
+	return 0;
+}
+
+void PipelineHandlerSoftISP::stopDevice(Camera *camera)
+{
+	SoftISPCameraData *data = cameraData(camera);
+
+	/* Stop the camera processing thread */
+	data->running_ = false;
+	data->stop();
+
+	LOG(SoftISPPipeline, Info) << "SoftISP camera stopped";
+}
+
+int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
+{
+	SoftISPCameraData *data = cameraData(camera);
+
+	/* Queue the request for processing */
+	/* In a full implementation, this would add the request to a queue
+	 * and signal the processing thread */
+
+	data->processRequest(request);
+
 	return 0;
 }
 
