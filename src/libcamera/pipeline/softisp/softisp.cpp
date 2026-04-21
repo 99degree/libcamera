@@ -143,7 +143,7 @@ void PipelineHandlerSoftISP::stopDevice(Camera *camera)
 int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
 {
 	/* Placeholder: Request processing not implemented yet */
-	request->complete();
+	pipe()->completeRequest(request);
 	return 0;
 }
 
