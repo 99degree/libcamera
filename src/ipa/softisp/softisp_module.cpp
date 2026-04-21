@@ -127,7 +127,7 @@ const struct IPAModuleInfo ipaModuleInfo = {
 	IPA_MODULE_API_VERSION,
 	0,
 	"softisp",      /* Module name */
-	"simple",       /* Pipeline name - matches "simple" pipeline handler */
+	"softisp",      /* Pipeline name - matches "softisp" pipeline handler */
 };
 
 /* IPA Module Creation Function */
