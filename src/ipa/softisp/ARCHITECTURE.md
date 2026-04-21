@@ -167,3 +167,105 @@ src/ipa/softisp/
 - VC4 pipeline source: `src/libcamera/pipeline/rpi/vc4/`
 - Algorithm interface: `src/ipa/libipa/algorithm.h`
 - Soft IPA interface: `build/include/libcamera/ipa/soft_ipa_interface.h`
+
+## Updated Architecture: Dedicated SoftISP Pipeline
+
+### Why a Dedicated Pipeline?
+After careful analysis, we determined that:
+1. The **"simple" pipeline** uses its own internal `SoftwareIsp` class with hardcoded algorithms
+2. It does **not** dynamically load external IPA modules like `awb_nn` or our `SoftIsp`
+3. To properly integrate SoftISP, we need a **dedicated pipeline handler**
+
+### New Architecture
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Application (libcamera-vid, etc.)                           │
+│   --pipeline=softisp                                        │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Pipeline Handler: "softisp" (NEW!)                          │
+│ src/libcamera/pipeline/softisp/                             │
+│ - Registers with name "softisp"                             │
+│ - Matches IPA modules with pipelineName = "softisp"         │
+│ - Will call createIPA<ipa::soft::IPAProxySoft>()            │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          │ IPAManager matches module by:
+                          │   - pipelineName == "softisp"
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ IPA Module: ipa_softisp.so                                  │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ SoftISPModule (implements IPASoftInterface)             │ │
+│ │ - Manages frame lifecycle                                │ │
+│ │ - Delegates to SoftIsp algorithm                         │ │
+│ │ - Returns ControlList with AWB gains                     │ │
+│ └─────────────────────┬───────────────────────────────────┘ │
+│                       │                                     │
+│                       ▼                                     │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ SoftIsp Algorithm (implements Algorithm<T>)             │ │
+│ │ - Runs algo.onnx: statistics → coefficients             │ │
+│ │ - Runs applier.onnx: coefficients → gains               │ │
+│ │ - Extracts AWB gains (R, G, B)                          │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Pipeline vs. Simple Pipeline
+
+| Feature | Simple Pipeline | SoftISP Pipeline (NEW) |
+|---------|----------------|------------------------|
+| **Purpose** | Generic software ISP | AI-based SoftISP |
+| **IPA Loading** | Internal algorithms only | External IPA modules |
+| **Algorithms** | Awb, Agc, Ccm (hardcoded) | SoftIsp (ONNX-based) |
+| **Configuration** | YAML tuning files | Environment variables |
+| **Use Case** | Basic software ISP | Advanced AI processing |
+
+### How to Use
+
+#### Build with SoftISP Pipeline
+```bash
+meson setup build -Dsoftisp=enabled '-Dpipelines=softisp'
+meson compile -C build
+```
+
+#### Run with SoftISP Pipeline
+```bash
+export SOFTISP_MODEL_DIR=/path/to/models
+libcamera-vid --pipelines softisp --timeout 5000 -o test.264
+```
+
+### File Structure
+```
+src/libcamera/pipeline/softisp/
+├── softisp.h              # Pipeline handler declaration
+├── softisp.cpp            # Pipeline handler implementation
+└── meson.build            # Build configuration
+
+src/ipa/softisp/
+├── softisp.h              # Algorithm declaration
+├── softisp.cpp            # Algorithm implementation (ONNX)
+├── softisp_module.h       # Module declaration
+├── softisp_module.cpp     # Module implementation (IPA interface)
+├── softisp_test.cpp       # Standalone test
+├── softisp_full_test.cpp  # Full inference test
+├── meson.build            # Build configuration
+└── ARCHITECTURE.md        # This documentation
+```
+
+### Next Steps for Full Implementation
+1. **Camera Enumeration**: Implement device matching in `PipelineHandlerSoftISP::match()`
+2. **Camera Creation**: Implement `createCamera()` to set up camera instances
+3. **IPA Integration**: Call `createIPA<ipa::soft::IPAProxySoft>()` to load our module
+4. **Frame Processing**: Implement request handling and buffer management
+5. **Testing**: Test with real cameras and verify AI-based processing
+
+### Benefits of Dedicated Pipeline
+- **No conflicts** with the "simple" pipeline
+- **Clean separation** of concerns
+- **Easy to extend** with additional features
+- **Follows libcamera patterns** (like "virtual" pipeline)
+- **Optional**: Can be enabled/disabled independently
