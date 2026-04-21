@@ -253,7 +253,5 @@ int PipelineHandlerDummySoftISP::queueRequestDevice(Camera *camera, Request *req
 	return 0;
 }
 
-} /* namespace libcamera */
-
-/* Register the pipeline handler */
 REGISTER_PIPELINE_HANDLER(PipelineHandlerDummySoftISP, "dummy_softisp")
+} /* namespace libcamera */

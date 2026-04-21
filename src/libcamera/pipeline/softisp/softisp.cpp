@@ -147,7 +147,5 @@ int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
 	return 0;
 }
 
-} /* namespace libcamera */
-
-/* Register the pipeline handler for real cameras */
 REGISTER_PIPELINE_HANDLER(PipelineHandlerSoftISP, "softisp")
+} /* namespace libcamera */
