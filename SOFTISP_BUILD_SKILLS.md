@@ -278,3 +278,139 @@ src/libcamera/pipeline/dummysoftisp/
 
 *Last Updated: 2026-04-21*
 *Author: SoftISP Development Team*
+
+---
+
+## 13. Implementation Status: What's Complete vs. Stubbed
+
+### ✅ **Fully Implemented:**
+- **IPA Module Registration**: Both `ipa_softisp.so` and `ipa_softisp_virtual.so` correctly register with `ipaCreate()`
+- **Pipeline Handler Registration**: Both pipelines use `REGISTER_PIPELINE_HANDLER` correctly
+- **Camera Data Initialization**: `init()` and `loadIPA()` methods work correctly
+- **Request Completion**: `completeRequest()` is called properly in `queueRequestDevice()`
+- **Thread Handling**: Proper use of `exit(0)` and `wait()` for thread termination
+- **Log Categories**: Correctly defined and used in both pipelines
+
+### ⚠️ **Stubbed / Placeholder Implementations:**
+
+#### **Both Pipelines (softisp & dummysoftisp):**
+
+1. **`exportFrameBuffers()`** - Returns 0 without allocating actual buffers
+   - **Current**: Creates empty `FrameBuffer` objects
+   - **Needed**: Allocate DMA buffers using `dma_buf_allocator` or similar
+   - **Impact**: Cannot capture real frames without this
+
+2. **`start()`** - Just logs and returns 0
+   - **Current**: No actual hardware initialization
+   - **Needed**: Configure V4L2 device, set formats, start streaming
+   - **Impact**: Camera won't actually start streaming
+
+3. **`stopDevice()`** - Just logs and returns
+   - **Current**: No cleanup of hardware resources
+   - **Needed**: Stop streaming, release buffers, close device
+   - **Impact**: Resource leaks on stop
+
+4. **`processRequest()`** (in CameraData) - Completes request without processing
+   - **Current**: Calls `completeRequest()` immediately
+   - **Needed**: 
+     - Extract statistics from captured frame
+     - Pass to IPA module's `processStats()`
+     - Apply metadata to frame
+     - Then complete request
+   - **Impact**: No actual ISP processing happens
+
+#### **IPA Module (softisp.cpp):**
+
+5. **`processStats()`** - Not implemented
+   - **Current**: Returns 0 without doing anything
+   - **Needed**: 
+     - Load ONNX models (`algo.onnx` and `applier.onnx`)
+     - Run inference to generate ISP coefficients
+     - Apply coefficients to frame
+     - Return metadata
+   - **Impact**: Core ISP functionality missing
+
+6. **`computeParams()`** - Not implemented
+   - **Current**: Returns 0
+   - **Needed**: Pre-compute parameters if needed
+   - **Impact**: May affect performance
+
+#### **Dummy Pipeline Only:**
+
+7. **`generateConfiguration()`** - Now implemented with fixed resolution
+   - **Current**: Returns config with 1920x1080 UYVY8
+   - **Status**: ✅ Fixed (was returning nullptr)
+
+#### **Real Pipeline Only:**
+
+8. **`generateConfiguration()`** - Now implemented with fixed resolution
+   - **Current**: Returns config with 1920x1080 BGGR8
+   - **Status**: ✅ Fixed (was returning nullptr)
+
+---
+
+## 14. Next Steps for Full Implementation
+
+### **Priority 1: ONNX Integration**
+1. Implement `processStats()` in `src/ipa/softisp/softisp.cpp`
+2. Add ONNX Runtime dependency to `meson.build`
+3. Load `algo.onnx` and `applier.onnx` models
+4. Run inference pipeline
+
+### **Priority 2: Buffer Allocation**
+1. Implement `exportFrameBuffers()` with actual DMA buffer allocation
+2. Use `libcamera::DMABufAllocator` or V4L2 buffer allocation
+3. Ensure proper buffer cleanup in destructor
+
+### **Priority 3: V4L2 Integration (Real Pipeline)**
+1. Open V4L2 device in `configure()`
+2. Set video format and parameters
+3. Implement `start()` to begin streaming
+4. Implement `stopDevice()` to stop streaming
+5. Implement `queueRequestDevice()` to queue buffers
+
+### **Priority 4: Test App**
+1. Fix API usage in `tools/softisp-test-app.cpp`
+2. Implement proper camera enumeration
+3. Add frame capture and saving functionality
+4. Test with both pipelines
+
+### **Priority 5: Unit Tests**
+1. Complete `test/ipa/softisp_module_test.cpp`
+2. Complete `test/ipa/softisp_virtual_module_test.cpp`
+3. Add integration tests
+
+---
+
+## 15. Known Limitations (Current State)
+
+1. **No Actual Frame Capture**: Buffers are not allocated, so no real frames can be captured
+2. **No ISP Processing**: ONNX models are not loaded or executed
+3. **No Hardware Integration**: V4L2 device is not opened or configured
+4. **No Streaming**: Camera cannot start/stop streaming
+5. **Test App Disabled**: Due to API changes, test app is not building
+
+---
+
+## 16. Build Verification Commands
+
+```bash
+# Full build (excluding tests)
+meson compile -C build
+
+# Build only library and IPA modules
+ninja -C build src/libcamera/libcamera.so src/ipa/softisp/ipa_softisp.so src/ipa/softisp/ipa_softisp_virtual.so
+
+# Verify built files
+ls -lh build/src/libcamera/libcamera.so
+ls -lh build/src/ipa/softisp/*.so
+
+# Check IPA module symbols
+nm -D build/src/ipa/softisp/ipa_softisp.so | grep ipaCreate
+nm -D build/src/ipa/softisp/ipa_softisp_virtual.so | grep ipaCreate
+```
+
+---
+
+*Last Updated: 2026-04-21*
+*Status: Build Complete, Core Infrastructure Ready, ONNX Integration Pending*
