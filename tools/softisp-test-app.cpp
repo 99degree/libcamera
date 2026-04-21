@@ -34,7 +34,7 @@ static void printUsage(const char *prog)
 {
 	std::cerr << "Usage: " << prog << " [options]" << std::endl;
 	std::cerr << "Options:" << std::endl;
-	std::cerr << "  --pipeline <name>   Pipeline to use (softisp or virtual_softisp)" << std::endl;
+	std::cerr << "  --pipeline <name>   Pipeline to use (softisp or dummy_softisp)" << std::endl;
 	std::cerr << "  --output <file>     Output file (default: output.yuv)" << std::endl;
 	std::cerr << "  --frames <n>        Number of frames to process (default: 10)" << std::endl;
 	std::cerr << "  --help              Show this help message" << std::endl;

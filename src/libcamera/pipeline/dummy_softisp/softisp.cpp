@@ -60,7 +60,7 @@ int SoftISPCameraData::loadIPA()
 	 * Load the SoftISP IPA module.
 	 *
 	 * The IPAManager will search for an IPA module where:
-	 * - pipelineName matches the pipeline handler name ("virtual_softisp")
+	 * - pipelineName matches the pipeline handler name ("dummy_softisp")
 	 * - pipelineVersion is within the specified range (0, 0 = any)
 	 */
 	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(pipe(), 0, 0);
@@ -256,4 +256,4 @@ int PipelineHandlerVirtualSoftISP::queueRequestDevice(Camera *camera, Request *r
 } /* namespace libcamera */
 
 /* Register the pipeline handler */
-REGISTER_PIPELINE_HANDLER(PipelineHandlerVirtualSoftISP, "virtual_softisp")
+REGISTER_PIPELINE_HANDLER(PipelineHandlerVirtualSoftISP, "dummy_softisp")

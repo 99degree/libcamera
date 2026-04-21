@@ -57,12 +57,12 @@ protected:
 	{
 		int count = 0;
 
-		/* Test the virtual_softisp module */
+		/* Test the dummy_softisp module */
 		const struct IPAModuleInfo testInfo = {
 			IPA_MODULE_API_VERSION,
 			0,
 			"softisp-virtual",
-			"virtual_softisp",
+			"dummy_softisp",
 		};
 
 		count += runTest("src/ipa/softisp/ipa_softisp_virtual.so", testInfo);
