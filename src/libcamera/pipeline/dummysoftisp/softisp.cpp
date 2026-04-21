@@ -97,7 +97,23 @@ DummySoftISPCameraData::~DummySoftISPCameraData()
 
 int DummySoftISPCameraData::init()
 {
-	LOG(SoftISPDummyPipeline, Debug) << "Initializing SoftISP camera (virtual)";
+	LOG(SoftISPDummyPipeline, Info) << "Initializing SoftISP camera (virtual)";
+	/*
+	 * Note: IPA loading is disabled for dummy pipeline in Termux environment
+	 * due to proxy fork limitations. The pipeline works without IPA for testing
+	 * buffer allocation and request queuing.
+	 * 
+	 * To enable IPA processing:
+	 * 1. Fix the proxy worker fork issue in Termux
+	 * 2. Or implement a direct IPA loading mechanism
+	 * 3. Call loadIPA() here and handle errors appropriately
+	 */
+	// int ret = loadIPA();
+	// if (ret < 0) {
+	//     LOG(SoftISPDummyPipeline, Error) << "Failed to load IPA module";
+	//     return ret;
+	// }
+	LOG(SoftISPDummyPipeline, Info) << "IPA loading skipped (dummy mode)";
 	return 0;
 }
 
@@ -110,6 +126,7 @@ int DummySoftISPCameraData::loadIPA()
 	 * - pipelineName matches the pipeline handler name ("dummysoftisp")
 	 * - pipelineVersion is within the specified range (0, 0 = any)
 	 */
+	/* Load the SoftISP IPA module using standard proxy mechanism */
 	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(Camera::Private::pipe(), 0, 0);
 	if (!ipa_) {
 		LOG(SoftISPDummyPipeline, Error)
