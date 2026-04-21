@@ -241,7 +241,12 @@ int main(int argc, char *argv[]) {
 		 * We need to get a buffer to use.
 		 * For now, we'll create a new request which should allocate a buffer.
 		 */
-		ret = camera->queueRequest(request.get());
+		fprintf(stderr, "DEBUG [testapp]: Checking request buffers\n");
+	fprintf(stderr, "DEBUG [testapp]: Request buffers size: %zu\n", request->buffers().size());
+	for (const auto &[stream, buffer] : request->buffers()) {
+		fprintf(stderr, "DEBUG [testapp]: Buffer for stream %p: %p\n", static_cast<const void*>(stream), static_cast<const void*>(buffer));
+	}
+	ret = camera->queueRequest(request.get());
 		if (ret) {
 			std::cerr << "Failed to queue request: " << ret << std::endl;
 			break;

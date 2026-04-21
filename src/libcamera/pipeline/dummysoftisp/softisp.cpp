@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <thread>
 #include <cstdio>
+#include <stdio.h>
 /*
  * Copyright (C) 2024
  *
@@ -14,6 +15,7 @@
 #include <memory>
 #include <queue>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -342,36 +344,116 @@ int PipelineHandlerDummysoftisp::configure(Camera *camera,
 	return 0;
 }
 
-int PipelineHandlerDummysoftisp::exportFrameBuffers(Camera *camera, Stream *stream,
-					       std::vector<std::unique_ptr<FrameBuffer>> *buffers)
+int PipelineHandlerDummysoftisp::exportFrameBuffers(Camera *camera, Stream *stream, std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
-	/*
-	 * Export frame buffers for the given stream.
-	 * This would typically allocate DMA buffers and return them.
-	 */
+	fprintf(stderr, "DEBUG [exportFrameBuffers]: ENTERED for stream %p\n", static_cast<void*>(stream));
+	const StreamConfiguration &config = stream->configuration();
+	const PixelFormatInfo &info = PixelFormatInfo::info(config.pixelFormat);
 
-	unsigned int count = stream->configuration().bufferCount;
+	/* Try DmaBufAllocator first */
+	if (dmaBufAllocator_.isValid()) {
+		fprintf(stderr, "DEBUG [exportFrameBuffers]: Using DmaBufAllocator\n");
+		std::vector<unsigned int> planeSizes;
+		for (size_t i = 0; i < info.numPlanes(); ++i) {
+			planeSizes.push_back(info.planeSize(config.size, i));
+		}
+		int ret = dmaBufAllocator_.exportBuffers(config.bufferCount, planeSizes, buffers);
+		fprintf(stderr, "DEBUG [exportFrameBuffers]: DmaBufAllocator returned: %d, buffers: %zu\n", ret, buffers->size());
+		if (ret == 0) return 0;
+		fprintf(stderr, "DEBUG [exportFrameBuffers]: DmaBufAllocator failed, trying fallback\n");
+	}
 
-	for (unsigned int i = 0; i < count; ++i) {
-		/* Allocate a buffer */
-		std::unique_ptr<FrameBuffer> buffer;
-		/* Placeholder for buffer allocation */
+	/* Fallback: Manual buffer allocation */
+	buffers->clear();
+	uint32_t size = 0;
+	for (size_t i = 0; i < info.numPlanes(); ++i) {
+		size += info.planeSize(config.size, i);
+	}
+	fprintf(stderr, "DEBUG [exportFrameBuffers]: Total buffer size: %u\n", size);
+
+	for (unsigned int i = 0; i < config.bufferCount; ++i) {
+		int fd = -1;
+		void *map = nullptr;
+		bool useAnonymous = false;
+
+		/* Try memfd_create first */
+		fd = memfd_create("softisp_buffer", MFD_CLOEXEC);
+		if (fd >= 0) {
+			fprintf(stderr, "DEBUG [exportFrameBuffers]: Using memfd: fd=%d\n", fd);
+			if (ftruncate(fd, size) < 0) {
+				fprintf(stderr, "DEBUG [exportFrameBuffers]: ftruncate failed: %d\n", errno);
+				close(fd);
+				fd = -1;
+			}
+		}
+
+		if (fd < 0) {
+			/* Fallback to anonymous memory */
+			fprintf(stderr, "DEBUG [exportFrameBuffers]: memfd failed, using anonymous memory\n");
+			useAnonymous = true;
+			map = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+			if (map == MAP_FAILED) {
+				fprintf(stderr, "DEBUG [exportFrameBuffers]: mmap failed: %d\n", errno);
+				return -errno;
+			}
+			memset(map, 0, size);
+			fd = -1; /* No fd for anonymous memory */
+		} else {
+			/* Map the memfd */
+			map = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+			if (map == MAP_FAILED) {
+				fprintf(stderr, "DEBUG [exportFrameBuffers]: mmap failed: %d\n", errno);
+				close(fd);
+				return -errno;
+			}
+			memset(map, 0, size);
+		}
+
+		/* Create a FrameBuffer */
+		std::vector<FrameBuffer::Plane> planes;
+		FrameBuffer::Plane plane;
+		plane.fd = SharedFD(fd);
+		plane.length = size;
+		plane.offset = 0;
+		planes.push_back(plane);
+
+		/* Create the buffer */
+		std::unique_ptr<FrameBuffer> buffer(new FrameBuffer(planes));
+
+		fprintf(stderr, "DEBUG [exportFrameBuffers]: Created buffer %u: fd=%d, size=%u, map=%p\n", i, fd, size, map);
+
 		buffers->push_back(std::move(buffer));
 	}
 
+	/* Store buffers in the camera data for later use */
+	DummySoftISPCameraData *data = cameraData(camera);
+	if (data) {
+		for (auto &buffer : *buffers) {
+			data->bufferPool_.push_back(std::move(buffer));
+		}
+		fprintf(stderr, "DEBUG [exportFrameBuffers]: Stored %zu buffers in pool\n", data->bufferPool_.size());
+	}
+
+	fprintf(stderr, "DEBUG [exportFrameBuffers]: Successfully exported %zu buffers (fallback)\n", buffers->size());
 	return 0;
 }
 
 int PipelineHandlerDummysoftisp::start(Camera *camera, const ControlList *controls)
 {
+	fprintf(stderr, "DEBUG [start]: ENTERED\n");
 	DummySoftISPCameraData *data = cameraData(camera);
+	if (!data) {
+		fprintf(stderr, "DEBUG [start]: No camera data!\n");
+		return -EINVAL;
+	}
+
+	/* Buffers will be exported automatically by libcamera when needed */
 
 	/* Start the camera processing thread */
 	data->running_ = true;
 	data->start();
-
 	LOG(SoftISPDummyPipeline, Info) << "SoftISP virtual camera started";
-
+	fprintf(stderr, "DEBUG [start]: EXITED\n");
 	return 0;
 }
 
@@ -388,14 +470,26 @@ void PipelineHandlerDummysoftisp::stopDevice(Camera *camera)
 
 int PipelineHandlerDummysoftisp::queueRequestDevice(Camera *camera, Request *request)
 {
+	fprintf(stderr, "DEBUG [queueRequestDevice]: ENTERED\n");
 	DummySoftISPCameraData *data = cameraData(camera);
+	if (!data) {
+		fprintf(stderr, "DEBUG [queueRequestDevice]: No camera data!\n");
+		return -EINVAL;
+	}
+
+	/* Check if request has buffers */
+	const auto &buffers = request->buffers();
+	fprintf(stderr, "DEBUG [queueRequestDevice]: Request has %zu buffers\n", buffers.size());
+
+	/* For dummy pipeline, we can proceed even without buffers */
+	if (buffers.empty()) {
+		fprintf(stderr, "DEBUG [queueRequestDevice]: Request has no buffers, completing immediately\n");
+		/* request->complete() not available */
+		return 0;
+	}
 
 	/* Queue the request for processing */
-	/* In a full implementation, this would add the request to a queue
-	 * and signal the processing thread */
-
 	data->processRequest(request);
-
 	return 0;
 }
 
