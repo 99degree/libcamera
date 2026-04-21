@@ -63,7 +63,7 @@ int SoftISPCameraData::loadIPA()
 	 * - pipelineName matches the pipeline handler name ("dummysoftisp")
 	 * - pipelineVersion is within the specified range (0, 0 = any)
 	 */
-	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(this->pipe(), 0, 0);
+	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(Camera::Private::pipe(), 0, 0);
 	if (!ipa_) {
 		LOG(SoftISPPipeline, Error)
 			<< "Failed to create SoftISP IPA module for virtual camera";
@@ -116,7 +116,7 @@ void SoftISPCameraData::processRequest(Request *request)
 	LOG(SoftISPPipeline, Debug) << "Processing request through SoftISP";
 
 	/* Mark request as complete */
-	this->pipe()->completeRequest(request);
+	Camera::Private::pipe()->completeRequest(request);
 }
 
 /* -----------------------------------------------------------------------------
@@ -235,7 +235,7 @@ void PipelineHandlerDummysoftisp::stopDevice(Camera *camera)
 
 	/* Stop the camera processing thread */
 	data->running_ = false;
-	Thread::stop();
+	exit(0);
 
 	LOG(SoftISPPipeline, Info) << "SoftISP virtual camera stopped";
 }
