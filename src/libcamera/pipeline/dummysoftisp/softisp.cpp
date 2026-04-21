@@ -38,7 +38,7 @@ LOG_DEFINE_CATEGORY(SoftISPPipeline)
  * SoftISPCameraData Implementation
  * ---------------------------------------------------------------------------*/
 
-SoftISPCameraData::SoftISPCameraData(PipelineHandlerDummySoftISP *pipe)
+SoftISPCameraData::SoftISPCameraData(PipelineHandlerDummysoftisp *pipe)
 	: Camera::Private(pipe), Thread("SoftISPCamera")
 {
 }
@@ -60,7 +60,7 @@ int SoftISPCameraData::loadIPA()
 	 * Load the SoftISP IPA module.
 	 *
 	 * The IPAManager will search for an IPA module where:
-	 * - pipelineName matches the pipeline handler name ("dummy_softisp")
+	 * - pipelineName matches the pipeline handler name ("dummysoftisp")
 	 * - pipelineVersion is within the specified range (0, 0 = any)
 	 */
 	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(pipe(), 0, 0);
@@ -120,20 +120,20 @@ void SoftISPCameraData::processRequest(Request *request)
 }
 
 /* -----------------------------------------------------------------------------
- * PipelineHandlerDummySoftISP Implementation
+ * PipelineHandlerDummysoftisp Implementation
  * ---------------------------------------------------------------------------*/
 
-PipelineHandlerDummySoftISP::PipelineHandlerDummySoftISP(CameraManager *manager)
+PipelineHandlerDummysoftisp::PipelineHandlerDummysoftisp(CameraManager *manager)
 	: PipelineHandler(manager)
 {
 	LOG(SoftISPPipeline, Info) << "SoftISP virtual pipeline handler initialized";
 }
 
-PipelineHandlerDummySoftISP::~PipelineHandlerDummySoftISP()
+PipelineHandlerDummysoftisp::~PipelineHandlerDummysoftisp()
 {
 }
 
-bool PipelineHandlerDummySoftISP::match(DeviceEnumerator *enumerator)
+bool PipelineHandlerDummysoftisp::match(DeviceEnumerator *enumerator)
 {
 	/*
 	 * For now, we don't automatically match any devices.
@@ -145,7 +145,7 @@ bool PipelineHandlerDummySoftISP::match(DeviceEnumerator *enumerator)
 }
 
 std::unique_ptr<CameraConfiguration>
-PipelineHandlerDummySoftISP::generateConfiguration(Camera *camera,
+PipelineHandlerDummysoftisp::generateConfiguration(Camera *camera,
 					      Span<const StreamRole> roles)
 {
 	SoftISPCameraData *data = cameraData(camera);
@@ -167,7 +167,7 @@ PipelineHandlerDummySoftISP::generateConfiguration(Camera *camera,
 	return config;
 }
 
-int PipelineHandlerDummySoftISP::configure(Camera *camera,
+int PipelineHandlerDummysoftisp::configure(Camera *camera,
 				      CameraConfiguration *config)
 {
 	SoftISPCameraData *data = cameraData(camera);
@@ -196,7 +196,7 @@ int PipelineHandlerDummySoftISP::configure(Camera *camera,
 	return 0;
 }
 
-int PipelineHandlerDummySoftISP::exportFrameBuffers(Camera *camera, Stream *stream,
+int PipelineHandlerDummysoftisp::exportFrameBuffers(Camera *camera, Stream *stream,
 					       std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
 	/*
@@ -216,7 +216,7 @@ int PipelineHandlerDummySoftISP::exportFrameBuffers(Camera *camera, Stream *stre
 	return 0;
 }
 
-int PipelineHandlerDummySoftISP::start(Camera *camera, const ControlList *controls)
+int PipelineHandlerDummysoftisp::start(Camera *camera, const ControlList *controls)
 {
 	SoftISPCameraData *data = cameraData(camera);
 
@@ -229,7 +229,7 @@ int PipelineHandlerDummySoftISP::start(Camera *camera, const ControlList *contro
 	return 0;
 }
 
-void PipelineHandlerDummySoftISP::stopDevice(Camera *camera)
+void PipelineHandlerDummysoftisp::stopDevice(Camera *camera)
 {
 	SoftISPCameraData *data = cameraData(camera);
 
@@ -240,7 +240,7 @@ void PipelineHandlerDummySoftISP::stopDevice(Camera *camera)
 	LOG(SoftISPPipeline, Info) << "SoftISP virtual camera stopped";
 }
 
-int PipelineHandlerDummySoftISP::queueRequestDevice(Camera *camera, Request *request)
+int PipelineHandlerDummysoftisp::queueRequestDevice(Camera *camera, Request *request)
 {
 	SoftISPCameraData *data = cameraData(camera);
 
@@ -253,5 +253,5 @@ int PipelineHandlerDummySoftISP::queueRequestDevice(Camera *camera, Request *req
 	return 0;
 }
 
-REGISTER_PIPELINE_HANDLER(PipelineHandlerDummySoftISP, "dummy_softisp")
+REGISTER_PIPELINE_HANDLER(PipelineHandlerDummysoftisp, "dummysoftisp")
 } /* namespace libcamera */
