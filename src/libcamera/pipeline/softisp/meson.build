@@ -15,6 +15,3 @@ softisp_pipeline = library('pipeline_softisp',
     install : true,
     install_dir : libcamera_libdir / 'pipeline'
 )
-
-# Register the pipeline with the global pipeline list
-pipelines += 'softisp'
