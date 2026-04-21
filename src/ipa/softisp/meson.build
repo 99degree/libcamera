@@ -10,16 +10,14 @@ softisp_module_sources = softisp_common_sources + [
     'softisp_module.cpp',
 ]
 
-ipa_softisp = library('ipa_softisp',
+ipa_name = 'ipa_softisp'
+ipa_softisp = shared_module(ipa_name,
     softisp_module_sources,
     name_prefix : '',
-    include_directories : [
-        libcamera_includes,
-        libcamera_internal_includes,
-    ],
-    dependencies : [libcamera_private, onnxruntime_dep],
+    include_directories : [ipa_includes],
+    dependencies : [libcamera_private, libipa_dep, onnxruntime_dep],
     install : true,
-    install_dir : libcamera_libdir / 'ipa'
+    install_dir : ipa_install_dir
 )
 
 # Module 2: For "virtual-softisp" pipeline (virtual cameras)
@@ -27,14 +25,16 @@ softisp_virtual_module_sources = softisp_common_sources + [
     'softisp_virtual_module.cpp',
 ]
 
-ipa_softisp_virtual = library('ipa_softisp_virtual',
+ipa_name = 'ipa_softisp_virtual'
+ipa_softisp_virtual = shared_module(ipa_name,
     softisp_virtual_module_sources,
     name_prefix : '',
-    include_directories : [
-        libcamera_includes,
-        libcamera_internal_includes,
-    ],
-    dependencies : [libcamera_private, onnxruntime_dep],
+    include_directories : [ipa_includes],
+    dependencies : [libcamera_private, libipa_dep, onnxruntime_dep],
     install : true,
-    install_dir : libcamera_libdir / 'ipa'
+    install_dir : ipa_install_dir
 )
+
+# Add to list of IPA modules
+ipa_names += 'ipa_softisp'
+ipa_names += 'ipa_softisp_virtual'
