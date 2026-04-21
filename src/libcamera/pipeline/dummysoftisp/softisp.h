@@ -27,12 +27,12 @@ class SoftISPCameraData;
 
 /*
  * SoftISPCameraData - Camera data structure for SoftISP dummy pipeline.
- * Must be defined BEFORE PipelineHandlerDummySoftISP.
+ * Must be defined BEFORE PipelineHandlerDummysoftisp.
  */
 class SoftISPCameraData : public Camera::Private, public Thread
 {
 public:
-	SoftISPCameraData(PipelineHandlerDummySoftISP *pipe);
+	SoftISPCameraData(PipelineHandlerDummysoftisp *pipe);
 	~SoftISPCameraData();
 
 	int init();
@@ -55,11 +55,11 @@ public:
 /*
  * Pipeline handler for SoftISP with dummy cameras.
  */
-class PipelineHandlerDummySoftISP : public PipelineHandler
+class PipelineHandlerDummysoftisp : public PipelineHandler
 {
 public:
-	PipelineHandlerDummySoftISP(CameraManager *manager);
-	~PipelineHandlerDummySoftISP();
+	PipelineHandlerDummysoftisp(CameraManager *manager);
+	~PipelineHandlerDummysoftisp();
 
 	std::unique_ptr<CameraConfiguration> generateConfiguration(
 		Camera *camera, Span<const StreamRole> roles) override;

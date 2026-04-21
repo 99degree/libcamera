@@ -2,12 +2,12 @@
 
 **Date:** 2026-04-21  
 **Status:** Ready for Execution  
-**Target:** `dummy_softisp` pipeline (No hardware required)
+**Target:** `dummysoftisp` pipeline (No hardware required)
 
 ---
 
 ## 1. Objective
-Verify that the **SoftISP** Image Processing Algorithm (IPA) functions correctly within the **libcamera** framework using the `dummy_softisp` pipeline. This test validates the entire stack (Pipeline → IPA Module → ONNX Models) **without requiring any physical camera hardware**.
+Verify that the **SoftISP** Image Processing Algorithm (IPA) functions correctly within the **libcamera** framework using the `dummysoftisp` pipeline. This test validates the entire stack (Pipeline → IPA Module → ONNX Models) **without requiring any physical camera hardware**.
 
 ---
 
@@ -28,12 +28,12 @@ rm -rf build
 ```
 
 ### 3.2. Configure Meson
-We enable the SoftISP feature, explicitly request both pipelines (`softisp` and `dummy_softisp`), and disable strict error checking to bypass known Termux-specific build warnings.
+We enable the SoftISP feature, explicitly request both pipelines (`softisp` and `dummysoftisp`), and disable strict error checking to bypass known Termux-specific build warnings.
 
 ```bash
 meson setup build \
   -Dsoftisp=enabled \
-  '-Dpipelines=simple,softisp,dummy_softisp' \
+  '-Dpipelines=simple,softisp,dummysoftisp' \
   -Dtest=true \
   -Dc_args=-Wno-error \
   -Dcpp_args=-Wno-error
@@ -76,20 +76,20 @@ meson test softisp_module_test softisp_virtual_module_test --verbose
 
 **✅ Expected Result:**
 - `softisp_module_test`: Passes. Output: `name = softisp, pipelineName = softisp`
-- `softisp_virtual_module_test`: Passes. Output: `name = softisp-virtual, pipelineName = dummy_softisp`
+- `softisp_virtual_module_test`: Passes. Output: `name = softisp-virtual, pipelineName = dummysoftisp`
 
 ### 4.3. Step 2: Integration Test (Virtual Pipeline)
-Run the test application with the `dummy_softisp` pipeline to simulate a camera session.
+Run the test application with the `dummysoftisp` pipeline to simulate a camera session.
 
 ```bash
-./tools/softisp-test-app --pipeline dummy_softisp --output test_virtual.yuv --frames 10
+./tools/softisp-test-app --pipeline dummysoftisp --output test_virtual.yuv --frames 10
 ```
 
 **✅ Expected Output:**
 ```text
 Available cameras:
-  /dev/media0 (Pipeline: dummy_softisp)
-Using camera: /dev/media0 (Pipeline: dummy_softisp)
+  /dev/media0 (Pipeline: dummysoftisp)
+Using camera: /dev/media0 (Pipeline: dummysoftisp)
 Camera started. Processing 10 frames...
 Processed frame 1/10
 Processed frame 2/10
@@ -113,7 +113,7 @@ ls -lh test_virtual.yuv
 
 | Issue | Possible Cause | Solution |
 | :--- | :--- | :--- |
-| `No camera found for pipeline` | Pipeline not built or not in path | Ensure `-Dpipelines=...,dummy_softisp` was used. Check `build/src/libcamera/pipeline/dummy_softisp/`. |
+| `No camera found for pipeline` | Pipeline not built or not in path | Ensure `-Dpipelines=...,dummysoftisp` was used. Check `build/src/libcamera/pipeline/dummysoftisp/`. |
 | `Failed to create SoftISP IPA` | Model files missing | Verify `SOFTISP_MODEL_DIR` points to a folder containing `algo.onnx` and `applier.onnx`. |
 | `ONNX Runtime Error` | Corrupted models or version mismatch | Re-download models from `https://github.com/99degree/softisp-python`. |
 | `pthread_setaffinity_np` error | Build warning treated as error | Ensure `-Dc_args=-Wno-error` was used in `meson setup`. |
@@ -124,7 +124,7 @@ ls -lh test_virtual.yuv
 The test is considered **PASSED** if:
 1.  The build completes without fatal errors.
 2.  Both IPA module unit tests pass.
-3.  `softisp-test-app` runs successfully with `--pipeline dummy_softisp` **without a physical camera**.
+3.  `softisp-test-app` runs successfully with `--pipeline dummysoftisp` **without a physical camera**.
 4.  The app logs "Processed frame X" for all requested frames.
 5.  An output file (`test_virtual.yuv`) is generated with non-zero size.
 
