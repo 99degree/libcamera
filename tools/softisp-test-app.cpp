@@ -191,6 +191,12 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
+	/* Acquire the camera to transition from Available to Acquired state */
+	ret = camera->acquire();
+	if (ret) {
+		std::cerr << "Failed to acquire camera: " << ret << std::endl;
+		return -1;
+	}
 	/* Configure stream */
 	StreamConfiguration &cfg = config->at(0);
 	cfg.size = kTestSize;
