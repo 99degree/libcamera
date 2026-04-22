@@ -381,7 +381,9 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
         int imgHeight = impl_->imageHeight;
         size_t imgSize = imgWidth * imgHeight;
 
-        std::vector<int16_t> imageData(imgSize, 128);
+        // TODO: Get real buffer data from pipeline via bufferId
+// For now, use simulated data - will be replaced with actual buffer reading
+std::vector<int16_t> imageData(imgSize, 128);
         int64_t imgShape[] = {imgHeight, imgWidth};
         std::vector<int64_t> widthData(1, imgWidth);
         int64_t widthShape[] = {1};
