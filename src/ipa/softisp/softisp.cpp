@@ -37,6 +37,9 @@ struct SoftIsp::Impl {
 	std::unique_ptr<Ort::Session> applierSession;
 	Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 		Ort::AllocatorWithDefaultOptions allocator;
+	bool initialized = false;
+	int imageWidth = 640;
+	int imageHeight = 480;
 
 	// Model paths
 	std::string algoModelPath;
@@ -149,6 +152,15 @@ void SoftIsp::computeParams(const uint32_t frame)
 void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
 			     const ControlList &sensorControls)
 {
+	LOG(SoftIsp, Info) << ">>> processStats called for frame " << frame;
+	LOG(SoftIsp, Info) << "  initialized=" << impl_->initialized 
+			     << " algoSession=" << (impl_->algoSession ? "yes" : "no")
+			     << " applierSession=" << (impl_->applierSession ? "yes" : "no");
+	if (!impl_->initialized || !impl_->algoSession || !impl_->applierSession) {
+		LOG(SoftIsp, Error) << "SoftISP not properly initialized";
+		return;
+	}
+
 	LOG(SoftIsp, Info) << "Processing frame " << frame << " buffer " << bufferId;
 
 	/* Check if models are loaded */
