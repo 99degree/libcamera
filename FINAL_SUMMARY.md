@@ -184,3 +184,70 @@ All checks should pass:
 The SoftISP implementation is **production-ready** for the infrastructure layer. The ONNX inference logic can now be implemented with confidence that the pipeline will execute correctly. The architecture follows libcamera best practices and is compatible with Termux constraints.
 
 **Status**: Infrastructure Complete ✅ | Inference Logic Ready for Implementation ⏳
+
+## 🎉 Latest Updates
+
+### ONNX Model Inspector (`tools/softisp-onnx-test`)
+
+A standalone tool to inspect and verify ONNX models:
+
+```bash
+$ export SOFTISP_MODEL_DIR=/path/to/models
+$ ./build/tools/softisp-onnx-test
+```
+
+**Output:**
+```
+=== algo.onnx ===
+Inputs: 4, Outputs: 15
+Input names:
+  - image_desc.input.image.function
+  - image_desc.input.width.function
+  - image_desc.input.frame_id.function
+  - blacklevel.offset.function
+Output names:
+  - image_desc.width.function
+  - bayer2cfa.cfa_onehot.function
+  - awb.wb_gains.function
+  ...
+
+=== applier.onnx ===
+Inputs: 10, Outputs: 7
+...
+```
+
+### Model Structure Discovered
+
+**algo.onnx** (ISP Coefficient Generation):
+- **4 Inputs**: image description, width, frame ID, black level offset
+- **15 Outputs**: ISP coefficients (WB gains, CCM, tonemap, gamma, RGB/YUV matrices, etc.)
+
+**applier.onnx** (Coefficient Application):
+- **10 Inputs**: image data + all ISP coefficients from algo.onnx
+- **7 Outputs**: processed image data (RGB output, dimensions, etc.)
+
+### Test Applications
+
+1. **softisp-test-app**: Full libcamera pipeline test
+   - Creates virtual camera
+   - Allocates buffers
+   - Queues requests
+   - Calls `processStats()` which triggers ONNX inference
+
+2. **softisp-onnx-test**: Standalone ONNX model inspector
+   - Loads and validates models
+   - Displays tensor information
+   - No libcamera dependencies
+
+### Next Steps for Full Inference
+
+With the model structure known, implement actual inference in `SoftIsp::processStats()`:
+
+1. Extract real statistics from frame/sensor
+2. Prepare 4 input tensors for `algo.onnx`
+3. Run inference → get 15 coefficient outputs
+4. Prepare 10 input tensors for `applier.onnx` (image + coefficients)
+5. Run inference → get 7 processed outputs
+6. Apply results to frame buffer
+
+The infrastructure is complete and ready!
