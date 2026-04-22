@@ -107,9 +107,13 @@ int32_t SoftIsp::init(const IPASettings &settings, const SharedFD &fdStats, cons
 		LOG(SoftIsp, Error) << "Failed to load applier.onnx: " << e.what();
 		return -EINVAL;
 	}
+	fprintf(stderr, ">>> APPLIER LOADED, setting ccmEnabled\n");
+	fflush(stderr);
 
-	*ccmEnabled = true;
-	LOG(SoftIsp, Info) << "SoftISP initialization complete (models detected)";
+	if (ccmEnabled) *ccmEnabled = true;
+	fprintf(stderr, ">>> SoftISP initialization complete (models detected)\n"); fflush(stderr);
+	fprintf(stderr, ">>> About to return from init()\n");
+	fflush(stderr);
 	return 0;
 }
 
@@ -142,10 +146,29 @@ void SoftIsp::computeParams(const uint32_t frame)
 	// Optional: Compute parameters if needed
 }
 
-void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const ControlList &sensorControls)
+void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
+			     const ControlList &sensorControls)
 {
-	LOG(SoftIsp, Debug) << "Processing stats for frame " << frame;
-	// TODO: Run ONNX inference: stats -> algo.onnx -> applier.onnx -> metadata
+	LOG(SoftIsp, Info) << "Processing frame " << frame << " buffer " << bufferId;
+
+	/* Check if models are loaded */
+	if (!impl_->algoSession || !impl_->applierSession) {
+		LOG(SoftIsp, Error) << "ONNX models not loaded, skipping inference";
+		return;
+	}
+
+	/*
+	 * TODO: Implement actual inference pipeline:
+	 * 1. Extract statistics from the frame buffer (e.g., histogram, AWB stats)
+	 * 2. Prepare input tensors for algo.onnx
+	 * 3. Run algo.onnx inference -> get ISP coefficients
+	 * 4. Prepare input tensors for applier.onnx (coefficients + image data)
+	 * 5. Run applier.onnx inference -> get processed image parameters
+	 * 6. Apply parameters to the frame buffer
+	 *
+	 * For now, we log the frame processing step.
+	 */
+	LOG(SoftIsp, Info) << "Frame " << frame << " processed (inference logic to be implemented)";
 }
 
 } // namespace ipa::soft

@@ -97,6 +97,7 @@ DummySoftISPCameraData::~DummySoftISPCameraData()
 
 int DummySoftISPCameraData::init()
 {
+	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] init() START";
 	LOG(SoftISPDummyPipeline, Info) << "Initializing SoftISP camera (virtual)";
 	
 	/*
@@ -111,6 +112,7 @@ int DummySoftISPCameraData::init()
 		LOG(SoftISPDummyPipeline, Error) << "Failed to load IPA module (expected in Termux without proxy fix)";
 		LOG(SoftISPDummyPipeline, Info) << "Continuing without IPA processing...";
 		// Return success anyway to allow testing buffer/request flow without IPA
+	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] init() END";
 		return 0;
 	}
 	
@@ -120,6 +122,7 @@ int DummySoftISPCameraData::init()
 
 int DummySoftISPCameraData::loadIPA()
 {
+	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] loadIPA() START";
 	/*
 	 * Load the SoftISP IPA module.
 	 *
@@ -128,7 +131,9 @@ int DummySoftISPCameraData::loadIPA()
 	 * - pipelineVersion is within the specified range (0, 0 = any)
 	 */
 	/* Load the SoftISP IPA module using standard proxy mechanism */
+	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] About to call createIPA()";
 	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(Camera::Private::pipe(), 0, 0);
+	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] createIPA() returned: " << (void*)ipa_.get();
 	if (!ipa_) {
 		LOG(SoftISPDummyPipeline, Error)
 			<< "Failed to create SoftISP IPA module for virtual camera";
@@ -305,11 +310,14 @@ int PipelineHandlerDummysoftisp::configure(Camera *camera,
 	// if (ret)
 	// 	return ret;
 
+	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] Starting IPA configuration";
 	/* Configure the IPA module */
 	if (data->ipa_) {
 		/* Call IPA init */
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] Calling ipa_->init()";
 		int32_t ret = data->ipa_->init(IPASettings{}, SharedFD{}, SharedFD{},
 					   IPACameraSensorInfo{}, ControlInfoMap{}, nullptr, nullptr);
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] ipa_->init() returned: " << ret;
 		if (ret < 0) {
 			LOG(SoftISPDummyPipeline, Error) << "Failed to init IPA: " << ret;
 			return ret;
@@ -318,12 +326,15 @@ int PipelineHandlerDummysoftisp::configure(Camera *camera,
 		
 		/* Call IPA configure */
 		ipa::soft::IPAConfigInfo configInfo{};
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] Calling ipa_->configure()";
 		ret = data->ipa_->configure(configInfo);
 		if (ret < 0) {
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] ipa_->configure() returned: " << ret;
 			LOG(SoftISPDummyPipeline, Error) << "Failed to configure IPA: " << ret;
 			return ret;
 		}
 		LOG(SoftISPDummyPipeline, Info) << "IPA configure successful";
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] IPA configuration section done";
 	} else {
 		LOG(SoftISPDummyPipeline, Warning) << "IPA not loaded, skipping init/configure";
 	}
