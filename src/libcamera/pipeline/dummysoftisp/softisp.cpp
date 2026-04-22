@@ -41,6 +41,9 @@
 
 namespace libcamera {
 
+/* Global map for buffer FDs (pipeline -> IPA) */
+static std::map<uint32_t, int> g_bufferFdMap;
+
 
 /* DummySoftISPConfiguration class declaration */
 class DummySoftISPConfiguration : public CameraConfiguration {
@@ -163,6 +166,14 @@ void DummySoftISPCameraData::run()
 	}
 }
 
+/* Helper to retrieve buffer from bufferId */
+FrameBuffer* DummySoftISPCameraData::getBufferFromId(uint32_t bufferId)
+{
+	// Mutex::Lock lock(mutex_); // Removed for global map
+	auto it = bufferMap_.find(bufferId);
+	return (it != bufferMap_.end()) ? it->second : nullptr;
+}
+
 void DummySoftISPCameraData::processRequest(Request *request)
 {
 	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] processRequest() START";
@@ -171,19 +182,59 @@ void DummySoftISPCameraData::processRequest(Request *request)
 		/* Use a simple frame counter */
 		static uint32_t frameCounter = 0;
 		uint32_t frameId = frameCounter++;
+
+		/* Get the buffer ID from the request */
+		uint32_t bufferId = 0;
+		const auto &buffers = request->buffers();
+		if (!buffers.empty()) {
+			FrameBuffer *buffer = buffers.begin()->second;
+			if (buffer && !buffer->planes().empty()) {
+				/* Use the first plane's fd as a simple buffer ID */
+				bufferId = static_cast<uint32_t>(buffer->planes()[0].fd.get());
+				/* Store buffer pointer for later retrieval in processStats */
+				{
+					// Mutex::Lock lock(mutex_); // Removed for global map
+					bufferMap_[bufferId] = buffer;
+				}
+			}
+		}
+
+		/* Get buffer from map and map memory for IPA */
+		FrameBuffer *buffer = nullptr;
+		auto it = bufferMap_.find(bufferId);
+		if (it != bufferMap_.end())
+			buffer = it->second;
 		
+		void *bufferMem = nullptr;
+		if (buffer && !buffer->planes().empty()) {
+			const auto &plane = buffer->planes()[0];
+			bufferMem = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.get(), 0);
+			if (bufferMem != MAP_FAILED) {
+				g_bufferFdMap[bufferId] = plane.fd.get();
+			} else {
+				bufferMem = nullptr;
+				LOG(SoftISPDummyPipeline, Error) << "Failed to map buffer";
+			}
+		}
+
 		/* Call IPA processStats to run ONNX inference */
-		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] Calling ipa_->processStats() for frame " << frameId;
-		ipa_->processStats(frameId, 0, ControlList{});
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] Calling ipa_->processStats() for frame " << frameId << " with bufferId " << bufferId;
+		ipa_->processStats(frameId, bufferId, ControlList{});
+
+		/* Unmap buffer after processing */
+		if (bufferMem) {
+			g_bufferFdMap.erase(bufferId);
+			munmap(bufferMem, buffer->planes()[0].length);
+		}
 		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] ipa_->processStats() completed";
+
+		/* Clean up buffer map after processing */
+		{
+			// Mutex::Lock lock(mutex_); // Removed for global map
+			bufferMap_.erase(bufferId);
+		}
 	}
 
-	/*
-	 * Note: We cannot call completeRequest() here because the buffers are still pending.
-	 * In a real implementation, we would process the buffers and then complete.
-	 * For now, we just log that processing is done.
-	 * The test app will need to handle completion differently.
-	 */
 	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] processRequest() END (not completing request)";
 }
 
@@ -274,7 +325,7 @@ std::unique_ptr<CameraConfiguration> PipelineHandlerDummysoftisp::generateConfig
 	
 	StreamFormats sf(streamFormats);
 	StreamConfiguration streamCfg(sf);
-	streamCfg.pixelFormat = formats::NV12;
+	streamCfg.pixelFormat = formats::RGB888; // Changed for SoftISP output compatibility
 	streamCfg.size = Size(1920, 1080); // FHD default
 	streamCfg.bufferCount = 8; // Larger buffer pool
 

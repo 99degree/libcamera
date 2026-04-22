@@ -65,3 +65,12 @@ check_coeffs = executable('softisp-check-coeffs',
   include_directories : [ libcamera_includes, ],
   dependencies : [ libcamera_private, onnxruntime_dep ]
 )
+
+# SoftISP frame saver
+softisp_save_sources = [
+  'softisp-save.cpp',
+]
+softisp_save = executable('softisp-save', softisp_save_sources,
+  include_directories : [ libcamera_includes, ],
+  dependencies : [ libcamera_private ]
+)
