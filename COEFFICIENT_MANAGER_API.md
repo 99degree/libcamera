@@ -170,3 +170,118 @@ auto_exposure 1
 - `-ENOENT`: File not found (loadConfig)
 - `-EIO`: I/O error (saveConfig)
 - Negative values: Other errors
+
+## Additional API: LCS and AF Support
+
+### LCS (Local Contrast Stretch) API
+
+```cpp
+// Set LCS parameters
+void setLcsParameters(float strength, float threshold, float radius);
+// Parameters:
+//   strength - Contrast enhancement strength (0.0 to 2.0, default 1.0)
+//   threshold - Minimum contrast threshold (0.0 to 1.0, default 0.1)
+//   radius - Processing radius in pixels (default 5.0)
+
+// Example:
+isp->setLcsParameters(1.5f, 0.15f, 7.0f);  // Stronger contrast, larger radius
+```
+
+**Configuration file:**
+```txt
+lcs_strength 1.5
+lcs_threshold 0.15
+lcs_radius 7.0
+```
+
+### AF (Auto Focus) API
+
+```cpp
+// Set AF parameters
+void setAfParameters(float score, int regionX, int regionY, 
+                     int regionWidth, int regionHeight,
+                     bool inFocus, float distance);
+// Parameters:
+//   score - Focus metric score (0.0 to 1.0, higher = better focus)
+//   regionX/Y - Top-left corner of focus region
+//   regionWidth/Height - Size of focus region
+//   inFocus - Whether the subject is in focus
+//   distance - Estimated focus distance (meters)
+
+// Example:
+isp->setAfParameters(0.85f, 320, 240, 100, 100, true, 2.5f);
+```
+
+**Configuration file:**
+```txt
+af_score 0.85
+af_in_focus 1
+```
+
+### ISPCoefficients Structure (Updated)
+
+```cpp
+struct ISPCoefficients {
+    // ... existing fields ...
+    
+    // LCS (Local Contrast Stretch) parameters
+    float lcsStrength;        // Contrast enhancement strength
+    float lcsThreshold;       // Minimum contrast threshold
+    float lcsRadius;          // Processing radius
+    
+    // AF (Auto Focus) parameters
+    float afScore;            // Focus metric score
+    int afRegionX;            // Focus region X
+    int afRegionY;            // Focus region Y
+    int afRegionWidth;        // Focus region width
+    int afRegionHeight;       // Focus region height
+    bool afInFocus;           // Focus status
+    float afDistance;         // Focus distance (meters)
+    
+    // ... existing fields ...
+    
+    // Override flags
+    bool overrideLcs;         // Flag: LCS overridden?
+    bool overrideAf;          // Flag: AF overridden?
+};
+```
+
+### Usage Example with LCS and AF
+
+```cpp
+#include "src/ipa/softisp/softisp.h"
+
+ipa::soft::SoftIsp* isp = ...;
+
+// Set enhanced local contrast
+isp->setLcsParameters(1.5f, 0.15f, 7.0f);
+
+// Set focus region and status
+isp->setAfParameters(0.9f, 320, 240, 100, 100, true, 2.5f);
+
+// Process frame
+isp->processStats(frame, bufferId, controls);
+
+// Query LCS and AF state
+const ISPCoefficients& coeffs = isp->getCurrentCoefficients();
+printf("LCS: strength=%.2f, threshold=%.2f, radius=%.2f\n",
+       coeffs.lcsStrength, coeffs.lcsThreshold, coeffs.lcsRadius);
+printf("AF: score=%.2f, inFocus=%d, distance=%.2fm\n",
+       coeffs.afScore, coeffs.afInFocus, coeffs.afDistance);
+```
+
+### Complete API Summary
+
+| Category | Methods |
+|----------|---------|
+| **AWB** | `setAwbGains()` |
+| **Color** | `setCcm()`, `setRgb2yuvMatrix()` |
+| **Tone** | `setGamma()`, `setTonemapCurve()` |
+| **Chroma** | `setChromaSubsampleScale()` |
+| **LCS** | `setLcsParameters()` |
+| **AF** | `setAfParameters()` |
+| **Config** | `loadConfig()`, `saveConfig()` |
+| **Query** | `getCurrentCoefficients()` |
+| **Clear** | `clearOverrides()` |
+
+**Total: 13 public methods**
