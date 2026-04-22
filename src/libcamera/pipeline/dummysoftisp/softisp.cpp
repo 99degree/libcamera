@@ -306,7 +306,27 @@ int PipelineHandlerDummysoftisp::configure(Camera *camera,
 	// 	return ret;
 
 	/* Configure the IPA module */
-	/* Placeholder for IPA configuration */
+	if (data->ipa_) {
+		/* Call IPA init */
+		int32_t ret = data->ipa_->init(IPASettings{}, SharedFD{}, SharedFD{},
+					   IPACameraSensorInfo{}, ControlInfoMap{}, nullptr, nullptr);
+		if (ret < 0) {
+			LOG(SoftISPDummyPipeline, Error) << "Failed to init IPA: " << ret;
+			return ret;
+		}
+		LOG(SoftISPDummyPipeline, Info) << "IPA init successful";
+		
+		/* Call IPA configure */
+		ipa::soft::IPAConfigInfo configInfo{};
+		ret = data->ipa_->configure(configInfo);
+		if (ret < 0) {
+			LOG(SoftISPDummyPipeline, Error) << "Failed to configure IPA: " << ret;
+			return ret;
+		}
+		LOG(SoftISPDummyPipeline, Info) << "IPA configure successful";
+	} else {
+		LOG(SoftISPDummyPipeline, Warning) << "IPA not loaded, skipping init/configure";
+	}
 
 	/* Set the stream for each configuration entry */
 	for (auto it = config->begin(); it != config->end(); ++it) {
