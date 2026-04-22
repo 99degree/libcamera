@@ -2,6 +2,7 @@
 /**
  * SoftIsp - Image Processing Algorithm that runs two ONNX models.
  */
+#include <onnxruntime_cxx_api.h>
 #pragma once
 
 #include "module.h"

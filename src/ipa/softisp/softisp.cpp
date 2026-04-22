@@ -159,6 +159,13 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
 
 	/*
 	 * TODO: Implement actual inference pipeline:
+
+ * Model Structure (verified via softisp-onnx-test):
+ * - algo.onnx: 4 inputs, 15 outputs
+ *   Inputs: image_desc.input.image.function, image_desc.input.width.function,
+ *           image_desc.input.frame_id.function, blacklevel.offset.function
+ * - applier.onnx: 10 inputs, 7 outputs
+ *   Inputs: 4 original + 6 coefficient tensors from algo.onnx
 	 * 1. Extract statistics from the frame buffer (e.g., histogram, AWB stats)
 	 * 2. Prepare input tensors for algo.onnx
 	 * 3. Run algo.onnx inference -> get ISP coefficients
