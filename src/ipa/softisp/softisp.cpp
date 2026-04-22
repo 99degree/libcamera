@@ -499,6 +499,20 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
         auto applierOutputs = ioBinding.GetOutputValues();
         LOG(SoftIsp, Info) << "applier.onnx completed: " << applierOutputs.size() << " outputs";
 
+		// Store the first output tensor (processed image) for pipeline to access
+		LOG(SoftIsp, Info) << "applierOutputs size: " << applierOutputs.size();
+		if (!applierOutputs.empty()) {
+			const auto &outputTensor = applierOutputs[0];
+			const float *tensorData = outputTensor.GetTensorData<float>();
+			size_t tensorElements = outputTensor.GetTensorTypeAndShapeInfo().GetElementCount();
+			
+			lastOutputData_.resize(tensorElements);
+			std::copy(tensorData, tensorData + tensorElements, lastOutputData_.begin());
+			lastOutputBufferId_ = bufferId;
+			
+			LOG(SoftIsp, Info) << "Stored " << tensorElements << " output elements for buffer " << bufferId << " (tensor shape: " << outputTensor.GetTensorTypeAndShapeInfo().GetShape()[0] << "x" << outputTensor.GetTensorTypeAndShapeInfo().GetShape()[1] << ")";
+		}
+
 
 		LOG(SoftIsp, Info) << "Frame " << frame << " processed successfully (ONNX inference complete, buffer writing to be implemented)";
 	} catch (const Ort::Exception& e) {
