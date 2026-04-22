@@ -83,6 +83,34 @@ void CoefficientManager::setChromaSubsampleScale(float scale)
     LOG(SoftIsp, Info) << "Chroma subscale set: " << scale;
 }
 
+void CoefficientManager::setLcsParameters(float strength, float threshold, float radius)
+{
+    userOverrides_.lcsStrength = strength;
+    userOverrides_.lcsThreshold = threshold;
+    userOverrides_.lcsRadius = radius;
+    userOverrides_.overrideLcs = true;
+    LOG(SoftIsp, Info) << "LCS parameters set: strength=" << strength 
+                       << ", threshold=" << threshold << ", radius=" << radius;
+}
+
+void CoefficientManager::setAfParameters(float score, int regionX, int regionY,
+                                         int regionWidth, int regionHeight,
+                                         bool inFocus, float distance)
+{
+    userOverrides_.afScore = score;
+    userOverrides_.afRegionX = regionX;
+    userOverrides_.afRegionY = regionY;
+    userOverrides_.afRegionWidth = regionWidth;
+    userOverrides_.afRegionHeight = regionHeight;
+    userOverrides_.afInFocus = inFocus;
+    userOverrides_.afDistance = distance;
+    userOverrides_.overrideAf = true;
+    LOG(SoftIsp, Info) << "AF parameters set: score=" << score 
+                       << ", region=" << regionX << "," << regionY 
+                       << "x" << regionWidth << "x" << regionHeight
+                       << ", inFocus=" << inFocus << ", distance=" << distance;
+}
+
 void CoefficientManager::clearOverrides()
 {
     userOverrides_ = ISPCoefficients();
@@ -123,6 +151,24 @@ void CoefficientManager::applyUserOverrides(ISPCoefficients* coeffs)
     if (userOverrides_.overrideChroma) {
         coeffs->chromaSubsampleScale = userOverrides_.chromaSubsampleScale;
         LOG(SoftIsp, Debug) << "Applied chroma override";
+    }
+    
+    if (userOverrides_.overrideLcs) {
+        coeffs->lcsStrength = userOverrides_.lcsStrength;
+        coeffs->lcsThreshold = userOverrides_.lcsThreshold;
+        coeffs->lcsRadius = userOverrides_.lcsRadius;
+        LOG(SoftIsp, Debug) << "Applied LCS override";
+    }
+    
+    if (userOverrides_.overrideAf) {
+        coeffs->afScore = userOverrides_.afScore;
+        coeffs->afRegionX = userOverrides_.afRegionX;
+        coeffs->afRegionY = userOverrides_.afRegionY;
+        coeffs->afRegionWidth = userOverrides_.afRegionWidth;
+        coeffs->afRegionHeight = userOverrides_.afRegionHeight;
+        coeffs->afInFocus = userOverrides_.afInFocus;
+        coeffs->afDistance = userOverrides_.afDistance;
+        LOG(SoftIsp, Debug) << "Applied AF override";
     }
 }
 
@@ -235,6 +281,36 @@ int CoefficientManager::loadConfig(const std::string& configPath)
             if (iss >> enable) {
                 enableAutoExposureAdjustment_ = enable;
             }
+        } else if (key == "lcs_strength") {
+            float strength;
+            if (iss >> strength) {
+                userOverrides_.lcsStrength = strength;
+                userOverrides_.overrideLcs = true;
+            }
+        } else if (key == "lcs_threshold") {
+            float threshold;
+            if (iss >> threshold) {
+                userOverrides_.lcsThreshold = threshold;
+                userOverrides_.overrideLcs = true;
+            }
+        } else if (key == "lcs_radius") {
+            float radius;
+            if (iss >> radius) {
+                userOverrides_.lcsRadius = radius;
+                userOverrides_.overrideLcs = true;
+            }
+        } else if (key == "af_score") {
+            float score;
+            if (iss >> score) {
+                userOverrides_.afScore = score;
+                userOverrides_.overrideAf = true;
+            }
+        } else if (key == "af_in_focus") {
+            bool inFocus;
+            if (iss >> inFocus) {
+                userOverrides_.afInFocus = inFocus;
+                userOverrides_.overrideAf = true;
+            }
         }
         // Add more config options as needed
     }
@@ -272,6 +348,17 @@ int CoefficientManager::saveConfig(const std::string& configPath) const
     
     if (enableAutoExposureAdjustment_) {
         file << "auto_exposure 1\n";
+    }
+    
+    if (userOverrides_.overrideLcs) {
+        file << "lcs_strength " << userOverrides_.lcsStrength << "\n";
+        file << "lcs_threshold " << userOverrides_.lcsThreshold << "\n";
+        file << "lcs_radius " << userOverrides_.lcsRadius << "\n";
+    }
+    
+    if (userOverrides_.overrideAf) {
+        file << "af_score " << userOverrides_.afScore << "\n";
+        file << "af_in_focus " << (userOverrides_.afInFocus ? 1 : 0) << "\n";
     }
     
     file.close();

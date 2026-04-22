@@ -35,6 +35,20 @@ struct ISPCoefficients {
     // Chroma subscale factor
     float chromaSubsampleScale;
     
+    // LCS (Local Contrast Stretch) parameters
+    float lcsStrength;
+    float lcsThreshold;
+    float lcsRadius;
+    
+    // AF (Auto Focus) parameters
+    float afScore;
+    int afRegionX;
+    int afRegionY;
+    int afRegionWidth;
+    int afRegionHeight;
+    bool afInFocus;
+    float afDistance;
+    
     // Image dimensions
     int imageWidth;
     int imageHeight;
@@ -52,6 +66,8 @@ struct ISPCoefficients {
     bool overrideGamma;
     bool overrideRgb2yuv;
     bool overrideChroma;
+    bool overrideLcs;
+    bool overrideAf;
     
     ISPCoefficients() {
         memset(awbGains, 0, sizeof(awbGains));
@@ -60,6 +76,21 @@ struct ISPCoefficients {
         gammaValue = 1.0f;
         memset(rgb2yuvMatrix, 0, sizeof(rgb2yuvMatrix));
         chromaSubsampleScale = 1.0f;
+        
+        // LCS defaults
+        lcsStrength = 1.0f;
+        lcsThreshold = 0.1f;
+        lcsRadius = 5.0f;
+        
+        // AF defaults
+        afScore = 0.0f;
+        afRegionX = 0;
+        afRegionY = 0;
+        afRegionWidth = 0;
+        afRegionHeight = 0;
+        afInFocus = false;
+        afDistance = 0.0f;
+        
         imageWidth = 640;
         imageHeight = 480;
         frameId = 0;
@@ -70,6 +101,8 @@ struct ISPCoefficients {
         overrideGamma = false;
         overrideRgb2yuv = false;
         overrideChroma = false;
+        overrideLcs = false;
+        overrideAf = false;
     }
 };
 
@@ -111,6 +144,18 @@ public:
      * Set chroma subscale override
      */
     void setChromaSubsampleScale(float scale);
+    
+    /**
+     * Set LCS (Local Contrast Stretch) parameters
+     */
+    void setLcsParameters(float strength, float threshold, float radius);
+    
+    /**
+     * Set AF (Auto Focus) parameters
+     */
+    void setAfParameters(float score, int regionX, int regionY, 
+                         int regionWidth, int regionHeight,
+                         bool inFocus, float distance);
     
     /**
      * Clear all overrides (use model outputs directly)
