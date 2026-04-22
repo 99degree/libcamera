@@ -4,7 +4,7 @@
  * Handles user overrides and rule-based modifications
  */
 
-#include "softisp.h"
+#include "coefficient_manager.h"
 #include <libcamera/base/log.h>
 #include <fstream>
 #include <sstream>

@@ -3,6 +3,7 @@
  * SoftIsp - implementation of the ONNX-based Image Processing Algorithm.
  */
 #include "softisp.h"
+#include "coefficient_manager.h"
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 #include <onnxruntime_cxx_api.h>
