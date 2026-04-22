@@ -178,6 +178,19 @@ void SoftIsp::setChromaSubsampleScale(float scale)
     coeffManager_.setChromaSubsampleScale(scale);
 }
 
+void SoftIsp::setLcsParameters(float strength, float threshold, float radius)
+{
+    coeffManager_.setLcsParameters(strength, threshold, radius);
+}
+
+void SoftIsp::setAfParameters(float score, int regionX, int regionY,
+                              int regionWidth, int regionHeight,
+                              bool inFocus, float distance)
+{
+    coeffManager_.setAfParameters(score, regionX, regionY, regionWidth, regionHeight,
+                                  inFocus, distance);
+}
+
 void SoftIsp::clearOverrides()
 {
     coeffManager_.clearOverrides();

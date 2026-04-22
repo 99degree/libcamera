@@ -44,6 +44,15 @@ public:
     void setTonemapCurve(const float* curve);
     void setRgb2yuvMatrix(const float* matrix);
     void setChromaSubsampleScale(float scale);
+    
+    // LCS (Local Contrast Stretch) API
+    void setLcsParameters(float strength, float threshold, float radius);
+    
+    // AF (Auto Focus) API
+    void setAfParameters(float score, int regionX, int regionY,
+                         int regionWidth, int regionHeight,
+                         bool inFocus, float distance);
+    
     void clearOverrides();
     int loadConfig(const std::string& configPath);
     int saveConfig(const std::string& configPath) const;
