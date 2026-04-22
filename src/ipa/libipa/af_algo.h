@@ -1,20 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /**
- * libipa::AfAlgo - Hardware-agnostic Auto-Focus Algorithm
+ * \file af_algo.h
+ * \brief Hardware-agnostic Auto-Focus Algorithm
  * 
- * Adapted from Raspberry Pi controller AF algorithm.
- * Supports PDAF (Phase Detection) and CDAF (Contrast Detection) modes.
+ * This class implements the control loop for autofocus, supporting
+ * PDAF (Phase Detection) and CDAF (Contrast Detection) modes.
+ * Adapted from the Raspberry Pi controller AF algorithm.
  * 
- * This class implements the "Control Loop" (Brain) of the AF system.
- * It takes focus metrics as input and outputs lens positions.
+ * The algorithm receives focus metrics (contrast, phase) and calculates
+ * the optimal lens position. It is designed to be hardware-agnostic
+ * and can work with any statistics source (hardware ISP or AI/ONNX).
  */
 #pragma once
 
-#include <libcamera/base/log.h>
-#include <cstdint>
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <string>
+
+#include <libcamera/base/log.h>
 
 namespace libcamera {
 namespace libipa {
