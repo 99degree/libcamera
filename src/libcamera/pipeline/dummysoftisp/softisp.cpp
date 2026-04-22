@@ -476,22 +476,52 @@ int PipelineHandlerDummysoftisp::queueRequestDevice(Camera *camera, Request *req
 {
 	DummySoftISPCameraData *data = cameraData(camera);
 	if (!data) {
-			return -EINVAL;
+		return -EINVAL;
 	}
 
-	/* Check if request has buffers */
 	const auto &buffers = request->buffers();
-
-	/* For dummy pipeline, we can proceed even without buffers */
 	if (buffers.empty()) {
-			/* request->complete() not available */
 		return 0;
+	}
+
+	/* Generate Bayer pattern in the buffer (simulating sensor output) */
+	const Stream *stream = buffers.begin()->first;
+	FrameBuffer *buffer = buffers.begin()->second;
+	if (buffer && !buffer->planes().empty()) {
+		const FrameBuffer::Plane &plane = buffer->planes()[0];
+		void *memory = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.get(), 0);
+		if (memory != MAP_FAILED) {
+			uint32_t width = stream->configuration().size.width;
+			uint32_t height = stream->configuration().size.height;
+			
+			/* Simple Bayer GRBG pattern */
+			uint8_t *pixelData = static_cast<uint8_t*>(memory);
+			for (uint32_t y = 0; y < height; ++y) {
+				for (uint32_t x = 0; x < width; ++x) {
+					uint32_t idx = y * width + x;
+					bool rowEven = (y % 2 == 0);
+					bool colEven = (x % 2 == 0);
+					
+					/* Bayer GRBG pattern with variation */
+					if (rowEven) {
+						pixelData[idx] = colEven ? 128 : 64; // G, R
+					} else {
+						pixelData[idx] = colEven ? 192 : 128; // B, G
+					}
+					pixelData[idx] += (x + y) % 32 - 16;
+				}
+			}
+			
+			munmap(memory, plane.length);
+			LOG(SoftISPDummyPipeline, Debug) << "Generated Bayer pattern for frame";
+		}
 	}
 
 	/* Queue the request for processing */
 	data->processRequest(request);
 	return 0;
 }
+
 
 REGISTER_PIPELINE_HANDLER(PipelineHandlerDummysoftisp, "dummysoftisp")
 

@@ -115,6 +115,7 @@ int32_t SoftIsp::init(const IPASettings &settings, const SharedFD &fdStats, cons
 
 	if (ccmEnabled) *ccmEnabled = true;
 	fprintf(stderr, ">>> SoftISP initialization complete (models detected)\n"); fflush(stderr);
+	impl_->initialized = true;
 	fprintf(stderr, ">>> About to return from init()\n");
 	fflush(stderr);
 	return 0;
