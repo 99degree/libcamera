@@ -251,14 +251,15 @@ int main(int argc, char *argv[]) {
 		 */
 	for (const auto &[stream, buffer] : request->buffers()) {
 	}
-		/* Attach buffers from allocator to the request */
-		for (auto *stream : camera->streams()) {
-			const auto &bufs = allocator.buffers(stream);
-			for (size_t j = 0; j < bufs.size(); ++j) {
-				request->addBuffer(stream, bufs[j].get());
-			}
+/* Attach buffer from the first stream only */
+	const auto &streams = camera->streams();
+	if (!streams.empty()) {
+		Stream *stream = *streams.begin();
+		const auto &bufs = allocator.buffers(stream);
+		if (!bufs.empty()) {
+			request->addBuffer(stream, bufs[0].get());
 		}
-
+	}
 	ret = camera->queueRequest(request.get());
 		if (ret) {
 			std::cerr << "Failed to queue request: " << ret << std::endl;

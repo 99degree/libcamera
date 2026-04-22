@@ -161,32 +161,26 @@ void DummySoftISPCameraData::run()
 
 void DummySoftISPCameraData::processRequest(Request *request)
 {
-	/*
-	 * Process a single request through the SoftISP pipeline.
-	 *
-	 * This would typically:
-	 * 1. Extract statistics from the captured frame
-	 * 2. Pass statistics to the IPA module
-	 * 3. Get metadata (gains, coefficients) from the IPA
-	 * 4. Apply metadata to the frame
-	 * 5. Complete the request
-	 */
+	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] processRequest() START";
 
-	if (!ipa_) {
-		LOG(SoftISPDummyPipeline, Error) << "IPA module not loaded";
-		return;
+	if (ipa_) {
+		/* Use a simple frame counter */
+		static uint32_t frameCounter = 0;
+		uint32_t frameId = frameCounter++;
+		
+		/* Call IPA processStats to run ONNX inference */
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] Calling ipa_->processStats() for frame " << frameId;
+		ipa_->processStats(frameId, 0, ControlList{});
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] ipa_->processStats() completed";
 	}
 
 	/*
-	 * Placeholder for actual IPA processing.
-	 * In a full implementation, this would call the IPA's process() method
-	 * with the frame statistics and receive the processed metadata.
+	 * Note: We cannot call completeRequest() here because the buffers are still pending.
+	 * In a real implementation, we would process the buffers and then complete.
+	 * For now, we just log that processing is done.
+	 * The test app will need to handle completion differently.
 	 */
-
-	LOG(SoftISPDummyPipeline, Debug) << "Processing request through SoftISP";
-
-	/* Mark request as complete */
-	Camera::Private::pipe()->completeRequest(request);
+	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] processRequest() END (not completing request)";
 }
 
 
@@ -334,6 +328,15 @@ int PipelineHandlerDummysoftisp::configure(Camera *camera,
 			return ret;
 		}
 		LOG(SoftISPDummyPipeline, Info) << "IPA configure successful";
+		/* Start the IPA */
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] Calling ipa_->start()";
+		ret = data->ipa_->start();
+		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] ipa_->start() returned: " << ret;
+		if (ret < 0) {
+			LOG(SoftISPDummyPipeline, Error) << "Failed to start IPA: " << ret;
+			return ret;
+		}
+		LOG(SoftISPDummyPipeline, Info) << "IPA started successfully";
 		LOG(SoftISPDummyPipeline, Info) << "[DEBUG] IPA configuration section done";
 	} else {
 		LOG(SoftISPDummyPipeline, Warning) << "IPA not loaded, skipping init/configure";
