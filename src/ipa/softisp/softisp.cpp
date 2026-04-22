@@ -3,7 +3,6 @@
  * SoftIsp - implementation of the ONNX-based Image Processing Algorithm.
  */
 #include "softisp.h"
-#include "coefficient_manager.h"
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 #include <onnxruntime_cxx_api.h>
@@ -13,7 +12,8 @@
 #include <memory>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 namespace libcamera {
 LOG_DEFINE_CATEGORY(SoftIsp)
@@ -69,7 +69,6 @@ int32_t SoftIsp::init(const IPASettings &settings, const SharedFD &fdStats, cons
 {
     LOG(SoftIsp, Info) << "Initializing SoftISP algorithm";
 
-    /* Get model directory from environment variable */
     const char *modelDir = getenv("SOFTISP_MODEL_DIR");
     if (!modelDir) {
         LOG(SoftIsp, Error) << "SOFTISP_MODEL_DIR environment variable not set";
@@ -79,13 +78,11 @@ int32_t SoftIsp::init(const IPASettings &settings, const SharedFD &fdStats, cons
     std::string algoPath = std::string(modelDir) + "/algo.onnx";
     std::string applierPath = std::string(modelDir) + "/applier.onnx";
 
-    LOG(SoftIsp, Info) << "Looking for algo.onnx at " << algoPath;
     if (access(algoPath.c_str(), R_OK) != 0) {
         LOG(SoftIsp, Error) << "algo.onnx not found at " << algoPath;
         return -ENOENT;
     }
 
-    LOG(SoftIsp, Info) << "Loading algo.onnx...";
     try {
         impl_->algoSession = std::make_unique<Ort::Session>(impl_->env, algoPath.c_str(), impl_->sessionOptions);
         LOG(SoftIsp, Info) << "algo.onnx loaded successfully";
@@ -94,13 +91,11 @@ int32_t SoftIsp::init(const IPASettings &settings, const SharedFD &fdStats, cons
         return -EINVAL;
     }
 
-    LOG(SoftIsp, Info) << "Looking for applier.onnx at " << applierPath;
     if (access(applierPath.c_str(), R_OK) != 0) {
         LOG(SoftIsp, Error) << "applier.onnx not found at " << applierPath;
         return -ENOENT;
     }
 
-    LOG(SoftIsp, Info) << "Loading applier.onnx...";
     try {
         impl_->applierSession = std::make_unique<Ort::Session>(impl_->env, applierPath.c_str(), impl_->sessionOptions);
         LOG(SoftIsp, Info) << "applier.onnx loaded successfully";
@@ -112,7 +107,7 @@ int32_t SoftIsp::init(const IPASettings &settings, const SharedFD &fdStats, cons
     if (ccmEnabled)
         *ccmEnabled = true;
 
-    LOG(SoftIsp, Info) << "SoftISP initialization complete (models detected)";
+    LOG(SoftIsp, Info) << "SoftISP initialization complete";
     return 0;
 }
 
@@ -146,69 +141,222 @@ void SoftIsp::computeParams(const uint32_t frame)
 }
 
 /* -----------------------------------------------------------------
- * Public API for user coefficient overrides
+ * Public API for user overrides
  * ----------------------------------------------------------------- */
 void SoftIsp::setAwbGains(float r, float g, float b)
 {
-    coeffManager_.setAwbGains(r, g, b);
+    overrides_.awbGains[0] = r;
+    overrides_.awbGains[1] = g;
+    overrides_.awbGains[2] = b;
+    overrides_.overrideAwbGains = true;
+    LOG(SoftIsp, Info) << "AWB gains set: R=" << r << " G=" << g << " B=" << b;
 }
 
 void SoftIsp::setCcm(const float* matrix)
 {
-    coeffManager_.setCcm(matrix);
+    if (matrix) {
+        memcpy(overrides_.ccm, matrix, sizeof(overrides_.ccm));
+        overrides_.overrideCcm = true;
+        LOG(SoftIsp, Info) << "CCM matrix set";
+    }
 }
 
 void SoftIsp::setGamma(float value)
 {
-    coeffManager_.setGamma(value);
+    overrides_.gammaValue = value;
+    overrides_.overrideGamma = true;
+    LOG(SoftIsp, Info) << "Gamma set: " << value;
 }
 
 void SoftIsp::setTonemapCurve(const float* curve)
 {
-    coeffManager_.setTonemapCurve(curve);
+    if (curve) {
+        memcpy(overrides_.tonemapCurve, curve, sizeof(overrides_.tonemapCurve));
+        overrides_.overrideTonemap = true;
+        LOG(SoftIsp, Info) << "Tone mapping curve set";
+    }
 }
 
 void SoftIsp::setRgb2yuvMatrix(const float* matrix)
 {
-    coeffManager_.setRgb2yuvMatrix(matrix);
+    if (matrix) {
+        memcpy(overrides_.rgb2yuvMatrix, matrix, sizeof(overrides_.rgb2yuvMatrix));
+        overrides_.overrideRgb2yuv = true;
+        LOG(SoftIsp, Info) << "RGB to YUV matrix set";
+    }
 }
 
 void SoftIsp::setChromaSubsampleScale(float scale)
 {
-    coeffManager_.setChromaSubsampleScale(scale);
+    overrides_.chromaSubsampleScale = scale;
+    overrides_.overrideChroma = true;
+    LOG(SoftIsp, Info) << "Chroma subscale set: " << scale;
 }
 
 void SoftIsp::setLcsParameters(float strength, float threshold, float radius)
 {
-    coeffManager_.setLcsParameters(strength, threshold, radius);
+    overrides_.lcsStrength = strength;
+    overrides_.lcsThreshold = threshold;
+    overrides_.lcsRadius = radius;
+    overrides_.overrideLcs = true;
+    LOG(SoftIsp, Info) << "LCS parameters set: strength=" << strength 
+                       << ", threshold=" << threshold << ", radius=" << radius;
 }
 
 void SoftIsp::setAfParameters(float score, int regionX, int regionY,
                               int regionWidth, int regionHeight,
                               bool inFocus, float distance)
 {
-    coeffManager_.setAfParameters(score, regionX, regionY, regionWidth, regionHeight,
-                                  inFocus, distance);
+    overrides_.afScore = score;
+    overrides_.afRegionX = regionX;
+    overrides_.afRegionY = regionY;
+    overrides_.afRegionWidth = regionWidth;
+    overrides_.afRegionHeight = regionHeight;
+    overrides_.afInFocus = inFocus;
+    overrides_.afDistance = distance;
+    overrides_.overrideAf = true;
+    LOG(SoftIsp, Info) << "AF parameters set: score=" << score 
+                       << ", region=" << regionX << "," << regionY 
+                       << "x" << regionWidth << "x" << regionHeight
+                       << ", inFocus=" << inFocus << ", distance=" << distance;
 }
 
 void SoftIsp::clearOverrides()
 {
-    coeffManager_.clearOverrides();
+    overrides_ = decltype(overrides_){};
+    LOG(SoftIsp, Info) << "All overrides cleared";
+}
+
+void SoftIsp::applyOverrides(float* awbGains, float* ccm, float* tonemap, float* gamma,
+                             float* rgb2yuv, float* chroma,
+                             float* lcsStrength, float* lcsThreshold, float* lcsRadius,
+                             float* afScore, int* afRegion, bool* afInFocus, float* afDistance)
+{
+    if (overrides_.overrideAwbGains && awbGains) {
+        awbGains[0] = overrides_.awbGains[0];
+        awbGains[1] = overrides_.awbGains[1];
+        awbGains[2] = overrides_.awbGains[2];
+    }
+    if (overrides_.overrideCcm && ccm) {
+        memcpy(ccm, overrides_.ccm, sizeof(overrides_.ccm));
+    }
+    if (overrides_.overrideTonemap && tonemap) {
+        memcpy(tonemap, overrides_.tonemapCurve, sizeof(overrides_.tonemapCurve));
+    }
+    if (overrides_.overrideGamma && gamma) {
+        *gamma = overrides_.gammaValue;
+    }
+    if (overrides_.overrideRgb2yuv && rgb2yuv) {
+        memcpy(rgb2yuv, overrides_.rgb2yuvMatrix, sizeof(overrides_.rgb2yuvMatrix));
+    }
+    if (overrides_.overrideChroma && chroma) {
+        *chroma = overrides_.chromaSubsampleScale;
+    }
+    if (overrides_.overrideLcs && lcsStrength && lcsThreshold && lcsRadius) {
+        *lcsStrength = overrides_.lcsStrength;
+        *lcsThreshold = overrides_.lcsThreshold;
+        *lcsRadius = overrides_.lcsRadius;
+    }
+    if (overrides_.overrideAf && afScore && afRegion && afInFocus && afDistance) {
+        *afScore = overrides_.afScore;
+        afRegion[0] = overrides_.afRegionX;
+        afRegion[1] = overrides_.afRegionY;
+        afRegion[2] = overrides_.afRegionWidth;
+        afRegion[3] = overrides_.afRegionHeight;
+        *afInFocus = overrides_.afInFocus;
+        *afDistance = overrides_.afDistance;
+    }
 }
 
 int SoftIsp::loadConfig(const std::string& configPath)
 {
-    return coeffManager_.loadConfig(configPath);
+    std::ifstream file(configPath);
+    if (!file.is_open()) {
+        LOG(SoftIsp, Error) << "Failed to open config file: " << configPath;
+        return -ENOENT;
+    }
+    
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        
+        std::istringstream iss(line);
+        std::string key;
+        iss >> key;
+        
+        if (key == "awb_gains") {
+            float r, g, b;
+            if (iss >> r >> g >> b) setAwbGains(r, g, b);
+        } else if (key == "gamma") {
+            float value;
+            if (iss >> value) setGamma(value);
+        } else if (key == "lcs_strength") {
+            float s;
+            if (iss >> s) {
+                overrides_.lcsStrength = s;
+                overrides_.overrideLcs = true;
+            }
+        } else if (key == "lcs_threshold") {
+            float t;
+            if (iss >> t) {
+                overrides_.lcsThreshold = t;
+                overrides_.overrideLcs = true;
+            }
+        } else if (key == "lcs_radius") {
+            float r;
+            if (iss >> r) {
+                overrides_.lcsRadius = r;
+                overrides_.overrideLcs = true;
+            }
+        } else if (key == "af_score") {
+            float s;
+            if (iss >> s) {
+                overrides_.afScore = s;
+                overrides_.overrideAf = true;
+            }
+        } else if (key == "af_in_focus") {
+            int v;
+            if (iss >> v) {
+                overrides_.afInFocus = (v != 0);
+                overrides_.overrideAf = true;
+            }
+        }
+    }
+    
+    file.close();
+    LOG(SoftIsp, Info) << "Configuration loaded from: " << configPath;
+    return 0;
 }
 
 int SoftIsp::saveConfig(const std::string& configPath) const
 {
-    return coeffManager_.saveConfig(configPath);
-}
-
-const ISPCoefficients& SoftIsp::getCurrentCoefficients() const
-{
-    return coeffManager_.getCurrentCoefficients();
+    std::ofstream file(configPath);
+    if (!file.is_open()) {
+        LOG(SoftIsp, Error) << "Failed to create config file: " << configPath;
+        return -EIO;
+    }
+    
+    file << "# SoftISP Configuration\n";
+    if (overrides_.overrideAwbGains) {
+        file << "awb_gains " << overrides_.awbGains[0] << " " 
+             << overrides_.awbGains[1] << " " << overrides_.awbGains[2] << "\n";
+    }
+    if (overrides_.overrideGamma) {
+        file << "gamma " << overrides_.gammaValue << "\n";
+    }
+    if (overrides_.overrideLcs) {
+        file << "lcs_strength " << overrides_.lcsStrength << "\n";
+        file << "lcs_threshold " << overrides_.lcsThreshold << "\n";
+        file << "lcs_radius " << overrides_.lcsRadius << "\n";
+    }
+    if (overrides_.overrideAf) {
+        file << "af_score " << overrides_.afScore << "\n";
+        file << "af_in_focus " << (overrides_.afInFocus ? 1 : 0) << "\n";
+    }
+    
+    file.close();
+    LOG(SoftIsp, Info) << "Configuration saved to: " << configPath;
+    return 0;
 }
 
 /* -----------------------------------------------------------------
@@ -223,35 +371,21 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
         return;
     }
 
-    LOG(SoftIsp, Info) << "Processing frame " << frame << " buffer " << bufferId;
-
-    if (!impl_->algoSession || !impl_->applierSession) {
-        LOG(SoftIsp, Error) << "ONNX models not loaded, skipping inference";
-        return;
-    }
-
     try {
-        /*
-         * Step 1: Prepare inputs for algo.onnx
-         */
+        // Prepare inputs for algo.onnx
         int imgWidth = impl_->imageWidth;
         int imgHeight = impl_->imageHeight;
         size_t imgSize = imgWidth * imgHeight;
 
-        /* Create dummy image data (in real impl, extract from frame buffer) */
         std::vector<int16_t> imageData(imgSize, 128);
         int64_t imgShape[] = {imgHeight, imgWidth};
-
         std::vector<int64_t> widthData(1, imgWidth);
         int64_t widthShape[] = {1};
-
         std::vector<int64_t> frameIdData(1, frame);
         int64_t frameIdShape[] = {1};
-
         std::vector<float> blackLevelData(1, 0.0f);
         int64_t blackLevelShape[] = {1};
 
-        /* Create input tensors */
         std::vector<Ort::Value> algoInputs;
         algoInputs.push_back(Ort::Value::CreateTensor(
             impl_->allocator, static_cast<void*>(imageData.data()),
@@ -266,116 +400,86 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
             impl_->allocator, static_cast<void*>(blackLevelData.data()),
             blackLevelData.size() * sizeof(float), blackLevelShape, 1, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT));
 
-        /* Get input/output names */
-        std::vector<std::unique_ptr<char>> algoInputNamePtrs;
-        std::vector<const char*> algoInputNames;
+        // Get input/output names
+        std::vector<std::unique_ptr<char>> algoInputNamePtrs, algoOutputNamePtrs;
+        std::vector<const char*> algoInputNames, algoOutputNames;
         for (size_t i = 0; i < 4; ++i) {
             auto name = impl_->algoSession->GetInputNameAllocated(i, impl_->allocator);
             algoInputNamePtrs.push_back(std::unique_ptr<char>(name.release()));
             algoInputNames.push_back(algoInputNamePtrs.back().get());
         }
-
-        std::vector<std::unique_ptr<char>> algoOutputNamePtrs;
-        std::vector<const char*> algoOutputNames;
         for (size_t i = 0; i < impl_->algoSession->GetOutputCount(); ++i) {
             auto name = impl_->algoSession->GetOutputNameAllocated(i, impl_->allocator);
             algoOutputNamePtrs.push_back(std::unique_ptr<char>(name.release()));
             algoOutputNames.push_back(algoOutputNamePtrs.back().get());
         }
 
-        /* Step 2: Run algo.onnx inference */
+        // Run algo.onnx
         LOG(SoftIsp, Debug) << "Running algo.onnx inference...";
         auto algoOutputs = impl_->algoSession->Run(
             Ort::RunOptions{nullptr}, algoInputNames.data(), algoInputs.data(),
             algoInputNames.size(), algoOutputNames.data(), algoOutputNames.size());
         LOG(SoftIsp, Info) << "algo.onnx completed: " << algoOutputs.size() << " outputs";
 
-        /*
-         * Step 3: Extract coefficients from algo.onnx outputs into ISPCoefficients structure
-         */
-        ISPCoefficients coeffs;
-        coeffs.frameId = frame;
-        coeffs.imageWidth = imgWidth;
-        coeffs.imageHeight = imgHeight;
+        // Extract coefficients
+        float awbGains[3] = {1.0f, 1.0f, 1.0f};
+        float ccm[9] = {1,0,0, 0,1,0, 0,0,1};
+        float tonemap[16] = {0};
+        float gamma = 2.2f;
+        float rgb2yuv[9] = {0};
+        float chroma = 1.0f;
+        float lcsStrength = 1.0f, lcsThreshold = 0.1f, lcsRadius = 5.0f;
+        float afScore = 0.0f, afDistance = 0.0f;
+        int afRegion[4] = {0};
+        bool afInFocus = false;
 
-        // Extract AWB gains from output[2]
         if (algoOutputs.size() > 2) {
-            auto* gains = algoOutputs[2].GetTensorMutableData<float>();
-            coeffs.awbGains[0] = gains[0];
-            coeffs.awbGains[1] = gains[1];
-            coeffs.awbGains[2] = gains[2];
+            auto* g = algoOutputs[2].GetTensorMutableData<float>();
+            awbGains[0] = g[0]; awbGains[1] = g[1]; awbGains[2] = g[2];
         }
-
-        // Extract CCM from output[4]
         if (algoOutputs.size() > 4) {
-            auto* ccmData = algoOutputs[4].GetTensorMutableData<float>();
-            memcpy(coeffs.ccm, ccmData, std::min(sizeof(coeffs.ccm), algoOutputs[4].GetTensorTypeAndShapeInfo().GetElementCount() * sizeof(float)));
+            auto* m = algoOutputs[4].GetTensorMutableData<float>();
+            memcpy(ccm, m, std::min(sizeof(ccm), algoOutputs[4].GetTensorTypeAndShapeInfo().GetElementCount() * sizeof(float)));
         }
-
-        // Extract tonemap from output[5]
         if (algoOutputs.size() > 5) {
-            auto* tonemapData = algoOutputs[5].GetTensorMutableData<float>();
-            memcpy(coeffs.tonemapCurve, tonemapData, std::min(sizeof(coeffs.tonemapCurve), algoOutputs[5].GetTensorTypeAndShapeInfo().GetElementCount() * sizeof(float)));
+            auto* t = algoOutputs[5].GetTensorMutableData<float>();
+            memcpy(tonemap, t, std::min(sizeof(tonemap), algoOutputs[5].GetTensorTypeAndShapeInfo().GetElementCount() * sizeof(float)));
         }
-
-        // Extract gamma from output[6]
         if (algoOutputs.size() > 6) {
-            auto* gammaData = algoOutputs[6].GetTensorMutableData<float>();
-            coeffs.gammaValue = gammaData[0];
+            auto* g = algoOutputs[6].GetTensorMutableData<float>();
+            gamma = g[0];
         }
-
-        // Extract RGB2YUV from output[12]
         if (algoOutputs.size() > 12) {
-            auto* yuvData = algoOutputs[12].GetTensorMutableData<float>();
-            memcpy(coeffs.rgb2yuvMatrix, yuvData, std::min(sizeof(coeffs.rgb2yuvMatrix), algoOutputs[12].GetTensorTypeAndShapeInfo().GetElementCount() * sizeof(float)));
+            auto* m = algoOutputs[12].GetTensorMutableData<float>();
+            memcpy(rgb2yuv, m, std::min(sizeof(rgb2yuv), algoOutputs[12].GetTensorTypeAndShapeInfo().GetElementCount() * sizeof(float)));
         }
-
-        // Extract chroma scale from output[14]
         if (algoOutputs.size() > 14) {
-            auto* chromaData = algoOutputs[14].GetTensorMutableData<float>();
-            coeffs.chromaSubsampleScale = chromaData[0];
+            auto* c = algoOutputs[14].GetTensorMutableData<float>();
+            chroma = c[0];
         }
 
-        /*
-         * Step 4: Apply CoefficientManager rules and overrides
-         * This is where user overrides and rule-based modifications are applied
-         */
-        LOG(SoftIsp, Debug) << "Applying coefficient manager rules...";
-        coeffManager_.applyRules(&coeffs);
+        // Apply user overrides
+        applyOverrides(awbGains, ccm, tonemap, &gamma, rgb2yuv, &chroma,
+                       &lcsStrength, &lcsThreshold, &lcsRadius,
+                       &afScore, afRegion, &afInFocus, &afDistance);
 
-        /*
-         * Step 5: Prepare applier.onnx inputs using the modified coefficients
-         */
+        // Prepare applier.onnx inputs
         Ort::IoBinding ioBinding(*impl_->applierSession);
-
-        /* Bind original 4 inputs */
         ioBinding.BindInput(algoInputNames[0], algoInputs[0]);
         ioBinding.BindInput(algoInputNames[1], algoInputs[1]);
         ioBinding.BindInput(algoInputNames[2], algoInputs[2]);
         ioBinding.BindInput(algoInputNames[3], algoInputs[3]);
 
-        /* Bind 6 coefficient tensors from algo.onnx outputs (now modified by CoefficientManager) */
-        struct CoefficientMapping {
-            size_t algoOutputIdx;
-            const char* applierInputName;
+        struct CoeffMapping { size_t idx; const char* name; };
+        CoeffMapping mappings[] = {
+            {2, "awb.wb_gains.function"}, {4, "ccm.ccm.function"},
+            {5, "tonemap.tonemap_curve.function"}, {6, "gamma.gamma_value.function"},
+            {12, "yuv.rgb2yuv_matrix.function"}, {14, "chroma.subsample_scale.function"}
         };
-        CoefficientMapping coeffMappings[] = {
-            {2, "awb.wb_gains.function"},
-            {4, "ccm.ccm.function"},
-            {5, "tonemap.tonemap_curve.function"},
-            {6, "gamma.gamma_value.function"},
-            {12, "yuv.rgb2yuv_matrix.function"},
-            {14, "chroma.subsample_scale.function"}
-        };
-
-        for (int i = 0; i < 6; ++i) {
-            size_t outputIdx = coeffMappings[i].algoOutputIdx;
-            const char* inputName = coeffMappings[i].applierInputName;
-            LOG(SoftIsp, Debug) << "Binding algo output[" << outputIdx << "] to applier input \"" << inputName << "\"";
-            ioBinding.BindInput(inputName, std::move(algoOutputs[outputIdx]));
+        for (auto& m : mappings) {
+            ioBinding.BindInput(m.name, std::move(algoOutputs[m.idx]));
         }
 
-        /* Bind outputs */
         std::vector<std::unique_ptr<char>> applierOutputNamePtrs;
         std::vector<const char*> applierOutputNames;
         for (size_t i = 0; i < impl_->applierSession->GetOutputCount(); ++i) {
@@ -385,14 +489,13 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
             ioBinding.BindOutput(applierOutputNames[i], impl_->memoryInfo);
         }
 
-        /* Step 6: Run applier.onnx inference */
+        // Run applier.onnx
         LOG(SoftIsp, Debug) << "Running applier.onnx inference...";
         impl_->applierSession->Run(Ort::RunOptions{nullptr}, ioBinding);
-
         auto applierOutputs = ioBinding.GetOutputValues();
         LOG(SoftIsp, Info) << "applier.onnx completed: " << applierOutputs.size() << " outputs";
 
-        LOG(SoftIsp, Info) << "Frame " << frame << " processed successfully through dual-model pipeline with coefficient manager";
+        LOG(SoftIsp, Info) << "Frame " << frame << " processed successfully";
 
     } catch (const Ort::Exception& e) {
         LOG(SoftIsp, Error) << "ONNX inference failed: " << e.what();
