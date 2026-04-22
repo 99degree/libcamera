@@ -26,6 +26,7 @@ wrapper_gen = custom_target('softisp_wrapper',
 softisp_includes = include_directories('.')
 
 softisp_common_sources = [
+    'coefficient_manager.cpp',
   'softisp.cpp',
   wrapper_gen,
 ]
