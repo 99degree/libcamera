@@ -106,16 +106,9 @@ void SoftISPCameraData::processRequest(Request *request)
 		LOG(SoftISPPipeline, Info) << "[DEBUG] Calling ipa_->processStats() for frame " << frameId;
 		ipa_->processStats(frameId, bufferId, ControlList{});
 
-		/* Call IPA processFrame to apply results to buffer */
-		LOG(SoftISPPipeline, Info) << "[DEBUG] Calling ipa_->processFrame() for frame " << frameId;
-		auto streamConfig = buffer->stream()->configuration();
-		int32_t ret = ipa_->processFrame(frameId, bufferId, plane.fd, 0, plane.stride,
-						 streamConfig.size.width, streamConfig.size.height,
 						 &request->metadata());
 		if (ret != 0) {
-			LOG(SoftISPPipeline, Error) << "processFrame failed with error " << ret;
 		}
-		LOG(SoftISPPipeline, Info) << "[DEBUG] ipa_->processFrame() completed";
 
 		/* Unmap buffer */
 		g_bufferFdMap.erase(bufferId);
