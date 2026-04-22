@@ -7,6 +7,7 @@ ipa_test = [
     {'name': 'ipa_interface_test', 'sources': ['ipa_interface_test.cpp']},
     {'name': 'softisp_module_test', 'sources': ['softisp_module_test.cpp']},
         {'name': 'softisp_virtual_module_test', 'sources': ['softisp_virtual_module_test.cpp']},
+	{'name': 'softisp_inference_test', 'sources': ['softisp_inference_test.cpp']},
 ]
 
 foreach test : ipa_test

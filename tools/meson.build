@@ -9,3 +9,12 @@ softisp_test_app = executable('softisp-test-app',
   ],
   dependencies : [libcamera_private]
 )
+
+# ONNX test app
+softisp_onnx_test_sources = [
+	'softisp-onnx-test.cpp',
+]
+softisp_onnx_test = executable('softisp-onnx-test', softisp_onnx_test_sources,
+	include_directories : [ libcamera_includes, ],
+	dependencies : [ libcamera_private, onnxruntime_dep ]
+)
