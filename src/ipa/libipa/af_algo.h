@@ -129,6 +129,19 @@ public:
     int saveConfig(const std::string& path) const;
 
     // ============================================================
+    // Control Handling
+    // ============================================================
+
+    /**
+     * Handle controls from ControlList
+     * Extracts AF parameters (Mode, Range, Speed) from the ControlList
+     * and updates internal state if changed.
+     * 
+     * @param controls The ControlList containing AF controls
+     */
+    void handleControls(const ControlList &controls);
+
+    // ============================================================
     // Main Processing Loop
     // ============================================================
 

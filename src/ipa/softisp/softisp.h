@@ -48,6 +48,9 @@ public:
     void clearOverrides();
     int loadConfig(const std::string& configPath);
     int saveConfig(const std::string& configPath) const;
+    
+    // AF Control Handling
+    void handleAfControls(const ControlList &controls);
 
 protected:
     std::string logPrefix() const override;
