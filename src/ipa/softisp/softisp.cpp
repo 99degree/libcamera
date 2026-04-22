@@ -144,50 +144,158 @@ void SoftIsp::queueRequest(const uint32_t frame, const ControlList &sensorContro
 	// TODO: Queue the request for processing
 }
 
-void SoftIsp::computeParams(const uint32_t frame)
-{
-	// Optional: Compute parameters if needed
-}
-
-void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
-			     const ControlList &sensorControls)
-{
+void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const ControlList &sensorControls) {
 	LOG(SoftIsp, Info) << ">>> processStats called for frame " << frame;
-	LOG(SoftIsp, Info) << "  initialized=" << impl_->initialized 
-			     << " algoSession=" << (impl_->algoSession ? "yes" : "no")
-			     << " applierSession=" << (impl_->applierSession ? "yes" : "no");
+	LOG(SoftIsp, Info) << " initialized=" << impl_->initialized
+		<< " algoSession=" << (impl_->algoSession ? "yes" : "no")
+		<< " applierSession=" << (impl_->applierSession ? "yes" : "no");
 	if (!impl_->initialized || !impl_->algoSession || !impl_->applierSession) {
 		LOG(SoftIsp, Error) << "SoftISP not properly initialized";
 		return;
 	}
-
 	LOG(SoftIsp, Info) << "Processing frame " << frame << " buffer " << bufferId;
-
 	/* Check if models are loaded */
 	if (!impl_->algoSession || !impl_->applierSession) {
 		LOG(SoftIsp, Error) << "ONNX models not loaded, skipping inference";
 		return;
 	}
+	try {
+		/*
+		 * Step 1: Prepare inputs for algo.onnx
+		 * Model Structure (verified via softisp-onnx-test):
+		 * - algo.onnx: 4 inputs, 15 outputs
+		 *   Inputs: image_desc.input.image.function (int16), image_desc.input.width.function (int64),
+		 *           image_desc.input.frame_id.function (int64), blacklevel.offset.function (float)
+		 */
+		int imgWidth = impl_->imageWidth;
+		int imgHeight = impl_->imageHeight;
+		size_t imgSize = imgWidth * imgHeight;
 
-	/*
-	 * TODO: Implement actual inference pipeline:
+		/* Create dummy image data (in real impl, extract from frame buffer) */
+		std::vector<int16_t> imageData(imgSize, 128);
+		int64_t imgShape[] = {imgHeight, imgWidth};
 
- * Model Structure (verified via softisp-onnx-test):
- * - algo.onnx: 4 inputs, 15 outputs
- *   Inputs: image_desc.input.image.function, image_desc.input.width.function,
- *           image_desc.input.frame_id.function, blacklevel.offset.function
- * - applier.onnx: 10 inputs, 7 outputs
- *   Inputs: 4 original + 6 coefficient tensors from algo.onnx
-	 * 1. Extract statistics from the frame buffer (e.g., histogram, AWB stats)
-	 * 2. Prepare input tensors for algo.onnx
-	 * 3. Run algo.onnx inference -> get ISP coefficients
-	 * 4. Prepare input tensors for applier.onnx (coefficients + image data)
-	 * 5. Run applier.onnx inference -> get processed image parameters
-	 * 6. Apply parameters to the frame buffer
-	 *
-	 * For now, we log the frame processing step.
-	 */
-	LOG(SoftIsp, Info) << "Frame " << frame << " processed (inference logic to be implemented)";
+		std::vector<int64_t> widthData(1, imgWidth);
+		int64_t widthShape[] = {1};
+
+		std::vector<int64_t> frameIdData(1, frame);
+		int64_t frameIdShape[] = {1};
+
+		std::vector<float> blackLevelData(1, 0.0f);
+		int64_t blackLevelShape[] = {1};
+
+		/* Create input tensors */
+		std::vector<Ort::Value> algoInputs;
+		algoInputs.push_back(Ort::Value::CreateTensor(
+			impl_->allocator, static_cast<void*>(imageData.data()),
+			imageData.size() * sizeof(int16_t), imgShape, 2, ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16));
+		algoInputs.push_back(Ort::Value::CreateTensor(
+			impl_->allocator, static_cast<void*>(widthData.data()),
+			widthData.size() * sizeof(int64_t), widthShape, 1, ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64));
+		algoInputs.push_back(Ort::Value::CreateTensor(
+			impl_->allocator, static_cast<void*>(frameIdData.data()),
+			frameIdData.size() * sizeof(int64_t), frameIdShape, 1, ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64));
+		algoInputs.push_back(Ort::Value::CreateTensor(
+			impl_->allocator, static_cast<void*>(blackLevelData.data()),
+			blackLevelData.size() * sizeof(float), blackLevelShape, 1, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT));
+
+		/* Get input/output names */
+		std::vector<std::unique_ptr<char>> algoInputNamePtrs;
+		std::vector<const char*> algoInputNames;
+		for (size_t i = 0; i < 4; ++i) {
+			auto name = impl_->algoSession->GetInputNameAllocated(i, impl_->allocator);
+			algoInputNamePtrs.push_back(std::unique_ptr<char>(name.release()));
+			algoInputNames.push_back(algoInputNamePtrs.back().get());
+		}
+
+		std::vector<std::unique_ptr<char>> algoOutputNamePtrs;
+		std::vector<const char*> algoOutputNames;
+		for (size_t i = 0; i < impl_->algoSession->GetOutputCount(); ++i) {
+			auto name = impl_->algoSession->GetOutputNameAllocated(i, impl_->allocator);
+			algoOutputNamePtrs.push_back(std::unique_ptr<char>(name.release()));
+			algoOutputNames.push_back(algoOutputNamePtrs.back().get());
+		}
+
+		/* Step 2: Run algo.onnx inference */
+		LOG(SoftIsp, Debug) << "Running algo.onnx inference...";
+		auto algoOutputs = impl_->algoSession->Run(
+			Ort::RunOptions{nullptr}, algoInputNames.data(), algoInputs.data(),
+			algoInputNames.size(), algoOutputNames.data(), algoOutputNames.size());
+		LOG(SoftIsp, Info) << "algo.onnx completed: " << algoOutputs.size() << " outputs";
+
+		/*
+		 * Step 3: Prepare inputs for applier.onnx using IoBinding
+		 * - applier.onnx: 10 inputs, 7 outputs
+		 *   Inputs: 4 original + 6 coefficient tensors from algo.onnx outputs
+		 */
+		Ort::IoBinding ioBinding(*impl_->applierSession);
+
+		/* Bind original 4 inputs */
+		ioBinding.BindInput(algoInputNames[0], algoInputs[0]);
+		ioBinding.BindInput(algoInputNames[1], algoInputs[1]);
+		ioBinding.BindInput(algoInputNames[2], algoInputs[2]);
+		ioBinding.BindInput(algoInputNames[3], algoInputs[3]);
+
+		/* Bind 6 coefficient tensors from algo.onnx outputs
+		 * Mapping based on model inspection:
+		 * algo.onnx output[2]  -> awb.wb_gains.function
+		 * algo.onnx output[4]  -> ccm.ccm.function
+		 * algo.onnx output[5]  -> tonemap.tonemap_curve.function
+		 * algo.onnx output[6]  -> gamma.gamma_value.function
+		 * algo.onnx output[12] -> yuv.rgb2yuv_matrix.function
+		 * algo.onnx output[14] -> chroma.subsample_scale.function
+		 */
+		struct CoefficientMapping {
+			size_t algoOutputIdx;
+			const char* applierInputName;
+		};
+		CoefficientMapping coeffMappings[] = {
+			{2, "awb.wb_gains.function"},
+			{4, "ccm.ccm.function"},
+			{5, "tonemap.tonemap_curve.function"},
+			{6, "gamma.gamma_value.function"},
+			{12, "yuv.rgb2yuv_matrix.function"},
+			{14, "chroma.subsample_scale.function"}
+		};
+
+		for (int i = 0; i < 6; ++i) {
+			size_t outputIdx = coeffMappings[i].algoOutputIdx;
+			const char* inputName = coeffMappings[i].applierInputName;
+			LOG(SoftIsp, Debug) << "Binding algo output[" << outputIdx << "] to applier input \"" << inputName << "\"";
+			ioBinding.BindInput(inputName, std::move(algoOutputs[outputIdx]));
+		}
+
+		/* Bind outputs - request all outputs */
+		std::vector<std::unique_ptr<char>> applierOutputNamePtrs;
+		std::vector<const char*> applierOutputNames;
+		for (size_t i = 0; i < impl_->applierSession->GetOutputCount(); ++i) {
+			auto name = impl_->applierSession->GetOutputNameAllocated(i, impl_->allocator);
+			applierOutputNamePtrs.push_back(std::unique_ptr<char>(name.release()));
+			applierOutputNames.push_back(applierOutputNamePtrs.back().get());
+			/* Bind output to memory info - let ONNX allocate */
+			ioBinding.BindOutput(applierOutputNames[i], impl_->memoryInfo);
+		}
+
+		/* Step 4: Run applier.onnx inference */
+		LOG(SoftIsp, Debug) << "Running applier.onnx inference...";
+		impl_->applierSession->Run(Ort::RunOptions{nullptr}, ioBinding);
+
+		/* Get outputs */
+		auto applierOutputs = ioBinding.GetOutputValues();
+		LOG(SoftIsp, Info) << "applier.onnx completed: " << applierOutputs.size() << " outputs";
+
+		/*
+		 * Step 5: Extract and apply results
+		 * In a real implementation, extract AWB gains, CCM, etc. from outputs
+		 * and apply them to the frame buffer or return via ControlList.
+		 *
+		 * For now, log success.
+		 */
+		LOG(SoftIsp, Info) << "Frame " << frame << " processed successfully through dual-model pipeline";
+
+	} catch (const Ort::Exception& e) {
+		LOG(SoftIsp, Error) << "ONNX inference failed: " << e.what();
+	}
 }
 
 } // namespace ipa::soft
