@@ -8,6 +8,7 @@
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 #include <onnxruntime_cxx_api.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <vector>
@@ -31,6 +32,7 @@ struct SoftIsp::Impl {
 
 	// ONNX Runtime environment and sessions
 	Ort::Env env{ORT_LOGGING_LEVEL_WARNING, "SoftIsp"};
+	Ort::SessionOptions sessionOptions;
 	std::unique_ptr<Ort::Session> algoSession;
 	std::unique_ptr<Ort::Session> applierSession;
 	Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
@@ -83,14 +85,28 @@ int32_t SoftIsp::init(const IPASettings &settings, const SharedFD &fdStats, cons
 		LOG(SoftIsp, Error) << "algo.onnx not found at " << algoPath;
 		return -ENOENT;
 	}
-	LOG(SoftIsp, Info) << "algo.onnx found (model loading to be implemented)";
+	LOG(SoftIsp, Info) << "Loading algo.onnx...";
+	try {
+		impl_->algoSession = std::make_unique<Ort::Session>(impl_->env, algoPath.c_str(), impl_->sessionOptions);
+		LOG(SoftIsp, Info) << "algo.onnx loaded successfully";
+	} catch (const Ort::Exception &e) {
+		LOG(SoftIsp, Error) << "Failed to load algo.onnx: " << e.what();
+		return -EINVAL;
+	}
 
 	LOG(SoftIsp, Info) << "Looking for applier.onnx at " << applierPath;
 	if (access(applierPath.c_str(), R_OK) != 0) {
 		LOG(SoftIsp, Error) << "applier.onnx not found at " << applierPath;
 		return -ENOENT;
 	}
-	LOG(SoftIsp, Info) << "applier.onnx found (model loading to be implemented)";
+	LOG(SoftIsp, Info) << "Loading applier.onnx...";
+	try {
+		impl_->applierSession = std::make_unique<Ort::Session>(impl_->env, applierPath.c_str(), impl_->sessionOptions);
+		LOG(SoftIsp, Info) << "applier.onnx loaded successfully";
+	} catch (const Ort::Exception &e) {
+		LOG(SoftIsp, Error) << "Failed to load applier.onnx: " << e.what();
+		return -EINVAL;
+	}
 
 	*ccmEnabled = true;
 	LOG(SoftIsp, Info) << "SoftISP initialization complete (models detected)";
