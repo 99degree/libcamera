@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,6 +42,7 @@ public:
 	void run() override;
 	std::unique_ptr<Stream> dummyStream_;
 	void processRequest(Request *request);
+	FrameBuffer* getBufferFromId(uint32_t bufferId);
 
 	struct StreamConfig {
 		Stream *stream = nullptr;
@@ -51,6 +53,7 @@ public:
 	std::vector<StreamConfig> streamConfigs_;
 	bool running_ = false;
 	Mutex mutex_;
+	std::map<uint32_t, FrameBuffer*> bufferMap_; // Map bufferId -> FrameBuffer*
 };
 
 /*
