@@ -58,6 +58,9 @@ protected:
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
+	// Store last processed output for pipeline access
+	std::vector<float> lastOutputData_;
+	uint32_t lastOutputBufferId_ = 0;
     
     // Internal state for overrides (simplified from CoefficientManager)
     struct {
