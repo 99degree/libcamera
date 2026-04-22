@@ -15,8 +15,15 @@ interface SoftIspInterface {
   start() => (int32 ret);
   stop();
   configure(uint32 width, uint32 height, uint32 format) => (int32 ret);
-  [async] processFrame(uint32 frameId, libcamera.SharedFD inputBuffer, libcamera.SharedFD outputBuffer);
-  [async] getStats(uint32 frameId) => (libcamera.ControlList stats);
+  
+  // Process statistics (metadata extraction)
+  [async] processStats(uint32 frameId, uint32 bufferId, libcamera.ControlList sensorControls);
+  
+  // Process the frame buffer with calculated coefficients
+  [async] processFrame(uint32 frameId, uint32 bufferId,
+                       libcamera.SharedFD bufferFd, int32 planeIndex,
+                       int32 stride, int32 width, int32 height,
+                       libcamera.ControlList results);
 };
 
 interface SoftIspEventInterface {
