@@ -1,15 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /**
- * libipa::AfAlgo - Hardware-agnostic Auto-Focus Algorithm Implementation
+ * \file af_algo.cpp
+ * \brief Hardware-agnostic Auto-Focus Algorithm Implementation
  * 
- * Adapted from Raspberry Pi controller AF algorithm.
- * Implements PDAF (Phase Detection) and CDAF (Contrast Detection).
+ * Implementation of the AfAlgo class, adapted from the Raspberry Pi
+ * controller AF algorithm. Supports both PDAF (Phase Detection) and
+ * CDAF (Contrast Detection) autofocus methods.
  */
 
 #include "af_algo.h"
+
+#include <cstring>
 #include <fstream>
 #include <sstream>
-#include <cstring>
 
 namespace libcamera {
 LOG_DEFINE_CATEGORY(LibipaAf)
