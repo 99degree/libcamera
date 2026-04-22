@@ -9,10 +9,13 @@
  */
 
 #include "af_algo.h"
+#include "af_controls.h"
 
-#include <cstring>
 #include <fstream>
 #include <sstream>
+#include <cstring>
+
+#include <libcamera/control_ids.h>
 
 namespace libcamera {
 LOG_DEFINE_CATEGORY(LibipaAf)
@@ -372,6 +375,100 @@ bool AfAlgo::process(float contrast, float phase, float conf)
     }
 
     return positionUpdated_;
+}
+
+void AfAlgo::handleControls(const ControlList &controls)
+{
+    bool modeChanged = false;
+    bool rangeChanged = false;
+    bool speedChanged = false;
+
+    // 1. Handle AF Mode (Standard Control)
+    if (controls.contains(controls::AfMode)) {
+        auto val = controls.get(controls::AfMode);
+        if (val.type() == ControlTypeInteger) {
+            int32_t modeVal = val.toInt32();
+            AfMode newMode;
+            switch (modeVal) {
+            case 0: newMode = AfMode::Manual; break;
+            case 1: newMode = AfMode::Auto; break;
+            case 2: newMode = AfMode::Continuous; break;
+            default: newMode = AfMode::Manual; break;
+            }
+            if (mode_ != newMode) {
+                setMode(newMode);
+                modeChanged = true;
+            }
+        }
+    }
+
+    // 2. Handle Focus Range (Custom Controls or Standard if available)
+    // Using custom control IDs for now (assuming softisp.mojom defines them)
+    // If using standard controls, replace with controls::LensPositionMin/Max
+    if (controls.contains(controls::CustomAfFocusMin)) {
+        auto val = controls.get(controls::CustomAfFocusMin);
+        if (val.type() == ControlTypeFloat) {
+            float minVal = val.toFloat();
+            if (std::abs(minVal - focusMin_) > 0.01f) {
+                setRange(minVal, focusMax_, focusDefault_);
+                rangeChanged = true;
+            }
+        }
+    }
+
+    if (controls.contains(controls::CustomAfFocusMax)) {
+        auto val = controls.get(controls::CustomAfFocusMax);
+        if (val.type() == ControlTypeFloat) {
+            float maxVal = val.toFloat();
+            if (std::abs(maxVal - focusMax_) > 0.01f) {
+                setRange(focusMin_, maxVal, focusDefault_);
+                rangeChanged = true;
+            }
+        }
+    }
+
+    // 3. Handle Speed Parameters (Custom Controls)
+    if (controls.contains(controls::CustomAfStepCoarse)) {
+        auto val = controls.get(controls::CustomAfStepCoarse);
+        if (val.type() == ControlTypeFloat) {
+            float valF = val.toFloat();
+            if (std::abs(valF - stepCoarse_) > 0.01f) {
+                setSpeed(valF, stepFine_, maxSlew_);
+                speedChanged = true;
+            }
+        }
+    }
+
+    if (controls.contains(controls::CustomAfStepFine)) {
+        auto val = controls.get(controls::CustomAfStepFine);
+        if (val.type() == ControlTypeFloat) {
+            float valF = val.toFloat();
+            if (std::abs(valF - stepFine_) > 0.01f) {
+                setSpeed(stepCoarse_, valF, maxSlew_);
+                speedChanged = true;
+            }
+        }
+    }
+
+    // 4. Handle Manual Lens Position
+    if (controls.contains(controls::LensPosition)) {
+        auto val = controls.get(controls::LensPosition);
+        if (val.type() == ControlTypeFloat) {
+            float dioptres = val.toFloat();
+            setLensPosition(dioptres);
+            LOG(LibipaAf, Debug) << "Manual lens position set: " << dioptres << "D";
+        }
+    }
+
+    if (modeChanged) {
+        LOG(LibipaAf, Info) << "AF Mode changed via ControlList";
+    }
+    if (rangeChanged) {
+        LOG(LibipaAf, Info) << "AF Range changed via ControlList";
+    }
+    if (speedChanged) {
+        LOG(LibipaAf, Debug) << "AF Speed changed via ControlList";
+    }
 }
 
 } // namespace libipa

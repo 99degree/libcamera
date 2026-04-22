@@ -3,6 +3,8 @@
  * SoftIsp - implementation of the ONNX-based Image Processing Algorithm.
  */
 #include "softisp.h"
+#include "af_algo.h"
+#include "af_controls.h"
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 #include <onnxruntime_cxx_api.h>
@@ -227,6 +229,11 @@ void SoftIsp::clearOverrides()
     LOG(SoftIsp, Info) << "All overrides cleared";
 }
 
+void SoftIsp::handleAfControls(const ControlList &controls)
+{
+    afAlgo_.handleControls(controls);
+}
+
 void SoftIsp::applyOverrides(float* awbGains, float* ccm, float* tonemap, float* gamma,
                              float* rgb2yuv, float* chroma,
                              float* lcsStrength, float* lcsThreshold, float* lcsRadius,
@@ -365,6 +372,9 @@ int SoftIsp::saveConfig(const std::string& configPath) const
 void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const ControlList &sensorControls)
 {
     LOG(SoftIsp, Info) << ">>> processStats called for frame " << frame;
+
+    // 1. Handle AF controls from ControlList (Mode, Range, Speed, etc.)
+    handleAfControls(sensorControls);
 
     if (!impl_->initialized || !impl_->algoSession || !impl_->applierSession) {
         LOG(SoftIsp, Error) << "SoftISP not properly initialized";
