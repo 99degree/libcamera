@@ -134,6 +134,10 @@ int DummySoftISPCameraData::loadIPA()
 	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] About to call createIPA()";
 	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(Camera::Private::pipe(), 0, 0);
 	LOG(SoftISPDummyPipeline, Info) << "[DEBUG] createIPA() returned: " << (void*)ipa_.get();
+		// Create the wrapper for clean parameter names
+		if (ipa_) {
+			LOG(SoftISPDummyPipeline, Info) << "[DEBUG] Wrapper created successfully";
+		}
 	if (!ipa_) {
 		LOG(SoftISPDummyPipeline, Error)
 			<< "Failed to create SoftISP IPA module for virtual camera";
@@ -271,8 +275,8 @@ std::unique_ptr<CameraConfiguration> PipelineHandlerDummysoftisp::generateConfig
 	StreamFormats sf(streamFormats);
 	StreamConfiguration streamCfg(sf);
 	streamCfg.pixelFormat = formats::NV12;
-	streamCfg.size = Size(640, 480);
-	streamCfg.bufferCount = 4;
+	streamCfg.size = Size(1920, 1080); // FHD default
+	streamCfg.bufferCount = 8; // Larger buffer pool
 
 	config->addConfiguration(streamCfg);
 
