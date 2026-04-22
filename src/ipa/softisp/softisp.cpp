@@ -522,3 +522,70 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
 
 } // namespace ipa::soft
 } // namespace libcamera
+
+/* -----------------------------------------------------------------
+ * Process Frame - Apply ONNX results to buffer
+ * ----------------------------------------------------------------- */
+int32_t SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
+                               const SharedFD &bufferFd, const uint32_t planeIndex,
+                               const int32_t stride, const int32_t width, const int32_t height,
+                               ControlList *results) {
+  if (!impl_->initialized) {
+    LOG(SoftIsp, Error) << "SoftISP not initialized";
+    return -EINVAL;
+  }
+  
+  if (!results) {
+    LOG(SoftIsp, Error) << "Results ControlList is null";
+    return -EINVAL;
+  }
+  
+  LOG(SoftIsp, Info) << "Processing frame buffer: fd=" << bufferFd.get() 
+                     << " stride=" << stride << " size=" << width << "x" << height;
+  
+  try {
+    // Map the buffer
+    void *bufferMem = mmap(nullptr, stride * height, PROT_READ | PROT_WRITE, MAP_SHARED, bufferFd.get(), 0);
+    if (bufferMem == MAP_FAILED) {
+      LOG(SoftIsp, Error) << "Failed to map buffer";
+      return -errno;
+    }
+    
+    uint8_t *bufferPtr = static_cast<uint8_t*>(bufferMem);
+    
+    // Apply the processed data from lastOutputData_ to the buffer
+    if (!lastOutputData_.empty()) {
+      size_t outputSize = std::min(lastOutputData_.size(), static_cast<size_t>(stride * height));
+      
+      for (size_t i = 0; i < outputSize; ++i) {
+        uint8_t val = static_cast<uint8_t>(std::clamp(lastOutputData_[i] * 255.0f, 0.0f, 255.0f));
+        bufferPtr[i] = val;
+      }
+      
+      LOG(SoftIsp, Info) << "Wrote " << outputSize << " bytes to buffer";
+    } else {
+      LOG(SoftIsp, Warn) << "No output data available, skipping buffer write";
+    }
+    
+    // Write metadata to results
+    float awbGains[3] = {1.0f, 1.0f, 1.0f};
+    applyOverrides(awbGains, nullptr, nullptr, nullptr, nullptr, nullptr, 
+                   nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    results->set(controls::AwbGains, awbGains);
+    
+    float afScore = 0.0f;
+    applyOverrides(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+                   nullptr, nullptr, nullptr, &afScore, nullptr, nullptr, nullptr);
+    if (afScore > 0.0f) {
+      results->set(controls::draft::FocusScore, afScore);
+    }
+    
+    munmap(bufferMem, stride * height);
+    LOG(SoftIsp, Info) << "Frame " << frame << " buffer processed successfully";
+    return 0;
+    
+  } catch (const std::exception& e) {
+    LOG(SoftIsp, Error) << "Error processing frame: " << e.what();
+    return -EIO;
+  }
+}

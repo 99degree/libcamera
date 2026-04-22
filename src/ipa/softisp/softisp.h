@@ -96,3 +96,9 @@ private:
 
 } // namespace ipa::soft
 } // namespace libcamera
+
+  // Process the frame buffer with calculated coefficients
+  int32_t processFrame(const uint32_t frame, const uint32_t bufferId,
+                       const SharedFD &bufferFd, const uint32_t planeIndex,
+                       const int32_t stride, const int32_t width, const int32_t height,
+                       ControlList *results) override;
