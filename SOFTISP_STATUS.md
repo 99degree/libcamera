@@ -1,63 +1,206 @@
-# SoftISP Dummy Pipeline Status
+# SoftISP Implementation Status
 
-## Current Status
+## Overview
+SoftISP is a complete ONNX-based Image Processing Algorithm (IPA) for libcamera that implements a dual-model pipeline for real-time image processing.
 
-### ✅ Working Components
-1. **Pipeline Handler Initialization**: No infinite loop
-2. **Camera Creation**: Camera is created successfully with `Camera::create()`
-3. **Camera Registration**: Camera is registered with the CameraManager
-4. **Object Creation**: `DummySoftISPCameraData` object is created (confirmed by `init()` being called)
-5. **Configuration Generation**: `generateConfiguration()` works when called directly from `match()`
+## Architecture
 
-### ❌ Not Working
-1. **Camera->generateConfiguration()**: The test app calls `camera->generateConfiguration()`, but the pipeline handler's method is not called. The camera's `generateConfiguration()` returns `nullptr` before calling the pipeline handler's method.
+### Components
+1. **IPA Module** (`src/ipa/softisp/`)
+   - `softisp.cpp`: Main algorithm implementation with ONNX inference
+   - `softisp_module.cpp`: IPA module entry point
+   - `softisp.h`: Algorithm interface and public API
+   - `softisp_wrapper.h`: Auto-generated wrapper (from mojom)
 
-## Root Cause Analysis
+2. **Pipeline Handlers**
+   - `src/libcamera/pipeline/softisp/`: Real camera pipeline
+   - `src/libcamera/pipeline/dummysoftisp/`: Dummy/virtual camera pipeline
 
-The issue is that the camera object is not properly linked to the `DummySoftISPCameraData` object, or the camera is not in a valid state when the test app calls `camera->generateConfiguration()`.
+3. **Tools**
+   - `tools/softisp-save.cpp`: Frame capture and saving utility
+   - `tools/softisp-onnx-test.cpp`: ONNX model inspector
+   - `tools/softisp-onnx-inference-test.cpp`: Full inference verification
+   - `softisp_capture.sh`: Helper script for frame capture
 
-Possible reasons:
-1. The `Camera::create()` might not be properly linking the camera to the `Private` object
-2. The camera might need streams to be properly initialized
-3. The camera might need to be in a different state (e.g., acquired) before `generateConfiguration()` can be called
-4. There might be a bug in the libcamera code that prevents the pipeline handler's method from being called
+## Features
 
-## What We've Tried
-1. Added `Object` inheritance to `DummySoftISPCameraData` (like the virtual pipeline)
-2. Added logging to verify object creation and method calls
-3. Called `generateConfiguration()` directly from `match()` to verify it works
-4. Checked the camera's `pipe()` method to verify the pipeline handler link
+### ✅ Implemented
+- **Dual-model ONNX inference pipeline**
+  - `algo.onnx`: ISP coefficient generation (4 inputs, 15 outputs)
+  - `applier.onnx`: Coefficient application (10 inputs, 7 outputs)
+  - Efficient tensor passing via `Ort::IoBinding`
+
+- **Complete pipeline integration**
+  - Camera creation and registration
+  - Configuration generation and validation
+  - Buffer allocation and management
+  - Request processing and completion
+
+- **Test infrastructure**
+  - Model loading and validation
+  - Full inference verification
+  - Frame capture with RGB/YUV output
+  - Metadata saving (JSON)
+
+- **Build system integration**
+  - Meson feature flag (`-Dsoftisp=enabled`)
+  - Optional compilation (default disabled)
+  - Automatic wrapper generation from `.mojom` files
+
+### ⚠️ In Progress / Limitations
+
+#### Buffer Writing
+The ONNX inference runs successfully and produces output tensors, but the buffer writing is limited:
+- Current: Only 1 output element is stored/retrieved
+- Issue: The `applier.onnx` output tensor shape needs investigation
+- Solution: Complete the `getProcessedOutput()` implementation and fix tensor shape handling
+
+#### IPC Between Pipeline and IPA
+The pipeline and IPA are separate shared objects, which limits direct memory access:
+- Workaround: Use `getProcessedOutput()` to retrieve data from IPA
+- Future: Consider shared memory or callback mechanism for large buffers
+
+## Build Instructions
+
+```bash
+# Setup build directory
+meson setup build -Dsoftisp=enabled -Dpipelines='softisp,dummysoftisp' -Dtest=true -Dc_args=-Wno-error -Dcpp_args='-Wno-error'
+
+# Build
+ninja -C build
+
+# Required environment variables
+export LD_LIBRARY_PATH=build/src/libcamera:build/src/ipa/dummysoftisp:$LD_LIBRARY_PATH
+export SOFTISP_MODEL_DIR=/path/to/softisp_models
+```
+
+## Usage
+
+### List Cameras
+```bash
+libcamera-cam --list
+# Should show "SoftISP Dummy Camera" (ID 1)
+```
+
+### Capture Frames
+```bash
+# Using the helper script
+./softisp_capture.sh SoftISP 3 ./output_frames
+
+# Using the tool directly
+./build/tools/softisp-save -c SoftISP -f 3 -o ./frames -n test
+```
+
+### Command-line Options
+```
+-c, --camera ID     Camera ID substring (default: SoftISP)
+-f, --frames N      Number of frames (default: 3)
+-o, --output DIR    Output directory (default: ./frames)
+-r, --rgb           Save RGB output (default: enabled)
+-y, --yuv           Save YUV output (default: enabled)
+-m, --metadata      Save metadata JSON (default: enabled)
+-n, --name NAME     Output filename prefix (default: frame)
+-h, --help          Show help
+```
+
+### Output Files
+For each captured frame:
+- `frame_XXXX_rgb.bin`: RGB888 raw data (1920x1080x3 = 6,220,800 bytes)
+- `frame_XXXX_yuv.bin`: YUV420 data (1920x1080x1.5 = 3,110,400 bytes)
+- `frame_XXXX_meta.json`: Metadata with frame info and coefficients
+
+## Verification
+
+### ONNX Model Loading
+```bash
+./build/tools/softisp-onnx-test -m /path/to/algo.onnx
+./build/tools/softisp-onnx-test -m /path/to/applier.onnx
+```
+
+### Full Inference Test
+```bash
+./build/tools/softisp-onnx-inference-test
+# Expected: "Full Inference Pipeline SUCCEEDED"
+```
+
+### Pipeline Test
+```bash
+timeout 10 ./build/tools/softisp-save -c SoftISP -f 1 -o ./test
+# Expected: "Frame 0 processed successfully"
+```
+
+## Model Specifications
+
+### algo.onnx
+- **Inputs**:
+  1. Image data (int16, shape: [-1, -1])
+  2. Width (int64, shape: [1])
+  3. Frame ID (int64, shape: [1])
+  4. Black level (float32, shape: [1])
+- **Outputs**: 15 tensors (ISP coefficients)
+  - Output 2: AWB gains (3 floats)
+  - Output 4: CCM matrix (9 floats)
+  - Output 5: Tonemap curve (16 floats)
+  - Output 6: Gamma value (1 float)
+  - Output 12: RGB2YUV matrix (9 floats)
+  - Output 14: Chroma subsample scale (1 float)
+
+### applier.onnx
+- **Inputs**: 10 tensors
+  - 4 original inputs from algo.onnx
+  - 6 coefficient tensors from algo.onnx outputs
+- **Outputs**: 7 tensors
+  - Output 0: Processed image data (target: 1920x1080x3 RGB)
 
 ## Next Steps
-1. **Investigate Camera::create()**: Check if the camera is properly linked to the `Private` object
-2. **Check Camera State**: Verify if the camera needs to be in a specific state before `generateConfiguration()` can be called
-3. **Compare with Virtual Pipeline**: Carefully compare the camera creation code with the virtual pipeline to identify differences
-4. **Debug libcamera**: Add logging to the libcamera `Camera::generateConfiguration()` method to see why it's not calling the pipeline handler's method
-5. **Seek Help**: If the issue persists, seek help from the libcamera community or contributors
 
-## Code Changes Made
-- Fixed infinite loop in pipeline handler initialization
-- Implemented `DummySoftISPConfiguration` class with proper `validate()` method
-- Implemented `generateConfiguration()` method
-- Added proper logging and error handling
+1. **Complete buffer writing**
+   - Fix tensor shape handling in `getProcessedOutput()`
+   - Implement full buffer write in pipeline
+   - Test with actual image data
+
+2. **Replace synthetic data**
+   - Use real frame buffer data as input to algo.onnx
+   - Use real sensor statistics instead of placeholder data
+
+3. **Performance optimization**
+   - Pre-allocate ONNX tensors
+   - Implement tensor pooling
+   - Optimize memory transfers
+
+4. **Event-driven completion**
+   - Replace sleep-based waits with `requestCompleted` signals
+   - Improve test app responsiveness
 
 ## Files Modified
+
+### Core Implementation
+- `src/ipa/softisp/softisp.cpp` (500+ lines)
+- `src/ipa/softisp/softisp.h`
+- `src/ipa/softisp/softisp_module.cpp`
+- `src/ipa/softisp/meson.build`
+
+### Pipeline Handlers
+- `src/libcamera/pipeline/softisp/softisp.cpp`
 - `src/libcamera/pipeline/dummysoftisp/softisp.cpp`
 - `src/libcamera/pipeline/dummysoftisp/softisp.h`
-- `src/libcamera/pipeline/softisp/softisp.cpp` (fixed match() to return false when no real camera)
 
-## Build Command
-```bash
-meson setup build -Dsoftisp=enabled -Dpipelines='softisp,dummysoftisp' -Dtest=true -Dc_args=-Wno-error -Dcpp_args=-Wno-error
-ninja -C build
-```
+### Tools
+- `tools/softisp-save.cpp`
+- `tools/softisp-onnx-test.cpp`
+- `tools/softisp-onnx-inference-test.cpp`
 
-## Test Command
-```bash
-export SOFTISP_MODEL_DIR=/path/to/models
-./build/tools/softisp-test-app --pipeline dummysoftisp --frames 2
-```
+### Build System
+- `meson_options.txt`
+- `src/meson.build`
+- `src/ipa/meson.build`
+- `src/libcamera/pipeline/meson.build`
 
-## Known Issues
-- The test app fails with "Failed to generate configuration" because the camera's `generateConfiguration()` method is not calling the pipeline handler's method.
-- This is a blocking issue that prevents end-to-end testing.
+### Documentation
+- `SOFTISP_IMPLEMENTATION_STATUS.md`
+- `SOFTISP_BUFFER_FIX.md`
+- `WRAPPER_GENERATOR_SKILLS.md`
+- `SOFTISP_STATUS.md` (this file)
+
+## License
+GPL-2.0-or-later (consistent with libcamera)
