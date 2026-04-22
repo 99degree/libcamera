@@ -3,12 +3,12 @@
  * SoftIsp - implementation of the ONNX-based Image Processing Algorithm.
  */
 #include "softisp.h"
+#include "af_algo.h"
+#include "af_controls.h"
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 #include <onnxruntime_cxx_api.h>
 #include <unistd.h>
-#include <sys/mman.h>
-#include <libcamera/base/mutex.h>
 #include <algorithm>
 #include <vector>
 #include <memory>
@@ -21,7 +21,6 @@ namespace libcamera {
 LOG_DEFINE_CATEGORY(SoftIsp)
 
 namespace ipa::soft {
-
 
 /* -----------------------------------------------------------------
  * SoftIsp::Impl - Private implementation holding ONNX sessions.
@@ -111,7 +110,6 @@ int32_t SoftIsp::init(const IPASettings &settings, const SharedFD &fdStats, cons
         *ccmEnabled = true;
 
     LOG(SoftIsp, Info) << "SoftISP initialization complete";
-	impl_->initialized = true;
     return 0;
 }
 
@@ -129,8 +127,8 @@ void SoftIsp::stop()
 int32_t SoftIsp::configure(const IPAConfigInfo &configInfo)
 {
     LOG(SoftIsp, Info) << "Configuring SoftISP algorithm";
-    // impl_->imageWidth = configInfo.width; // Not available in this API
-    // impl_->imageHeight = configInfo.height; // Not available in this API
+    impl_->imageWidth = configInfo.width;
+    impl_->imageHeight = configInfo.height;
     return 0;
 }
 
@@ -229,6 +227,11 @@ void SoftIsp::clearOverrides()
 {
     overrides_ = decltype(overrides_){};
     LOG(SoftIsp, Info) << "All overrides cleared";
+}
+
+void SoftIsp::handleAfControls(const ControlList &controls)
+{
+    afAlgo_.handleControls(controls);
 }
 
 void SoftIsp::applyOverrides(float* awbGains, float* ccm, float* tonemap, float* gamma,
@@ -370,6 +373,10 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
 {
     LOG(SoftIsp, Info) << ">>> processStats called for frame " << frame;
 
+    // 1. Handle AF controls from ControlList (Mode, Range, Speed, etc.)
+    // Note: This reads configuration, so it can be done early.
+    handleAfControls(sensorControls);
+
     if (!impl_->initialized || !impl_->algoSession || !impl_->applierSession) {
         LOG(SoftIsp, Error) << "SoftISP not properly initialized";
         return;
@@ -499,9 +506,29 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
         auto applierOutputs = ioBinding.GetOutputValues();
         LOG(SoftIsp, Info) << "applier.onnx completed: " << applierOutputs.size() << " outputs";
 
+        // TODO: AF Algorithm Integration
+        // 1. Extract focus metrics (contrast, phase) from stats or ONNX output
+        //    - If synchronous: Extract from current frame stats here.
+        //    - If asynchronous: Ensure we use stats from the correct frame.
+        // float contrast = extractContrastFromStats(...);
+        // float phase = extractPhaseFromStats(...);
+        //
+        // 2. Run AF algorithm with latest metrics
+        // bool afUpdated = afAlgo_.process(contrast, phase, 0.8f);
+        //
+        // 3. Output lens position to ControlList for Pipeline
+        // if (afUpdated) {
+        //     int32_t vcm = afAlgo_.getLensPosition();
+        //     // result.set(softisp::controls::focusPosition, vcm);
+        // }
+        //
+        // Note: Placing this *after* ONNX inference ensures we have the latest
+        // frame data (if stats are extracted from the image). If controls are
+        // purely configuration (Mode/Range), handleAfControls() can stay at the top.
 
-		LOG(SoftIsp, Info) << "Frame " << frame << " processed successfully (ONNX inference complete, buffer writing to be implemented)";
-	} catch (const Ort::Exception& e) {
+        LOG(SoftIsp, Info) << "Frame " << frame << " processed successfully";
+
+    } catch (const Ort::Exception& e) {
         LOG(SoftIsp, Error) << "ONNX inference failed: " << e.what();
     }
 }

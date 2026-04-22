@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: CC0-1.0
 
 libipa_headers = files([
-    'agc_mean_luminance.h',
+    'af_algo.h',
+  'af_controls.h',
+  'agc_mean_luminance.h',
     'algorithm.h',
     'awb_bayes.h',
     'awb_grey.h',
@@ -22,7 +24,8 @@ libipa_headers = files([
 ])
 
 libipa_sources = files([
-    'agc_mean_luminance.cpp',
+    'af_algo.cpp',
+  'agc_mean_luminance.cpp',
     'algorithm.cpp',
     'awb_bayes.cpp',
     'awb_grey.cpp',
