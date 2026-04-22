@@ -374,6 +374,7 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
     LOG(SoftIsp, Info) << ">>> processStats called for frame " << frame;
 
     // 1. Handle AF controls from ControlList (Mode, Range, Speed, etc.)
+    // Note: This reads configuration, so it can be done early.
     handleAfControls(sensorControls);
 
     if (!impl_->initialized || !impl_->algoSession || !impl_->applierSession) {
@@ -504,6 +505,26 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId, const 
         impl_->applierSession->Run(Ort::RunOptions{nullptr}, ioBinding);
         auto applierOutputs = ioBinding.GetOutputValues();
         LOG(SoftIsp, Info) << "applier.onnx completed: " << applierOutputs.size() << " outputs";
+
+        // TODO: AF Algorithm Integration
+        // 1. Extract focus metrics (contrast, phase) from stats or ONNX output
+        //    - If synchronous: Extract from current frame stats here.
+        //    - If asynchronous: Ensure we use stats from the correct frame.
+        // float contrast = extractContrastFromStats(...);
+        // float phase = extractPhaseFromStats(...);
+        //
+        // 2. Run AF algorithm with latest metrics
+        // bool afUpdated = afAlgo_.process(contrast, phase, 0.8f);
+        //
+        // 3. Output lens position to ControlList for Pipeline
+        // if (afUpdated) {
+        //     int32_t vcm = afAlgo_.getLensPosition();
+        //     // result.set(softisp::controls::focusPosition, vcm);
+        // }
+        //
+        // Note: Placing this *after* ONNX inference ensures we have the latest
+        // frame data (if stats are extracted from the image). If controls are
+        // purely configuration (Mode/Range), handleAfControls() can stay at the top.
 
         LOG(SoftIsp, Info) << "Frame " << frame << " processed successfully";
 

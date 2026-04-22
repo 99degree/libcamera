@@ -51,6 +51,7 @@ graph LR
 | Component | File(s) | Priority | Description |
 |-----------|---------|----------|-------------|
 | **Stat Extractor** | `src/ipa/softisp/af_extractor.cpp` | High | Implement contrast/phase extraction from ONNX or hardware stats. |
+| **AF Calculation Placement** | `src/ipa/softisp/softisp.cpp` | Medium | **TODO:** Move `afAlgo_.process()` to after stats extraction (see TODO comment). |
 | **Mojom Definition** | `include/libcamera/ipa/softisp.mojom` | Medium | Define `focusPosition` control for IPC. |
 | **Unit Tests** | `test/ipa/af_algo_test.cpp` | Medium | Test hill-climbing and PDAF logic with mock data. |
 | **Hardware Test** | `tools/af_test_app.cpp` | Low | End-to-end test with VCM lens. |
