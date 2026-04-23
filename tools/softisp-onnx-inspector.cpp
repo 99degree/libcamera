@@ -24,54 +24,50 @@ std::string getTypeName(ONNXTensorElementDataType type) {
 }
 
 void printModel(const std::string& path, const std::string& name) {
-    std::cout << "\n=== " << name << " ===" << std::endl;
-    std::cout << "Path: " << path << std::endl;
-    
-    try {
-        Ort::Env env(ORT_LOGGING_LEVEL_ERROR, "Inspect");
-        Ort::SessionOptions opts;
-        Ort::Session session(env, path.c_str(), opts);
-        Ort::AllocatorWithDefaultOptions allocator;
-        
-        std::cout << "Inputs: " << session.GetInputCount() << std::endl;
-        for (size_t i = 0; i < session.GetInputCount(); ++i) {
-            auto name = session.GetInputNameAllocated(i, allocator);
-            auto typeInfo = session.GetInputTypeInfo(i);
-            auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
-            auto shape = tensorInfo.GetShape();
-            auto elemType = tensorInfo.GetElementType();
-            
-            std::cout << "  Input " << i << ": " << name.get() << std::endl;
-            std::cout << "    Type: " << getTypeName(elemType) << std::endl;
-            std::cout << "    Shape: [";
-            for (size_t j = 0; j < shape.size(); ++j) {
-                if (j > 0) std::cout << ", ";
-                std::cout << shape[j];
-            }
-            std::cout << "]" << std::endl;
-        }
-        
-        std::cout << "\nOutputs: " << session.GetOutputCount() << std::endl;
-        for (size_t i = 0; i < session.GetOutputCount(); ++i) {
-            auto name = session.GetOutputNameAllocated(i, allocator);
-            auto typeInfo = session.GetOutputTypeInfo(i);
-            auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
-            auto shape = tensorInfo.GetShape();
-            auto elemType = tensorInfo.GetElementType();
-            
-            std::cout << "  Output " << i << ": " << name.get() << std::endl;
-            std::cout << "    Type: " << getTypeName(elemType) << std::endl;
-            std::cout << "    Shape: [";
-            for (size_t j = 0; j < shape.size(); ++j) {
-                if (j > 0) std::cout << ", ";
-                std::cout << shape[j];
-            }
-            std::cout << "]" << std::endl;
-        }
-        
-    } catch (const Ort::Exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-    }
+	std::cout << "\n=== " << name << " ===" << std::endl;
+	std::cout << "Path: " << path << std::endl;
+	try {
+		Ort::Env env(ORT_LOGGING_LEVEL_ERROR, "Inspect");
+		Ort::SessionOptions opts;
+		Ort::Session session(env, path.c_str(), opts);
+		Ort::AllocatorWithDefaultOptions allocator;
+
+		std::cout << "Inputs: " << session.GetInputCount() << std::endl;
+		for (size_t i = 0; i < session.GetInputCount(); ++i) {
+			auto tensorName = session.GetInputNameAllocated(i, allocator);
+			auto inputTypeInfo = session.GetInputTypeInfo(i);
+			auto inputTensorInfo = inputTypeInfo.GetTensorTypeAndShapeInfo();
+			auto shape = inputTensorInfo.GetShape();
+			auto elemType = inputTensorInfo.GetElementType();
+			std::cout << " Input " << i << ": " << tensorName.get() << std::endl;
+			std::cout << " Type: " << getTypeName(elemType) << std::endl;
+			std::cout << " Shape: [";
+			for (size_t j = 0; j < shape.size(); ++j) {
+				if (j > 0) std::cout << ", ";
+				std::cout << shape[j];
+			}
+			std::cout << "]" << std::endl;
+		}
+
+		std::cout << "\nOutputs: " << session.GetOutputCount() << std::endl;
+		for (size_t i = 0; i < session.GetOutputCount(); ++i) {
+			auto tensorName = session.GetOutputNameAllocated(i, allocator);
+			auto outputTypeInfo = session.GetOutputTypeInfo(i);
+			auto outputTensorInfo = outputTypeInfo.GetTensorTypeAndShapeInfo();
+			auto shape = outputTensorInfo.GetShape();
+			auto elemType = outputTensorInfo.GetElementType();
+			std::cout << " Output " << i << ": " << tensorName.get() << std::endl;
+			std::cout << " Type: " << getTypeName(elemType) << std::endl;
+			std::cout << " Shape: [";
+			for (size_t j = 0; j < shape.size(); ++j) {
+				if (j > 0) std::cout << ", ";
+				std::cout << shape[j];
+			}
+			std::cout << "]" << std::endl;
+		}
+	} catch (const Ort::Exception& e) {
+		std::cerr << "Error: " << e.what() << std::endl;
+	}
 }
 
 int main() {
