@@ -19,7 +19,6 @@
 
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/framebuffer.h"
-#include "libcamera/stream.h"
 
 namespace libcamera {
 
@@ -36,7 +35,7 @@ public:
 	VirtualCamera();
 	~VirtualCamera();
 
-	int init(unsigned int width, unsigned int height, PixelFormat format);
+	int init(unsigned int width, unsigned int height);
 	int start();
 	void stop();
 	void queueBuffer(FrameBuffer *buffer);
@@ -44,28 +43,13 @@ public:
 	void setBrightness(float brightness);
 	void setContrast(float contrast);
 
-	/**
-	 * Get the current frame sequence number
-	 */
 	unsigned int sequence() const { return sequence_; }
 
 private:
 	void run() override;
-	void generatePattern(uint8_t *data, unsigned int width, unsigned int height,
-	                     unsigned int stride);
-	void generateSolidColor(uint8_t *data, unsigned int size);
-	void generateGrayscale(uint8_t *data, unsigned int width, unsigned int height,
-	                       unsigned int stride);
-	void generateColorBars(uint8_t *data, unsigned int width, unsigned int height,
-	                       unsigned int stride);
-	void generateCheckerboard(uint8_t *data, unsigned int width, unsigned int height,
-	                          unsigned int stride);
-	void generateSineWave(uint8_t *data, unsigned int width, unsigned int height,
-	                      unsigned int stride);
 
 	unsigned int width_ = 0;
 	unsigned int height_ = 0;
-	PixelFormat format_ = formats::UYVY888;
 	Pattern pattern_ = Pattern::ColorBars;
 	float brightness_ = 0.5f;
 	float contrast_ = 1.0f;
@@ -75,7 +59,6 @@ private:
 
 	std::mutex queueMutex_;
 	std::queue<FrameBuffer*> bufferQueue_;
-
 	std::condition_variable bufferCV_;
 };
 

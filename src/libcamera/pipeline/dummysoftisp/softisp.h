@@ -22,6 +22,11 @@
 #include <libcamera/ipa/soft_ipa_proxy.h>
 
 namespace libcamera {
+class DummySoftISPConfiguration : public CameraConfiguration {
+public:
+	DummySoftISPConfiguration();
+	Status validate() override;
+};
 
 /* Forward declarations */
 class PipelineHandlerDummysoftisp;
@@ -97,3 +102,8 @@ private:
 };
 
 } /* namespace libcamera */
+class DummySoftISPConfiguration : public CameraConfiguration {
+public:
+	DummySoftISPConfiguration();
+	Status validate() override;
+};
