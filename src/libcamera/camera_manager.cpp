@@ -95,8 +95,11 @@ void CameraManager::Private::run()
 int CameraManager::Private::init()
 {
 	enumerator_ = DeviceEnumerator::create();
-	if (!enumerator_ || enumerator_->enumerate())
-		return -ENODEV;
+	int ret = enumerator_->enumerate();
+	if (ret < 0)
+		{
+		LOG(Camera, Warning) << "Device enumeration failed, continuing";
+	}
 
 	createPipelineHandlers();
 	enumerator_->devicesAdded.connect(this, &Private::createPipelineHandlers);

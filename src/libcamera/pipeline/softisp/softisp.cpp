@@ -212,6 +212,7 @@ bool PipelineHandlerSoftISP::createRealCamera(std::shared_ptr<MediaDevice> media
 
 bool PipelineHandlerSoftISP::createVirtualCamera() {
     LOG(SoftISPPipeline, Info) << "Creating virtual camera";
+    LOG(SoftISPPipeline, Debug) << "About to create virtual camera";
 
     auto cameraData = std::make_unique<SoftISPCameraData>(this);
     cameraData->isVirtualCamera = true;
@@ -243,6 +244,7 @@ bool PipelineHandlerSoftISP::createVirtualCamera() {
 
 bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator) {
     LOG(SoftISPPipeline, Info) << "Matching SoftISP cameras";
+    LOG(SoftISPPipeline, Debug) << "SoftISP match() called with enumerator: " << (enumerator ? "valid" : "null");
 
     std::vector<std::shared_ptr<MediaDevice>> realCameras;
 
@@ -385,3 +387,14 @@ int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
 }
 
 } // namespace libcamera
+
+// Static initialization to create the pipeline handler
+static bool registerSoftISPPipeline() {
+    // This will be called when the library is loaded
+    // The CameraManager will discover and use this handler
+    return true;
+}
+static bool softispRegistered = registerSoftISPPipeline();
+
+// Register the SoftISP pipeline handler factory
+static libcamera::PipelineHandlerFactory<libcamera::PipelineHandlerSoftISP> softispFactory("SoftISP");
