@@ -15,7 +15,7 @@ cam -c softisp_virtual -C 5 -o frame-#.bin
 
 ## Documentation
 
-- **Full Documentation**: See [`src/libcamera/pipeline/softisp/README.md`](src/libcamera/pipeline/softisp/README.md)
+- **Full Pipeline Documentation**: See [`README_SOFTISP_PIPELINE.md`](README_SOFTISP_PIPELINE.md)
 - **IPA Module**: See [`src/ipa/softisp/README.md`](src/ipa/softisp/README.md)
 - **Architecture**: See [`src/ipa/softisp/ARCHITECTURE.md`](src/ipa/softisp/ARCHITECTURE.md)
 
@@ -67,7 +67,7 @@ The pipeline includes comprehensive testing support:
 - IPA module is optional
 - Full debug logging available
 
-See the [detailed documentation](src/libcamera/pipeline/softisp/README.md) for testing instructions.
+See the [detailed pipeline documentation](README_SOFTISP_PIPELINE.md) for testing instructions.
 
 ## License
 
