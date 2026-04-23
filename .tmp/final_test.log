@@ -1,0 +1,17 @@
+[71:18:50.284422897] [6271]  INFO IPAManager ipa_manager.cpp:147 libcamera is not installed. Adding '/data/data/com.termux/files/home/libcamera1/softisp_only/src/ipa' to the IPA search path
+[71:18:50.284911074] [6271]  INFO Camera camera_manager.cpp:343 libcamera v0.7.0+232-d6bb21cb-dirty (2026-04-24T05:26:57HKT)
+[71:18:50.286472845] [6274]  WARN DeviceEnumerator device_enumerator_sysfs.cpp:87 Device node /dev/media0 should exist but doesn't
+[71:18:50.286823783] [6274]  INFO SoftISPPipeline softisp.cpp:169 SoftISP pipeline handler created
+[71:18:50.286882481] [6274]  INFO SoftISPPipeline softisp.cpp:241 SoftISP match() called, created_ = 0
+[71:18:50.286919824] [6274]  INFO SoftISPPipeline softisp.cpp:247 Creating SoftISP virtual camera
+[71:18:50.286953991] [6274]  INFO SoftISPPipeline softisp.cpp:214 createVirtualCamera() called
+[71:18:50.287107220] [6274]  INFO SoftISPPipeline softisp.cpp:73 IPA module not available
+[71:18:50.287150241] [6274]  INFO VirtualCamera virtual_camera.cpp:34 Virtual camera initialized: 1920x1080
+[71:18:50.287313262] [6274]  INFO Camera camera_manager.cpp:226 Adding camera 'softisp_virtual' for pipeline handler SoftISP
+[71:18:50.287371439] [6274]  INFO SoftISPPipeline softisp.cpp:236 Virtual camera registered successfully
+[71:18:50.287417637] [6274]  INFO SoftISPPipeline softisp.cpp:169 SoftISP pipeline handler created
+[71:18:50.287448679] [6274]  INFO SoftISPPipeline softisp.cpp:241 SoftISP match() called, created_ = 1
+[71:18:50.287477949] [6274]  INFO SoftISPPipeline softisp.cpp:173 SoftISP pipeline handler destroyed
+Available cameras:
+1: (softisp_virtual)
+[71:18:50.288422168] [6274]  INFO SoftISPPipeline softisp.cpp:173 SoftISP pipeline handler destroyed

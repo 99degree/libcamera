@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "libcamera/ipa/soft_ipa_interface.h"
+#include <libcamera/ipa/softisp_ipa_interface.h>
 #include "onnx_engine.h"
 #include <libcamera/ipa/ipa_module_info.h>
 #include <libcamera/base/mutex.h>
@@ -18,23 +18,24 @@ namespace soft {
 /**
  * SoftIsp - IPA Module implementation for SoftISP
  * Uses ONNX Runtime for image processing.
+ * Implements IPASoftIspInterface from softisp.mojom
  */
-class SoftIsp : public IPASoftInterface
+class SoftIsp : public IPASoftIspInterface
 {
 	struct Impl {
 		Impl() = default;
 		~Impl() = default;
-		
+
 		OnnxEngine algoEngine;      // For statistics calculation
 		OnnxEngine applierEngine;   // For frame processing
-		
+
 		bool initialized = false;
 		int imageWidth = 0;
 		int imageHeight = 0;
-		
+
 		// ISP parameters from algo model
 		std::vector<float> algoOutput;
-		
+
 		libcamera::Mutex mutex;
 	};
 
@@ -42,7 +43,7 @@ public:
 	SoftIsp();
 	~SoftIsp() override;
 
-	// IPASoftInterface methods
+	// IPASoftIspInterface methods
 	int32_t init(const IPASettings &settings,
 		     const SharedFD &fdStats,
 		     const SharedFD &fdParams,
@@ -54,17 +55,14 @@ public:
 	int32_t start() override;
 	void stop() override;
 	int32_t configure(const IPAConfigInfo &configInfo) override;
-	void queueRequest(const uint32_t frame, const ControlList &controls) override;
+	void queueRequest(const uint32_t frame, const ControlList &sensorControls) override;
 	void computeParams(const uint32_t frame) override;
-	void processStats(const uint32_t frame,
-			  const uint32_t bufferId,
-			  ControlList &stats) override;
-
-	// Extended method for pipeline integration
-	void processFrame(const uint32_t frameId, const uint32_t bufferId,
-			  const SharedFD &bufferFd, const uint32_t offset,
-			  const uint32_t width, const uint32_t height,
-			  ControlList *results);
+	void processStats(const uint32_t frame, const uint32_t bufferId,
+			  const ControlList &sensorControls) override;
+	void processFrame(const uint32_t frame, const uint32_t bufferId,
+			  const SharedFD &bufferFd, const int32_t planeIndex,
+			  const int32_t width, const int32_t height,
+			  const ControlList &results) override;
 
 protected:
 	std::string logPrefix() const;
