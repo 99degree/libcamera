@@ -5,7 +5,10 @@
 #include "softisp.h"
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wextra-semi"
 #include <onnxruntime_cxx_api.h>
+#pragma GCC diagnostic pop
 #include <unistd.h>
 #include <sys/mman.h>
 #include <libcamera/base/mutex.h>
