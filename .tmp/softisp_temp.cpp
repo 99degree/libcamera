@@ -90,7 +90,7 @@ int32_t SoftIsp::configure(const IPAConfigInfo & /*configInfo*/)
 	return 0;
 }
 
-void SoftIsp::queueRequest(const uint32_t frame, const ControlList & /*sensorControls*/)
+void SoftIsp::queueRequest(const uint32_t frame, const ControlList & /*controls*/)
 {
 	LOG(SoftIsp, Debug) << "queueRequest: frame=" << frame;
 }
@@ -126,31 +126,33 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
 }
 
 void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
-			   const SharedFD & /*bufferFd*/, const int32_t /*planeIndex*/,
-			   const int32_t /*width*/, const int32_t /*height*/,
+			   const SharedFD &bufferFd, const int32_t planeIndex,
+			   const int32_t width, const int32_t height,
 			   const ControlList & /*results*/)
 {
 	(void)frame;
 	(void)bufferId;
+	(void)bufferFd;
+	(void)planeIndex;
 
 	if (!impl_->initialized) {
 		LOG(SoftIsp, Warning) << "Not initialized";
 		return;
 	}
 
-	LOG(SoftIsp, Debug) << "processFrame: frame=" << frame << ", buffer=" << bufferId;
+	LOG(SoftIsp, Debug) << "processFrame: frame=" << frame
+			    << ", buffer=" << bufferId
+			    << ", size=" << width << "x" << height;
 
 	// TODO: Prepare input (frame + algoOutput) and run applierEngine
 	// std::vector<float> inputs = ...;
 	// std::vector<float> outputs;
 	// impl_->applierEngine.runInference(inputs, outputs);
-	// Write outputs to buffer
-}
-
-std::string SoftIsp::logPrefix() const
-{
-	return "SoftIsp";
-}
+	std::string SoftIsp::logPrefix() const
+	{
+		return "SoftIsp";
+	}
 
 } /* namespace soft */
+} /* namespace ipa */
 } /* namespace libcamera */
