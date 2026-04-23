@@ -135,3 +135,6 @@ option('v4l2',
 # SoftISP option
 option('softisp', type : 'feature', value : 'auto', description : 'Enable SoftISP (two‑stage ONNX IPA for AWB/ISP processing)')
 
+
+# Development mode - skips IPA signature verification
+option('development', type: 'boolean', value: false, description: 'Enable development mode (skip IPA signature verification)')
