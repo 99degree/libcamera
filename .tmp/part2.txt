@@ -1,0 +1,55 @@
+int OnnxEngine::runInference(const std::vector<float> &inputs,
+                             std::vector<float> &outputs)
+{
+    if (!session_) {
+        LOG(OnnxEngine, Error) << "Session not initialized";
+        return -ENODEV;
+    }
+
+    if (inputs.empty()) {
+        LOG(OnnxEngine, Error) << "Empty input data";
+        return -EINVAL;
+    }
+
+    try {
+        const auto &info = inputInfo_.begin()->second;
+        size_t inputSize = info.elementCount;
+
+        if (inputs.size() != inputSize) {
+            LOG(OnnxEngine, Error) << "Input size mismatch";
+            return -EINVAL;
+        }
+
+        Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(
+            OrtArenaAllocator, OrtMemTypeDefault);
+        
+        Ort::Value inputTensor = Ort::Value::CreateTensor<float>(
+            memoryInfo, const_cast<float*>(inputs.data()),
+            inputSize, info.shape.data(), info.shape.size());
+
+        std::vector<const char*> inputNamesPtr = inputNames_;
+        std::vector<const char*> outputNamesPtr = outputNames_;
+
+        auto outputs_ort = session_->Run(
+            Ort::RunOptions{nullptr},
+            inputNamesPtr.data(), &inputTensor, 1,
+            outputNamesPtr.data(), outputNames_.size());
+
+        // Get output data from first output tensor
+        size_t outputSize = outputInfo_.begin()->second.elementCount;
+        outputs.resize(outputSize);
+        
+        const float *outputData = outputs_ort[0].GetTensorData<float>();
+        std::copy(outputData, outputData + outputSize, outputs.begin());
+
+        return 0;
+
+    } catch (const Ort::Exception &e) {
+        LOG(OnnxEngine, Error) << "Inference failed: " << e.what();
+        return -EIO;
+    }
+}
+
+} /* namespace soft */
+} /* namespace ipa */
+} /* namespace libcamera */

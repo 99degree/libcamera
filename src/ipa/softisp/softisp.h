@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /**
  * SoftIsp - ONNX-based Image Processing Algorithm.
- * Stub version without ONNX runtime dependency.
  */
 #pragma once
 
 #include "libcamera/ipa/soft_ipa_interface.h"
+#include "onnx_engine.h"
 #include <libcamera/ipa/ipa_module_info.h>
 #include <libcamera/base/mutex.h>
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace libcamera {
 namespace ipa {
@@ -18,7 +17,7 @@ namespace soft {
 
 /**
  * SoftIsp - IPA Module implementation for SoftISP
- * Inherits from IPASoftInterface (generated from MOJOM)
+ * Uses ONNX Runtime for image processing.
  */
 class SoftIsp : public IPASoftInterface
 {
@@ -26,18 +25,17 @@ class SoftIsp : public IPASoftInterface
 		Impl() = default;
 		~Impl() = default;
 		
-		// Stub members (ONNX members commented out)
-		// Ort::MemoryInfo memoryInfo;
-		// Ort::AllocatorWithDefaultOptions allocator;
+		OnnxEngine algoEngine;      // For statistics calculation
+		OnnxEngine applierEngine;   // For frame processing
+		
 		bool initialized = false;
-		int imageWidth = 640;
-		int imageHeight = 480;
-		std::string algoModelPath;
-		std::string applierModelPath;
-		std::vector<const char*> algoInputNames;
-		std::vector<const char*> algoOutputNames;
-		std::vector<const char*> applierInputNames;
-		std::vector<const char*> applierOutputNames;
+		int imageWidth = 0;
+		int imageHeight = 0;
+		
+		// ISP parameters from algo model
+		std::vector<float> algoOutput;
+		
+		libcamera::Mutex mutex;
 	};
 
 public:
@@ -56,13 +54,17 @@ public:
 	int32_t start() override;
 	void stop() override;
 	int32_t configure(const IPAConfigInfo &configInfo) override;
-	void queueRequest(uint32_t frame, const ControlList &controls) override;
-	void computeParams(uint32_t frame) override;
-	void processStats(uint32_t frame,
-			  uint32_t bufferId,
+	void queueRequest(const uint32_t frame, const ControlList &controls) override;
+	void computeParams(const uint32_t frame) override;
+	void processStats(const uint32_t frame,
+			  const uint32_t bufferId,
 			  ControlList &stats) override;
 
 	// Extended method for pipeline integration
+	void processFrame(const uint32_t frameId, const uint32_t bufferId,
+			  const SharedFD &bufferFd, const uint32_t offset,
+			  const uint32_t width, const uint32_t height,
+			  ControlList *results);
 
 protected:
 	std::string logPrefix() const;
