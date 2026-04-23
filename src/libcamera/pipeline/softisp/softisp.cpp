@@ -211,61 +211,41 @@ bool PipelineHandlerSoftISP::createRealCamera(std::shared_ptr<MediaDevice> media
 }
 
 bool PipelineHandlerSoftISP::createVirtualCamera() {
-    LOG(SoftISPPipeline, Info) << "Creating virtual camera";
-    LOG(SoftISPPipeline, Debug) << "About to create virtual camera";
-
+    LOG(SoftISPPipeline, Info) << "createVirtualCamera() called";
     auto cameraData = std::make_unique<SoftISPCameraData>(this);
     cameraData->isVirtualCamera = true;
-
     if (cameraData->init() < 0) {
         LOG(SoftISPPipeline, Error) << "Failed to initialize virtual camera";
         return false;
     }
-
     std::vector<StreamRole> roles = { StreamRole::Viewfinder };
     auto config = cameraData->generateConfiguration(roles);
     if (!config || config->validate() == CameraConfiguration::Invalid) {
         LOG(SoftISPPipeline, Error) << "Invalid configuration for virtual camera";
         return false;
     }
-
+    // Create Camera object - pass cameraData directly (it inherits from Camera::Private)
     std::shared_ptr<Camera> camera = Camera::create(
-        std::unique_ptr<Camera::Private>(cameraData.release()),
+        std::move(cameraData),
         "softisp_virtual", std::set<Stream *>());
     if (!camera) {
         LOG(SoftISPPipeline, Error) << "Failed to create Camera object";
         return false;
     }
-
     registerCamera(std::move(camera));
     LOG(SoftISPPipeline, Info) << "Virtual camera registered successfully";
     return true;
 }
 
-bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator) {
-    LOG(SoftISPPipeline, Info) << "Matching SoftISP cameras";
-    LOG(SoftISPPipeline, Debug) << "SoftISP match() called with enumerator: " << (enumerator ? "valid" : "null");
-
-    std::vector<std::shared_ptr<MediaDevice>> realCameras;
-
-    if (enumerator) {
-        enumerator->enumerate();
-        // DeviceEnumerator::devices() not available - create virtual camera
+bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator) {
+    LOG(SoftISPPipeline, Info) << "SoftISP match() called, created_ = " << created_;
+    if (created_) {
+        LOG(SoftISPPipeline, Debug) << "SoftISP pipeline already created, skipping";
+        return false;
     }
-
-    if (realCameras.empty()) {
-        return createVirtualCamera();
-    }
-
-    for (auto &media : realCameras) {
-        if (!createRealCamera(media)) {
-            LOG(SoftISPPipeline, Warning) << "Failed to create real camera";
-        }
-    }
-
-    LOG(SoftISPPipeline, Info) << "Registered " << realCameras.size()
-                               << " real camera(s)";
-    return !realCameras.empty();
+    created_ = true;
+    LOG(SoftISPPipeline, Info) << "Creating SoftISP virtual camera";
+    return createVirtualCamera();
 }
 
 std::unique_ptr<CameraConfiguration>
