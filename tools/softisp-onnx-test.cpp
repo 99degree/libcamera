@@ -5,7 +5,11 @@
 #include <iostream>
 #include <string>
 #include <cstdlib>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
 #include <onnxruntime_cxx_api.h>
+#pragma GCC diagnostic pop
 
 int testModel(const std::string& modelPath, const std::string& modelName) {
     std::cout << "\n=== " << modelName << " ===" << std::endl;

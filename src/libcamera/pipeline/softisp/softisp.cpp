@@ -86,7 +86,7 @@ int SoftISPCameraData::init()
 
 int SoftISPCameraData::loadIPA()
 {
-	ipa_ = IPAManager::createIPA<ipa::soft::IPASoftIspInterface>(
+	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIspThreaded>(
 		Camera::Private::pipe(), 0, 0);
 	if (!ipa_) {
 		LOG(SoftISPPipeline, Info) << "IPA module not available";
@@ -146,135 +146,18 @@ void SoftISPCameraData::processRequest(Request *request)
 	auto streamConfig = stream->configuration();
 	ControlList statsResults;
 	
-	// Call processStats (without bufferFd - IPA gets stats from other sources)
-
 	// Call processStats
 	ipa_->processStats(frameId, bufferId, statsResults);
 
 	// Merge results into request metadata
-	request->metadata().merge(statsResults, ControlList::MergePolicy::OverwriteExisting);
+	request->controls().merge(statsResults, libcamera::ControlList::MergePolicy::OverwriteExisting);
 
 	// Call processFrame with bufferFd
-	ControlList *results = &request->metadata();
+	ControlList *resultsPtr = &request->controls();
 	int32_t ret = ipa_->processFrame(frameId, bufferId, plane.fd, 0,
 	                                 streamConfig.size.width, streamConfig.size.height,
-	                                 results);
+	                                 *resultsPtr);
 	if (ret != 0) {
 		LOG(SoftISPPipeline, Error) << "processFrame failed with error " << ret;
 	}
-	: PipelineHandler(manager)
-{
-}
 
-PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
-{
-}
-
-std::unique_ptr<CameraConfiguration>
-PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
-                                              Span<const StreamRole> roles)
-{
-	(void)camera;
-	if (roles.empty())
-		return nullptr;
-
-	auto config = std::make_unique<SoftISPConfiguration>();
-	config->addStream(StreamRole::Viewfinder, Size(1920, 1080), formats::UYVY888);
-
-	return config;
-}
-
-int PipelineHandlerSoftISP::configure(Camera *camera,
-                                      CameraConfiguration *config)
-{
-	(void)config;
-	SoftISPCameraData *data = cameraData(camera);
-
-	int ret = data->init();
-	if (ret)
-		return ret;
-
-	ret = data->virtualCamera_->start();
-	if (ret) {
-		LOG(SoftISPPipeline, Error) << "Failed to start virtual camera";
-		return ret;
-	}
-
-	data->running_ = true;
-	data->start();
-
-	return 0;
-}
-
-int PipelineHandlerSoftISP::exportFrameBuffers(Camera *camera,
-                                               Stream *stream,
-                                               std::vector<std::unique_ptr<FrameBuffer>> *buffers)
-{
-	SoftISPCameraData *data = cameraData(camera);
-
-	unsigned int numBuffers = 4;
-	unsigned int width = stream->configuration().size.width;
-	unsigned int height = stream->configuration().size.height;
-	unsigned int size = width * height * 2;
-
-	for (unsigned int i = 0; i < numBuffers; i++) {
-		std::unique_ptr<FrameBuffer> buffer;
-		int ret = dmaBufAllocator_.exportBuffers(1, size, &buffer);
-		if (ret) {
-			LOG(SoftISPPipeline, Error) << "Failed to allocate buffer " << i;
-			return -ENOMEM;
-		}
-
-		buffers->push_back(std::move(buffer));
-	}
-
-	return 0;
-}
-
-int PipelineHandlerSoftISP::start(Camera *camera, const ControlList *controls)
-{
-	(void)camera;
-	(void)controls;
-	return 0;
-}
-
-void PipelineHandlerSoftISP::stopDevice(Camera *camera)
-{
-	SoftISPCameraData *data = cameraData(camera);
-
-	data->running_ = false;
-	data->virtualCamera_->stop();
-	data->exit(0);
-	data->wait();
-}
-
-int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
-{
-	SoftISPCameraData *data = cameraData(camera);
-
-	const auto &buffers = request->buffers();
-	if (buffers.empty())
-		return -EINVAL;
-
-	FrameBuffer *buffer = buffers.begin()->second;
-	if (!buffer || buffer->planes().empty())
-		return -EINVAL;
-
-	data->virtualCamera_->queueBuffer(buffer);
-	data->processRequest(request);
-
-	return 0;
-}
-
-bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
-{
-	(void)enumerator;
-	LOG(SoftISPPipeline, Info) << "Registering as SoftISP camera";
-	registerCamera(std::make_unique<Camera>(this));
-	created_ = true;
-	return true;
-}
-
-REGISTER_PIPELINE_HANDLER(PipelineHandlerSoftISP, "softisp")
-
-} /* namespace libcamera */

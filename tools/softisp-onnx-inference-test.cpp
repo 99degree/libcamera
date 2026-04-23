@@ -7,7 +7,11 @@
 #include <vector>
 #include <cstdlib>
 #include <memory>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
 #include <onnxruntime_cxx_api.h>
+#pragma GCC diagnostic pop
 
 int runFullInference(const std::string& modelDir) {
     std::cout << "\n=== Running Full Inference Pipeline ===" << std::endl;

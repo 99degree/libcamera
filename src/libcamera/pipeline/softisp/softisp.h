@@ -18,7 +18,7 @@
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/dma_buf_allocator.h"
-#include <libcamera/ipa/softisp_ipa_interface.h>
+#include <libcamera/ipa/softisp_ipa_proxy.h>
 #include <libcamera/ipa/softisp_ipa_proxy.h>
 
 namespace libcamera {
