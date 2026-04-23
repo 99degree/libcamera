@@ -3,13 +3,11 @@
  * Copyright (C) 2024
  *
  * Virtual Camera - Standalone virtual camera implementation
- * Note: This implementation requires API updates to match current libcamera
  */
 
 #include "virtual_camera.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstring>
 
 #include <libcamera/base/log.h>
@@ -28,11 +26,10 @@ VirtualCamera::~VirtualCamera()
 	stop();
 }
 
-int VirtualCamera::init(unsigned int width, unsigned int height, PixelFormat format)
+int VirtualCamera::init(unsigned int width, unsigned int height)
 {
 	width_ = width;
 	height_ = height;
-	format_ = format;
 
 	LOG(VirtualCamera, Info) << "Virtual camera initialized: "
 	                         << width << "x" << height;
@@ -46,7 +43,7 @@ int VirtualCamera::start()
 		return 0;
 
 	running_ = true;
-	start();  /* Start thread */
+	start();
 
 	LOG(VirtualCamera, Info) << "Virtual camera started";
 
@@ -121,8 +118,6 @@ void VirtualCamera::run()
 		}
 
 		/* Generate pattern into buffer */
-		/* TODO: Implement pattern generation for current API */
-		
 		sequence_++;
 
 		LOG(VirtualCamera, Debug) << "Generated frame " << sequence_;

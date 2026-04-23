@@ -16,6 +16,7 @@
 #include <fcntl.h>
 
 #include <libcamera/base/log.h>
+class DummySoftISPConfiguration;
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 #include <libcamera/property_ids.h>
@@ -37,14 +38,10 @@
 
 namespace libcamera {
 
-/* Global map for buffer FDs (pipeline -> IPA) */
 static std::map<uint32_t, int> g_bufferFdMap;
 
 LOG_DEFINE_CATEGORY(SoftISPDummyPipeline)
 
-/* -----------------------------------------------------------------------------
- * DummySoftISPConfiguration Implementation
- * ---------------------------------------------------------------------------*/
 bool PipelineHandlerDummysoftisp::created_ = false;
 
 DummySoftISPConfiguration::DummySoftISPConfiguration()
@@ -69,9 +66,6 @@ CameraConfiguration::Status DummySoftISPConfiguration::validate()
 	return status;
 }
 
-/* -----------------------------------------------------------------------------
- * DummySoftISPCameraData Implementation
- * ---------------------------------------------------------------------------*/
 DummySoftISPCameraData::DummySoftISPCameraData(PipelineHandlerDummysoftisp *pipe)
 	: Camera::Private(pipe), Thread("SoftISPCamera")
 {
@@ -91,8 +85,7 @@ int DummySoftISPCameraData::init()
 	if (ret)
 		return ret;
 
-	/* Initialize virtual camera with default settings */
-	ret = virtualCamera_->init(1920, 1080, formats::UYVY888);
+	ret = virtualCamera_->init(1920, 1080);
 	if (ret) {
 		LOG(SoftISPDummyPipeline, Error) << "Failed to initialize virtual camera";
 		return ret;
@@ -155,7 +148,6 @@ void DummySoftISPCameraData::processRequest(Request *request)
 	uint32_t bufferId = static_cast<uint32_t>(buffer->planes()[0].fd.get());
 	const auto &plane = buffer->planes()[0];
 
-	/* Map memory for IPA */
 	void *bufferMem = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE,
 	                       MAP_SHARED, plane.fd.get(), 0);
 	if (bufferMem == MAP_FAILED) {
@@ -166,7 +158,6 @@ void DummySoftISPCameraData::processRequest(Request *request)
 
 	g_bufferFdMap[bufferId] = plane.fd.get();
 
-	/* Call IPA processStats */
 	const Stream *stream = buffers.begin()->first;
 	auto streamConfig = stream->configuration();
 	ControlList statsResults;
@@ -178,7 +169,6 @@ void DummySoftISPCameraData::processRequest(Request *request)
 		request->metadata().add(ctrl);
 	}
 
-	/* Call IPA processFrame */
 	int32_t ret = ipa_->processFrame(frameId, bufferId, plane.fd, plane.fd,
 	                                 streamConfig.size.width, streamConfig.size.height,
 	                                 &request->metadata());
@@ -186,20 +176,15 @@ void DummySoftISPCameraData::processRequest(Request *request)
 		LOG(SoftISPDummyPipeline, Error) << "processFrame failed with error " << ret;
 	}
 
-	/* Unmap buffer */
 	g_bufferFdMap.erase(bufferId);
 	munmap(bufferMem, plane.length);
 	bufferMap_.erase(bufferId);
 
-	/* Set metadata and complete request */
 	const_cast<ControlList &>(request->metadata()).set(
 		controls::SensorTimestamp, static_cast<int64_t>(frameId * 33333));
 	pipe()->completeRequest(request);
 }
 
-/* -----------------------------------------------------------------------------
- * PipelineHandlerDummysoftisp Implementation
- * ---------------------------------------------------------------------------*/
 PipelineHandlerDummysoftisp::PipelineHandlerDummysoftisp(CameraManager *manager)
 	: PipelineHandler(manager)
 {
@@ -218,8 +203,6 @@ PipelineHandlerDummysoftisp::generateConfiguration(Camera *camera,
 		return nullptr;
 
 	auto config = std::make_unique<DummySoftISPConfiguration>();
-
-	/* Default configuration: 1920x1080 UYVY */
 	config->addStream(StreamRole::Viewfinder, Size(1920, 1080), formats::UYVY888);
 
 	return config;
@@ -228,21 +211,19 @@ PipelineHandlerDummysoftisp::generateConfiguration(Camera *camera,
 int PipelineHandlerDummysoftisp::configure(Camera *camera,
                                            CameraConfiguration *config)
 {
+	(void)config;
 	DummySoftISPCameraData *data = cameraData(camera);
 
-	/* Initialize camera data */
 	int ret = data->init();
 	if (ret)
 		return ret;
 
-	/* Start virtual camera */
 	ret = data->virtualCamera_->start();
 	if (ret) {
 		LOG(SoftISPDummyPipeline, Error) << "Failed to start virtual camera";
 		return ret;
 	}
 
-	/* Start camera thread */
 	data->running_ = true;
 	data->start();
 
@@ -258,10 +239,9 @@ int PipelineHandlerDummysoftisp::exportFrameBuffers(Camera *camera,
 	unsigned int numBuffers = 4;
 	unsigned int width = stream->configuration().size.width;
 	unsigned int height = stream->configuration().size.height;
-	unsigned int size = width * height * 2; /* UYVY: 2 bytes per pixel */
+	unsigned int size = width * height * 2;
 
 	for (unsigned int i = 0; i < numBuffers; i++) {
-		/* Allocate DMA buffer */
 		std::unique_ptr<FrameBuffer> buffer;
 		int ret = dmaBufAllocator_.exportBuffers(1, size, &buffer);
 		if (ret) {
@@ -279,7 +259,6 @@ int PipelineHandlerDummysoftisp::start(Camera *camera, const ControlList *contro
 {
 	(void)camera;
 	(void)controls;
-	/* Virtual camera already started in configure() */
 	return 0;
 }
 
@@ -305,10 +284,7 @@ int PipelineHandlerDummysoftisp::queueRequestDevice(Camera *camera, Request *req
 	if (!buffer || buffer->planes().empty())
 		return -EINVAL;
 
-	/* Queue buffer to virtual camera for pattern generation */
 	data->virtualCamera_->queueBuffer(buffer);
-
-	/* Process request (will call IPA and complete) */
 	data->processRequest(request);
 
 	return 0;
@@ -317,7 +293,6 @@ int PipelineHandlerDummysoftisp::queueRequestDevice(Camera *camera, Request *req
 bool PipelineHandlerDummysoftisp::match(DeviceEnumerator *enumerator)
 {
 	(void)enumerator;
-	/* Always register as virtual camera for testing */
 	LOG(SoftISPDummyPipeline, Info) << "Registering as virtual camera";
 	registerCamera(std::make_unique<Camera>(this));
 	created_ = true;
