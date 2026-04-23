@@ -24,7 +24,8 @@
 namespace libcamera {
 
 /* Forward declarations */
-class PipelineHandlerDummysoftisp; // Forward declare before DummySoftISPCameraData uses it
+class PipelineHandlerDummysoftisp;
+class VirtualCamera;
 
 /*
  * DummySoftISPCameraData - Camera data structure for SoftISP dummy pipeline.
@@ -50,6 +51,7 @@ public:
 	};
 
 	std::unique_ptr<ipa::soft::IPAProxySoft> ipa_;
+	std::unique_ptr<VirtualCamera> virtualCamera_;
 	std::vector<StreamConfig> streamConfigs_;
 	bool running_ = false;
 	Mutex mutex_;
