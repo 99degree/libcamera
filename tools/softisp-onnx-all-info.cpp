@@ -2,7 +2,11 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
 #include <onnxruntime_cxx_api.h>
+#pragma GCC diagnostic pop
 
 int main() {
     const char* modelDir = std::getenv("SOFTISP_MODEL_DIR");

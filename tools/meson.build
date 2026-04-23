@@ -74,3 +74,4 @@ softisp_save = executable('softisp-save', softisp_save_sources,
   include_directories : [ libcamera_includes, ],
   dependencies : [ libcamera_private ]
 )
+
