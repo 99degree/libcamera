@@ -148,7 +148,6 @@ if cc.get_id() == 'clang'
     endif
 
     cpp_arguments += [
-        '-Wextra-semi',
         '-Wthread-safety',
     ]
 endif

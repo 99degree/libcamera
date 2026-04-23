@@ -18,11 +18,11 @@
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/dma_buf_allocator.h"
-#include <libcamera/ipa/soft_ipa_interface.h>
-#include <libcamera/ipa/soft_ipa_proxy.h>
+#include <libcamera/ipa/softisp_ipa_interface.h>
+#include <libcamera/ipa/softisp_ipa_proxy.h>
 
 namespace libcamera {
-class SoftISPConfiguration : public CameraConfiguration {
+class SoftISPConfiguration : public libcamera::CameraConfiguration {
 public:
 	SoftISPConfiguration();
 	Status validate() override;
@@ -55,7 +55,7 @@ public:
 		unsigned int seq = 0;
 	};
 
-	std::unique_ptr<ipa::soft::IPAProxySoft> ipa_;
+	std::unique_ptr<ipa::soft::IPASoftIspInterface> ipa_;
 	std::unique_ptr<VirtualCamera> virtualCamera_;
 	std::vector<StreamConfig> streamConfigs_;
 	bool running_ = false;
@@ -102,7 +102,7 @@ private:
 };
 
 } /* namespace libcamera */
-class SoftISPConfiguration : public CameraConfiguration {
+class SoftISPConfiguration : public libcamera::CameraConfiguration {
 public:
 	SoftISPConfiguration();
 	Status validate() override;
