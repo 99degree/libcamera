@@ -68,7 +68,7 @@ int SoftISPCameraData::init() {
 
 int SoftISPCameraData::loadIPA() {
     ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(
-        this->pipe(), 0, 0);
+        this->pipe(), 1, 1);
     if (!ipa_) {
         LOG(SoftISPPipeline, Info) << "IPA module not available";
         return 0;

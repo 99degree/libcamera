@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
- * SoftISP IPA Module for "softisp" pipeline
+ * SoftISP IPA Module for "SoftISP" pipeline
  */
 
 #include "softisp.h"
@@ -20,8 +20,8 @@ extern "C" {
 
 const struct IPAModuleInfo ipaModuleInfo = {
 	IPA_MODULE_API_VERSION,
-	0,
-	"softisp",
+	1,
+	"SoftISP",
 	"SoftISP",
 };
 
