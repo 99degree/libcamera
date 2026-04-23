@@ -13,7 +13,7 @@ ipa_dummysoftisp = shared_module(
   dummysoftisp_module_sources,
   name_prefix: '',
   include_directories: [ipa_includes, dummysoftisp_includes],
-  dependencies: [libcamera_private, libipa_dep, onnxruntime_dep],
+  dependencies: [libcamera_private, libipa_dep, ],
   install: true,
   install_dir: ipa_install_dir,
 )

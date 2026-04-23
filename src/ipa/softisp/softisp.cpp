@@ -10,7 +10,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wextra-semi"
 #pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
-#include <onnxruntime_cxx_api.h>
+// #include <onnxruntime_cxx_api.h>
 #pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
 #include <unistd.h>
@@ -38,10 +38,10 @@ struct SoftIsp::Impl {
     ~Impl() = default;
 
     // ONNX Runtime environment and sessions
-    Ort::Env env{ORT_LOGGING_LEVEL_WARNING, "SoftIsp"};
-    Ort::SessionOptions sessionOptions;
-    std::unique_ptr<Ort::Session> algoSession;
-    std::unique_ptr<Ort::Session> applierSession;
+    // Ort::Env env{ORT_LOGGING_LEVEL_WARNING, "SoftIsp"};
+    // Ort::SessionOptions sessionOptions;
+    // std::unique_ptr<Ort::Session> algoSession;
+    // std::unique_ptr<Ort::Session> applierSession;
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     Ort::AllocatorWithDefaultOptions allocator;
     bool initialized = false;
