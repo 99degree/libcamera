@@ -1,0 +1,42 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/*
+ * SoftISP IPA Module Interface
+ */
+module ipa.softisp;
+
+import "include/libcamera/ipa/core.mojom";
+
+struct SoftIspSettings {
+  string modelDir;
+};
+
+interface SoftIspInterface {
+  init(SoftIspSettings settings) => (int32 ret);
+  start() => (int32 ret);
+  stop();
+  configure(uint32 width, uint32 height, uint32 format) => (int32 ret);
+
+  // Process statistics (metadata extraction from buffer)
+  // Called by pipeline with buffer FD for the IPA to read Bayer data
+  [async] processStats(uint32 frameId,
+                       uint32 bufferId,
+                       libcamera.SharedFD bufferFd,
+                       int32 width,
+                       int32 height,
+                       libcamera.ControlList sensorControls);
+
+  // Process the frame buffer with calculated coefficients
+  // Applies ONNX results to the output buffer and returns metadata
+  [async] processFrame(uint32 frameId,
+                       uint32 bufferId,
+                       libcamera.SharedFD inputFd,
+                       libcamera.SharedFD outputFd,
+                       int32 width,
+                       int32 height,
+                       libcamera.ControlList results);
+};
+
+interface SoftIspEventInterface {
+  frameComplete(uint32 frameId);
+  error(int32 errorCode, string message);
+};
