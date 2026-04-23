@@ -7,10 +7,7 @@
 softisp_onnx_test_sources = [
   'softisp-onnx-test.cpp',
 ]
-softisp_onnx_test = executable('softisp-onnx-test', softisp_onnx_test_sources,
-  include_directories : [ libcamera_includes, ],
-  dependencies : [ libcamera_private, onnxruntime_dep ]
-)
+
 
 # Full inference test app
 softisp_inference_test_sources = [
@@ -70,8 +67,17 @@ check_coeffs = executable('softisp-check-coeffs',
 softisp_save_sources = [
   'softisp-save.cpp',
 ]
-softisp_save = executable('softisp-save', softisp_save_sources,
-  include_directories : [ libcamera_includes, ],
-  dependencies : [ libcamera_private ]
-)
 
+
+
+
+# Unified SoftISP tool suite
+softisp_tool_sources = [
+  'softisp-tool.cpp',
+]
+
+softisp_tool = executable('softisp-tool', softisp_tool_sources,
+  include_directories : [ libcamera_includes, ],
+  dependencies : [ libcamera_private, onnxruntime_dep ],
+  cpp_args : [ '-Wno-extra-semi', '-Wno-c++98-compat-extra-semi' ]
+)
