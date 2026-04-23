@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include <onnxruntime_cxx_api.h>
 #include "module.h"
 #include <libcamera/ipa/soft_ipa_interface.h>
 #include <libcamera/ipa/ipa_module_info.h>
@@ -102,3 +101,4 @@ private:
                        const SharedFD &bufferFd, const uint32_t planeIndex,
                        const int32_t stride, const int32_t width, const int32_t height,
                        ControlList *results) override;
+
