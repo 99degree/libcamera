@@ -247,3 +247,34 @@ Contributions welcome! Please:
 - [Virtual Pipeline Reference](../virtual/)
 - [IPA Module Architecture](../../ipa/softisp/ARCHITECTURE.md)
 - [ONNX Runtime](https://onnxruntime.ai/)
+
+## IPA Module Integration Status
+
+### Current Implementation
+- ✅ **Stub IPA module built**: `ipa_softisp.so` and `ipa_softisp_virtual.so` are compiled
+- ✅ **Module exports correct symbols**: `ipaCreate()` and `ipaModuleInfo` are present
+- ⚠️ **IPA loading**: The pipeline currently runs without IPA (stub mode)
+
+### How IPA Works (When Fully Implemented)
+When the ONNX runtime is available and the full IPA module is built:
+
+1. **`loadIPA()`** loads the IPA module via `IPAManager::createIPA()`
+2. **`processStats()`** is called to calculate statistics from the raw frame
+   - Runs the `algo.onnx` model to generate ISP parameters
+3. **`processFrame()`** is called to apply the ISP processing
+   - Runs the `applier.onnx` model to process the image
+4. Results are merged into the request controls and returned
+
+### Stub Mode (Current)
+Without ONNX runtime, the pipeline operates in stub mode:
+- IPA module loads but performs no actual processing
+- Frames pass through unchanged
+- Statistics are empty/default
+- Useful for testing the pipeline infrastructure
+
+### To Enable Full IPA Processing
+1. Install ONNX runtime: `apt install onnxruntime`
+2. Rebuild with: `meson setup build -Dpipelines=softisp -Dsoftisp=enabled`
+3. Provide ONNX models: `algo.onnx` and `applier.onnx` in `SOFTISP_MODEL_DIR`
+
+The stub implementation provides the complete infrastructure for IPA integration; only the ONNX models and runtime are needed for full image processing functionality.
