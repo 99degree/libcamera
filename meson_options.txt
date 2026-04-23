@@ -74,7 +74,7 @@ option('libunwind',
 
 option('pipelines',
         type : 'array',
-        value : ['auto'],
+        value : ['softisp'],
         choices : [
             'all',
             'auto',
@@ -133,7 +133,7 @@ option('v4l2',
         deprecated : {'true': 'enabled', 'false': 'disabled'})
 
 # SoftISP option
-option('softisp', type : 'feature', value : 'auto', description : 'Enable SoftISP (two‑stage ONNX IPA for AWB/ISP processing)')
+option('softisp', type : 'feature', value : 'enabled', description : 'Enable SoftISP (two‑stage ONNX IPA for AWB/ISP processing)')
 
 
 # Development mode - skips IPA signature verification
