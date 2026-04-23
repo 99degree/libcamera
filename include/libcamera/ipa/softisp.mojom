@@ -1,42 +1,37 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
- * SoftISP IPA Module Interface
+ * \todo Document the interface and remove the related EXCLUDE_PATTERNS entry.
  */
-module ipa.softisp;
+module ipa.soft;
 
 import "include/libcamera/ipa/core.mojom";
 
-struct SoftIspSettings {
-  string modelDir;
+struct IPAConfigInfo {
+  libcamera.ControlInfoMap sensorControls;
 };
 
-interface SoftIspInterface {
-  init(SoftIspSettings settings) => (int32 ret);
+interface IPASoftIspInterface {
+  init(libcamera.IPASettings settings, libcamera.SharedFD fdStats,
+       libcamera.SharedFD fdParams, libcamera.IPACameraSensorInfo sensorInfo,
+       libcamera.ControlInfoMap sensorControls)
+      => (int32 ret, libcamera.ControlInfoMap ipaControls, bool ccmEnabled);
   start() => (int32 ret);
   stop();
-  configure(uint32 width, uint32 height, uint32 format) => (int32 ret);
-
-  // Process statistics (metadata extraction from buffer)
-  // Called by pipeline with buffer FD for the IPA to read Bayer data
-  [async] processStats(uint32 frameId,
-                       uint32 bufferId,
-                       libcamera.SharedFD bufferFd,
-                       int32 width,
-                       int32 height,
+  configure(IPAConfigInfo configInfo) => (int32 ret);
+  [async] queueRequest(uint32 frame, libcamera.ControlList sensorControls);
+  [async] computeParams(uint32 frame);
+  [async] processStats(uint32 frame, uint32 bufferId,
                        libcamera.ControlList sensorControls);
-
-  // Process the frame buffer with calculated coefficients
-  // Applies ONNX results to the output buffer and returns metadata
-  [async] processFrame(uint32 frameId,
-                       uint32 bufferId,
-                       libcamera.SharedFD inputFd,
-                       libcamera.SharedFD outputFd,
-                       int32 width,
-                       int32 height,
+  
+  // Process the frame buffer directly (called from pipeline after processStats)
+  [async] processFrame(uint32 frame, uint32 bufferId,
+                       libcamera.SharedFD bufferFd, int32 planeIndex,
+                       int32 width, int32 height,
                        libcamera.ControlList results);
 };
 
-interface SoftIspEventInterface {
-  frameComplete(uint32 frameId);
-  error(int32 errorCode, string message);
+interface IPASoftIspEventInterface {
+  setSensorControls(libcamera.ControlList sensorControls);
+  setIspParams();
+  metadataReady(uint32 frame, libcamera.ControlList metadata);
 };

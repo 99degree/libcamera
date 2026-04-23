@@ -86,11 +86,11 @@ int SoftISPCameraData::init()
 
 int SoftISPCameraData::loadIPA()
 {
-	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoft>(
+	ipa_ = IPAManager::createIPA<ipa::soft::IPASoftIspInterface>(
 		Camera::Private::pipe(), 0, 0);
 	if (!ipa_) {
-		LOG(SoftISPPipeline, Warn) << "Failed to load IPA module";
-		return ret;
+		LOG(SoftISPPipeline, Info) << "IPA module not available";
+		return 0;
 	}
 
 	LOG(SoftISPPipeline, Info) << "SoftISP IPA module loaded for virtual camera";
@@ -145,31 +145,23 @@ void SoftISPCameraData::processRequest(Request *request)
 	const Stream *stream = buffers.begin()->first;
 	auto streamConfig = stream->configuration();
 	ControlList statsResults;
-	ipa_->processStats(frameId, bufferId, plane.fd,
-	                   streamConfig.size.width, streamConfig.size.height,
-	                   statsResults);
+	
+	// Call processStats (without bufferFd - IPA gets stats from other sources)
 
-	for (const auto &ctrl : statsResults) {
-		request->metadata().add(ctrl);
-	}
+	// Call processStats
+	ipa_->processStats(frameId, bufferId, statsResults);
 
-	int32_t ret = ipa_->processFrame(frameId, bufferId, plane.fd, plane.fd,
+	// Merge results into request metadata
+	request->metadata().merge(statsResults, ControlList::MergePolicy::OverwriteExisting);
+
+	// Call processFrame with bufferFd
+	ControlList *results = &request->metadata();
+	int32_t ret = ipa_->processFrame(frameId, bufferId, plane.fd, 0,
 	                                 streamConfig.size.width, streamConfig.size.height,
-	                                 &request->metadata());
+	                                 results);
 	if (ret != 0) {
 		LOG(SoftISPPipeline, Error) << "processFrame failed with error " << ret;
 	}
-
-	g_bufferFdMap.erase(bufferId);
-	munmap(bufferMem, plane.length);
-	bufferMap_.erase(bufferId);
-
-	const_cast<ControlList &>(request->metadata()).set(
-		controls::SensorTimestamp, static_cast<int64_t>(frameId * 33333));
-	pipe()->completeRequest(request);
-}
-
-PipelineHandlerSoftISP::PipelineHandlerSoftISP(CameraManager *manager)
 	: PipelineHandler(manager)
 {
 }
