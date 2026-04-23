@@ -16,6 +16,7 @@
 
 #include <libcamera/base/log.h>
 #include <libcamera/controls.h>
+#include <libcamera/control_ids.h>
 
 #include "libcamera/internal/camera.h"
 #include "libcamera/stream.h"
@@ -86,7 +87,7 @@ int SoftISPCameraData::init()
 
 int SoftISPCameraData::loadIPA()
 {
-	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIspThreaded>(
+	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(
 		Camera::Private::pipe(), 0, 0);
 	if (!ipa_) {
 		LOG(SoftISPPipeline, Info) << "IPA module not available";
@@ -152,12 +153,19 @@ void SoftISPCameraData::processRequest(Request *request)
 	// Merge results into request metadata
 	request->controls().merge(statsResults, libcamera::ControlList::MergePolicy::OverwriteExisting);
 
-	// Call processFrame with bufferFd
-	ControlList *resultsPtr = &request->controls();
-	int32_t ret = ipa_->processFrame(frameId, bufferId, plane.fd, 0,
-	                                 streamConfig.size.width, streamConfig.size.height,
-	                                 *resultsPtr);
-	if (ret != 0) {
-		LOG(SoftISPPipeline, Error) << "processFrame failed with error " << ret;
-	}
+	// Call processFrame with bufferFd (async, returns void)
+	const ControlList &results = request->controls();
+	ipa_->processFrame(frameId, bufferId, plane.fd, 0,
+	                   streamConfig.size.width, streamConfig.size.height,
+	                   results);
 
+
+	g_bufferFdMap.erase(bufferId);
+	munmap(bufferMem, plane.length);
+	bufferMap_.erase(bufferId);
+
+	request->controls().set(
+		controls::SensorTimestamp, static_cast<int64_t>(frameId * 33333));
+	pipe()->completeRequest(request);
+}
+}
