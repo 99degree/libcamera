@@ -116,8 +116,8 @@ int main() {
     for (int i = 0; i < 6; ++i) {
         size_t outputIdx = coeffIndices[i];
         auto typeInfo = algoOutputs[outputIdx].GetTensorTypeAndShapeInfo();
-        auto shape = typeInfo.GetTensorTypeAndShapeInfo().GetShape();
-        auto elemType = typeInfo.GetTensorTypeAndShapeInfo().GetElementType();
+        auto shape = typeInfo.GetShape();
+        auto elemType = typeInfo.GetElementType();
         
         std::cout << "  " << coeffNames[i] << ": idx=" << outputIdx 
                   << " type=" << elemType << " shape=[";
