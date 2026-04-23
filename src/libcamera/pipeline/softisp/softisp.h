@@ -2,8 +2,9 @@
 /*
  * Copyright (C) 2024
  *
- * Pipeline handler for SoftISP (dummy cameras)
+ * Pipeline handler for SoftISP (virtual and real cameras)
  */
+
 #pragma once
 
 #include <map>
@@ -15,17 +16,18 @@
 #include <libcamera/base/thread.h>
 #include <libcamera/base/mutex.h>
 #include <libcamera/camera.h>
+
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/dma_buf_allocator.h"
 #include <libcamera/ipa/softisp_ipa_proxy.h>
-#include <libcamera/ipa/softisp_ipa_proxy.h>
 
 namespace libcamera {
+
 class SoftISPConfiguration : public libcamera::CameraConfiguration {
 public:
-	SoftISPConfiguration();
-	Status validate() override;
+    SoftISPConfiguration();
+    Status validate() override;
 };
 
 /* Forward declarations */
@@ -33,77 +35,69 @@ class PipelineHandlerSoftISP;
 class VirtualCamera;
 
 /*
- * SoftISPCameraData - Camera data structure for SoftISP dummy pipeline.
- * Must be defined BEFORE PipelineHandlerSoftISP.
+ * SoftISPCameraData - Camera data structure for SoftISP pipeline.
+ * Supports both real V4L2 cameras and virtual test cameras.
  */
-class SoftISPCameraData : public Camera::Private, public Thread
-{
+class SoftISPCameraData : public Camera::Private, public Thread {
 public:
-	SoftISPCameraData(PipelineHandlerSoftISP *pipe);
-	~SoftISPCameraData();
+    SoftISPCameraData(PipelineHandlerSoftISP *pipe);
+    ~SoftISPCameraData();
 
-	int init();
-	int loadIPA();
+    int init();
+    int loadIPA();
+    void run() override;
 
-	void run() override;
-	std::unique_ptr<Stream> dummyStream_;
-	void processRequest(Request *request);
-	FrameBuffer* getBufferFromId(uint32_t bufferId);
+    void processRequest(Request *request);
+    FrameBuffer* getBufferFromId(uint32_t bufferId);
+    void storeBuffer(uint32_t bufferId, FrameBuffer *buffer);
 
-	struct StreamConfig {
-		Stream *stream = nullptr;
-		unsigned int seq = 0;
-	};
+    struct StreamConfig {
+        Stream *stream = nullptr;
+        unsigned int seq = 0;
+    };
 
-	std::unique_ptr<ipa::soft::IPASoftIspInterface> ipa_;
-	std::unique_ptr<VirtualCamera> virtualCamera_;
-	std::vector<StreamConfig> streamConfigs_;
-	bool running_ = false;
-	Mutex mutex_;
-	std::map<uint32_t, FrameBuffer*> bufferMap_; // Map bufferId -> FrameBuffer*
+    std::unique_ptr<ipa::soft::IPASoftIspInterface> ipa_;
+    std::unique_ptr<VirtualCamera> virtualCamera_;
+    std::vector<StreamConfig> streamConfigs_;
+    bool running_ = false;
+    Mutex mutex_;
+    std::map<uint32_t, FrameBuffer*> bufferMap_;
+
+    // Real camera support
+    std::shared_ptr<MediaDevice> mediaDevice_;
+    std::unique_ptr<V4L2VideoDevice> captureDevice_;
+    bool isVirtualCamera = true;
 };
 
 /*
- * Pipeline handler for SoftISP with dummy cameras.
+ * Pipeline handler for SoftISP with both real and virtual cameras.
+ * Prioritizes real V4L2 cameras, falls back to virtual camera if none found.
  */
-class PipelineHandlerSoftISP : public PipelineHandler
-{
+class PipelineHandlerSoftISP : public PipelineHandler {
 public:
-	static bool created_;
-	PipelineHandlerSoftISP(CameraManager *manager);
-	~PipelineHandlerSoftISP();
+    static bool created_;
 
-	std::unique_ptr<CameraConfiguration> generateConfiguration(
-		Camera *camera, Span<const StreamRole> roles) override;
+    PipelineHandlerSoftISP(CameraManager *manager);
+    ~PipelineHandlerSoftISP();
 
-	int configure(Camera *camera, CameraConfiguration *config) override;
-
-	int exportFrameBuffers(Camera *camera, Stream *stream,
-			       std::vector<std::unique_ptr<FrameBuffer>> *buffers) override;
-
-	int start(Camera *camera, const ControlList *controls) override;
-
-	void stopDevice(Camera *camera) override;
-
-	int queueRequestDevice(Camera *camera, Request *request) override;
-
-	bool match(DeviceEnumerator *enumerator) override;
+    std::unique_ptr<CameraConfiguration> generateConfiguration(
+        Camera *camera, Span<const StreamRole> roles) override;
+    int configure(Camera *camera, CameraConfiguration *config) override;
+    int exportFrameBuffers(Camera *camera, Stream *stream,
+                          std::vector<std::unique_ptr<FrameBuffer>> *buffers) override;
+    int start(Camera *camera, const ControlList *controls) override;
+    void stopDevice(Camera *camera) override;
+    int queueRequestDevice(Camera *camera, Request *request) override;
+    bool match(DeviceEnumerator *enumerator) override;
 
 private:
-	SoftISPCameraData *cameraData(Camera *camera)
-	{
-		return static_cast<SoftISPCameraData *>(camera->_d());
-	}
+    SoftISPCameraData *cameraData(Camera *camera) {
+        return static_cast<SoftISPCameraData *>(camera->_d());
+    }
 
-	bool initFrameGenerator(Camera *camera);
-	void bufferCompleted(FrameBuffer *buffer);
-
-	DmaBufAllocator dmaBufAllocator_;
+    bool isV4LCamera(std::shared_ptr<MediaDevice> media);
+    bool createRealCamera(std::shared_ptr<MediaDevice> media);
+    bool createVirtualCamera();
 };
 
-} /* namespace libcamera */
-class SoftISPConfiguration : public libcamera::CameraConfiguration {
-public:
-	SoftISPConfiguration();
-	Status validate() override;
-};
+} // namespace libcamera
