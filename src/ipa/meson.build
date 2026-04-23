@@ -65,7 +65,6 @@ if get_option('softisp').enabled()
     subdir('softisp')
 endif
 if get_option('softisp').enabled()
-  subdir('dummysoftisp')
 endif
 
 # The ipa-sign-install.sh script which uses the enabled_ipa_modules variable
