@@ -1,0 +1,62 @@
+name: Build Libcamera Android HAL
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  build-libcamera-android:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential ninja-build meson \
+          python3-pip pkg-config \
+          libprotobuf-dev protobuf-compiler
+        pip3 install --upgrade meson
+
+    - name: Setup Android NDK
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r26d
+
+    - name: Configure Meson cross file
+      run: |
+        cat > android-cross.txt <<EOF
+        [binaries]
+        c = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang'
+        cpp = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++'
+        ar = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
+        strip = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+
+        [host_machine]
+        system = 'android'
+        cpu_family = 'aarch64'
+        cpu = 'armv8'
+        endian = 'little'
+        EOF
+
+    - name: Configure build
+      run: |
+        meson setup build-android \
+          --cross-file android-cross.txt \
+          -Dandroid=enabled \
+          -Dpipelines=simple,uvcvideo \
+          -Dandroid_platform=generic \
+          --buildtype=release
+
+    - name: Build libcamera + HAL
+      run: ninja -C build-android
+
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: libcamera-hal-android
+        path: build-android/src/android/*.so
