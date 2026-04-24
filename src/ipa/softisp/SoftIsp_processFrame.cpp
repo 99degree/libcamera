@@ -35,7 +35,7 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	float redGain = 1.0f;
 	float blueGain = 1.0f;
 	
-	const auto *awbGain = results.get(controls::AwbGain);
+	const ControlList::Value *awbGain = results.get(controls::AwbGain);
 	if (awbGain && awbGain->size() >= 2) {
 		redGain = (*awbGain)[0];
 		blueGain = (*awbGain)[1];
