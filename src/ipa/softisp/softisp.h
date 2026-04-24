@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /**
  * SoftIsp - ONNX-based Image Processing Algorithm.
+ * Skeleton implementation with method includes.
  */
 #pragma once
 
@@ -10,6 +11,7 @@
 #include <libcamera/base/mutex.h>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace libcamera {
 namespace ipa {

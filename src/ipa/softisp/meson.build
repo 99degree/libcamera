@@ -1,12 +1,11 @@
 # SPDX-License-Identifier: CC0-1.0
-
 # SoftISP IPA module - ONNX-based implementation
 
 # Find ONNX Runtime
 onnxruntime_dep = dependency('onnxruntime', version: '>=1.14.0')
 
 softisp_sources = files([
-    'softisp.cpp',
+    'softisp.cpp',      # Includes all method files
     'onnx_engine.cpp',
     'softisp_module.cpp',
 ])

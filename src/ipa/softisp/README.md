@@ -1,144 +1,142 @@
 # SoftISP IPA Module
 
-A Software-based Image Signal Processor (ISP) implementation for libcamera using ONNX machine learning models.
+## Architecture: Caller/Callee Pattern
 
-## Overview
+### Design Principle
+- **Caller (Pipeline)**: Pre-calculates all buffer sizes, maps memory, prepares resources
+- **Callee (IPA)**: Stateless processing unit, only reads/writes data
 
-SoftISP is a custom IPA (Image Processing Algorithm) module that implements ISP functionality using two ONNX models:
-- `algo.onnx` - Generates ISP coefficients from frame statistics
-- `applier.onnx` - Applies coefficients to produce final image metadata
+### Benefits
+- **Stateless IPA**: Easier to test, no hidden state, thread-safe
+- **Clear Separation**: Pipeline owns memory management, IPA owns processing
+- **Performance**: Buffers pre-mapped, no allocation during processing
+- **Debugging**: Clear boundary between resource management and processing
 
-## Build Requirements
+## Two-Stage Processing
 
-- libcamera development files
-- ONNX Runtime (for runtime inference)
-- C++20 compiler
-- Meson build system
+### Stage 1: `processStats()` (Callee)
+**Caller (Pipeline) Preparation:**
+1. Calculate stats buffer size based on sensor format
+2. Map stats buffer via `mmap()`
+3. Populate stats buffer with sensor data
 
-## Building
+**Callee (IPA) Processing:**
+1. Read stats data from pre-mapped buffer
+2. Run `algo.onnx` inference
+3. Extract AWB/AE parameters
+4. Emit metadata via `metadataReady` signal
 
-```bash
-# Configure with SoftISP enabled
-meson setup build \
-  -Dsoftisp=enabled \
-  -Dpipelines='softisp,dummysoftisp'
+**IPA is stateless:** No internal state between calls.
 
-# Build
-meson compile -C build
-```
+### Stage 2: `processFrame()` (Callee)
+**Caller (Pipeline) Preparation:**
+1. Calculate frame buffer size (width × height × bytes_per_pixel)
+2. Map frame buffer via `mmap()`
+3. Ensure AWB/AE metadata from Stage 1 is available
 
-This produces:
-- `libcamera.so` - Main library with SoftISP pipelines
-- `ipa_softisp.so` - IPA module for real cameras
-- `ipa_softisp_virtual.so` - IPA module for dummy cameras
+**Callee (IPA) Processing:**
+1. Read Bayer frame from pre-mapped buffer
+2. Apply AWB/AE parameters
+3. Run `applier.onnx` inference
+4. Convert Bayer → RGB/YUV
+5. Write processed data back to pre-mapped buffer
 
-## Usage
+**IPA is stateless:** No internal state between calls.
 
-### Environment Variables
-
-- `SOFTISP_MODEL_DIR` - Path to directory containing ONNX models
-
-### Pipelines
-
-1. **softisp** - For real V4L2 cameras
-2. **dummysoftisp** - For testing without hardware
-
-### Example
-
-```bash
-# With real camera
-libcamera-vid --pipeline softisp \
-  --output video.yuv \
-  --width 1920 --height 1080
-
-# With dummy camera (testing)
-libcamera-vid --pipeline dummysoftisp \
-  --output test.yuv \
-  --width 1920 --height 1080
-```
-
-## Architecture
+## Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    libcamera Core                        │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  ┌──────────────┐    ┌──────────────┐                   │
-│  │   Pipeline   │───▶│     IPA      │                   │
-│  │   Handler    │    │   Module     │                   │
-│  └──────────────┘    └──────────────┘                   │
-│         │                   │                            │
-│         ▼                   ▼                            │
-│  ┌──────────────┐    ┌──────────────┐                   │
-│  │  CameraData  │    │   SoftIsp    │                   │
-│  │              │    │ (Algorithm)  │                   │
-│  └──────────────┘    └──────────────┘                   │
-│                            │                             │
-│                            ▼                             │
-│                    ┌──────────────┐                      │
-│                    │  ONNX Models │                      │
-│                    │ algo.onnx    │                      │
-│                    │ applier.onnx │                      │
-│                    └──────────────┘                      │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    CALLER (Pipeline)                        │
+│  1. Calculate buffer sizes (width, height, stride)          │
+│  2. Allocate buffers (FrameBuffer)                          │
+│  3. Map buffers (mmap)                                      │
+│  4. Populate with sensor data                               │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    CALLEE (IPA)                             │
+│  Stateless Processing:                                      │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
+│  │ processStats │ →  │ algo.onnx    │ →  │ metadata     │  │
+│  │ (read stats) │    │ (AWB/AE)     │    │ (emit)       │  │
+│  └──────────────┘    └──────────────┘    └──────────────┘  │
+│                                                             │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
+│  │processFrame  │ →  │applier.onnx  │ →  │ write back   │  │
+│  │(read Bayer)  │    │(ISP pipeline)│    │(RGB/YUV)     │  │
+│  └──────────────┘    └──────────────┘    └──────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    CALLER (Pipeline)                        │
+│  1. Unmap buffers (munmap)                                  │
+│  2. Complete request                                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Implementation Guidelines
+
+### For Pipeline (Caller)
+```cpp
+// 1. Pre-calculate sizes
+uint32_t frameSize = width * height * bytes_per_pixel;
+uint32_t statsSize = calculateStatsSize(sensorFormat);
+
+// 2. Allocate and map
+void *frameData = mmap(nullptr, frameSize, PROT_READ | PROT_WRITE, ...);
+void *statsData = mmap(nullptr, statsSize, PROT_READ | PROT_WRITE, ...);
+
+// 3. Populate data
+populateStats(statsData, sensorData);
+
+// 4. Call IPA (stateless)
+ipa_->processStats(frameId, bufferId, metadata);
+ipa_->processFrame(frameId, bufferId, fd, planeIndex, width, height, results);
+
+// 5. Cleanup
+munmap(frameData, frameSize);
+munmap(statsData, statsSize);
+```
+
+### For IPA (Callee)
+```cpp
+void SoftIsp::processStats(uint32_t frame, uint32_t bufferId,
+                           const ControlList &sensorControls)
+{
+    // NO state maintained
+    // Just read from provided buffers, process, emit metadata
+    
+    // 1. Read stats (caller already mapped)
+    // 2. Run ONNX
+    // 3. Emit metadata
+    metadataReady.emit(frame, metadata);
+}
+
+void SoftIsp::processFrame(uint32_t frame, uint32_t bufferId,
+                           const SharedFD &bufferFd, ...)
+{
+    // NO state maintained
+    // Just read from provided buffers, process, write back
+    
+    // 1. Read Bayer (caller already mapped)
+    // 2. Apply AWB/AE (from previous processStats)
+    // 3. Run ONNX
+    // 4. Write back to buffer (caller will munmap)
+}
 ```
 
 ## File Structure
-
 ```
 src/ipa/softisp/
-├── README.md              # This file
-├── algorithm.h            # Algorithm type alias
-├── module.h               # Module type definition
-├── softisp.h              # SoftIsp class declaration
-├── softisp.cpp            # SoftIsp implementation
-├── softisp_module.cpp     # IPA module for "softisp" pipeline
-└── softisp_virtual_module.cpp  # IPA module for "dummysoftisp" pipeline
+├── softisp.h              # Class declaration
+├── softisp.cpp            # Stateless method implementations
+├── onnx_engine.h/cpp      # ONNX Runtime wrapper
+├── softisp_module.cpp     # Module entry point
+└── README.md              # This file
 ```
 
-## ONNX Model Specifications
-
-### algo.onnx
-
-**Inputs (4):**
-1. Frame statistics (brightness, contrast, etc.)
-2. Scene type indicators
-3. Exposure parameters
-4. White balance data
-
-**Outputs (15):**
-1-10: ISP coefficient values
-11-15: Metadata parameters
-
-### applier.onnx
-
-**Inputs (10):**
-1-7: Raw frame data
-8-10: Coefficients from algo.onnx
-
-**Outputs (7):**
-1-7: Processed metadata for camera
-
-## Development
-
-See the following documentation files for more information:
-- `SOFTISP_BUILD_SKILLS.md` - Troubleshooting guide
-- `SOFTISP_TODO.md` - Implementation tasks
-- `SOFTISP_SUMMARY.md` - Project summary
-
 ## License
-
 LGPL-2.1-or-later
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## Support
-
-For issues and questions, please open an issue on the project tracker.
