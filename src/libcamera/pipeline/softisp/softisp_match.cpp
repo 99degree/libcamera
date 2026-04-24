@@ -1,8 +1,26 @@
-bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator)
+bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
 {
-    // First call: Create and register the virtual camera
-    if (!s_virtualCameraRegistered) {
-        LOG(SoftISPPipeline, Info) << "Registering virtual camera (first match call)";
+    LOG(SoftISPPipeline, Info) << "Matching devices...";
+    
+    // Check if any hardware cameras exist by trying to find a V4L2 device
+    bool hasHardwareCamera = false;
+    
+    // Try to find common V4L2 devices
+    const char *commonDrivers[] = { "uvcvideo", "bcm2835-isp", "rkisp", "mmparser", nullptr };
+    
+    for (int i = 0; commonDrivers[i] != nullptr; i++) {
+        DeviceMatch dm(commonDrivers[i]);
+        auto device = enumerator->search(dm);
+        if (device) {
+            hasHardwareCamera = true;
+            LOG(SoftISPPipeline, Info) << "Hardware camera found: " << device->name();
+            break;
+        }
+    }
+    
+    // If no hardware cameras found, register the virtual camera
+    if (!hasHardwareCamera && !s_virtualCameraRegistered) {
+        LOG(SoftISPPipeline, Info) << "No hardware cameras found, registering virtual camera";
         
         // Create camera data
         auto data = std::make_unique<SoftISPCameraData>(this);
@@ -12,10 +30,10 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator
             return false;
         }
         
-        // Store reference to prevent destruction
+        // Store reference
         virtualCameraData_ = std::move(data);
         
-        // Create the camera with empty streams (will be configured later)
+        // Create and register the camera
         std::set<Stream *> streams;
         std::string id = "softisp_virtual";
         std::shared_ptr<Camera> camera = Camera::create(std::move(virtualCameraData_), id, streams);
@@ -24,7 +42,6 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator
             return false;
         }
         
-        // Register the camera with the CameraManager
         registerCamera(std::move(camera));
         
         // Mark as registered
@@ -36,7 +53,11 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator
         return true;
     }
     
-    // Subsequent calls: Return false to prevent re-registration
-    LOG(SoftISPPipeline, Debug) << "Virtual camera already registered";
+    if (hasHardwareCamera) {
+        LOG(SoftISPPipeline, Info) << "Hardware cameras present, virtual camera not needed";
+    } else if (s_virtualCameraRegistered) {
+        LOG(SoftISPPipeline, Debug) << "Virtual camera already registered";
+    }
+    
     return false;
 }
