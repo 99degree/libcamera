@@ -2,6 +2,7 @@
 #include "softisp.h"
 #include <cstring>
 #include <sys/mman.h>
+#include <unistd.h>
 
 void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 			   const SharedFD &bufferFd, const int32_t /*planeIndex*/,
@@ -18,19 +19,20 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	                    << ", size=" << width << "x" << height;
 
 	// Calculate buffer size for SBGGR10 (10 bits per pixel, packed)
+	// Note: In real implementation, get this from StreamConfiguration
 	size_t bufferSize = ((width * 10 + 7) / 8) * height;
 
-	// Map the buffer for reading Bayer data
+	// Map the buffer for reading/writing
+	// IMPORTANT: We do NOT own this FD. We just map it temporarily.
 	void *bayerData = mmap(nullptr, bufferSize, PROT_READ | PROT_WRITE,
 	                       MAP_SHARED, bufferFd.get(), 0);
 	if (bayerData == MAP_FAILED) {
-		LOG(SoftIsp, Error) << "Failed to mmap buffer";
+		LOG(SoftIsp, Error) << "Failed to mmap buffer (FD=" << bufferFd.get() << ")";
 		frameDone.emit(frame, bufferId);
 		return;
 	}
 
 	// TODO: Read AWB/AE parameters from 'results' ControlList
-	// These were computed in processStats via metadataReady
 	float redGain = 1.0f;
 	float blueGain = 1.0f;
 	
@@ -46,7 +48,6 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	bayerFloat.reserve(width * height);
 	
 	// TODO: Properly unpack SBGGR10 packed format
-	// For now, just read as bytes and normalize
 	uint8_t *byteData = static_cast<uint8_t*>(bayerData);
 	for (size_t i = 0; i < width * height; i++) {
 		// Normalize to [0, 1]
@@ -56,7 +57,6 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 
 	// Apply AWB gains to Bayer data (pre-processing)
 	for (size_t i = 0; i < bayerFloat.size(); i++) {
-		// Simple demosaic + AWB (replace with proper ISP pipeline)
 		size_t row = i / width;
 		size_t col = i % width;
 		
@@ -64,19 +64,14 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 		bool evenRow = (row % 2 == 0);
 		bool evenCol = (col % 2 == 0);
 		
-		if (evenRow && evenCol) {
-			// G pixel
-			// bayerFloat[i] *= 1.0f;
-		} else if (!evenRow && !evenCol) {
-			// G pixel
-			// bayerFloat[i] *= 1.0f;
-		} else if (evenRow && !evenCol) {
+		if (evenRow && !evenCol) {
 			// B pixel - apply blue gain
 			bayerFloat[i] *= blueGain;
-		} else {
+		} else if (!evenRow && evenCol) {
 			// R pixel - apply red gain
 			bayerFloat[i] *= redGain;
 		}
+		// G pixels remain unchanged
 	}
 
 	// Run applier.onnx inference (Bayer → RGB/YUV)
@@ -91,16 +86,8 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 
 	LOG(SoftIsp, Debug) << "applier.onnx output size: " << rgbOutput.size();
 
-	// Write RGB output back to buffer (or to separate output buffer)
-	// TODO: Convert RGB to YUV if needed, write to correct format
-	// For now, just write RGB floats back (simplified)
-	
-	// In real implementation:
-	// 1. Convert float RGB to appropriate format (RGB888, NV12, etc.)
-	// 2. Write to bufferFd (or separate output buffer FD)
-	// 3. Handle plane offsets for multi-plane formats
-	
-	// Example: Write as RGB floats (placeholder)
+	// Write RGB output back to buffer
+	// TODO: Convert to appropriate format (RGB888, NV12, etc.)
 	size_t outputSize = std::min(rgbOutput.size(), width * height * 3);
 	for (size_t i = 0; i < outputSize; i++) {
 		size_t byteIdx = i % bufferSize;
@@ -108,9 +95,10 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	}
 
 	// Unmap buffer
+	// IMPORTANT: We do NOT close the FD. The caller (Pipeline/App) owns it.
 	munmap(bayerData, bufferSize);
 
-	// Signal completion (Stage 2 done)
+	// Signal completion
 	frameDone.emit(frame, bufferId);
 
 	LOG(SoftIsp, Debug) << "processFrame complete for frame " << frame;
