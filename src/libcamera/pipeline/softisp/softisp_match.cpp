@@ -2,9 +2,6 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator
 {
     LOG(SoftISPPipeline, Info) << "PipelineHandlerSoftISP::match() called";
     
-    // TODO: Enumerate hardware cameras (like SimplePipeline does)
-    // For now, just register the virtual camera
-    
     if (!s_virtualCameraRegistered) {
         LOG(SoftISPPipeline, Info) << "Creating and registering virtual camera";
         
@@ -23,19 +20,14 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator
             return false;
         }
         
-        // Start the virtual camera immediately
-        if (virtualCameraData_->start(nullptr) < 0) {
-            LOG(SoftISPPipeline, Error) << "Failed to start virtual camera";
-            return false;
-        }
-        
+        // DO NOT start here - start() will be called by the user
+        // registerCamera() adds the camera to the CameraManager's list
         registerCamera(std::move(camera));
         s_virtualCameraRegistered = true;
         created_ = true;
         resetCreated_ = true;
         
-        LOG(SoftISPPipeline, Info) << "Virtual camera registered successfully";
-        LOG(SoftISPPipeline, Info) << "Run 'cam --list' to see the camera";
+        LOG(SoftISPPipeline, Info) << "Virtual camera registered (waiting for open()/start())";
         return true;
     }
     
