@@ -12,15 +12,15 @@ int SoftISPCameraData::exportFrameBuffers([[maybe_unused]] Stream *stream,
         return -EINVAL;
     }
     
-    if (!virtualCamera_) {
+    if (!virtualCamera("default")) {
         LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
         return -EINVAL;
     }
     
     // Get buffer count from VirtualCamera
-    unsigned int count = virtualCamera_->bufferCount();
-    unsigned int width = virtualCamera_->width();
-    unsigned int height = virtualCamera_->height();
+    unsigned int count = virtualCamera("default")->bufferCount();
+    unsigned int width = virtualCamera("default")->width();
+    unsigned int height = virtualCamera("default")->height();
     
     // Calculate buffer size for Bayer10 (10 bits per pixel, packed)
     size_t bufferSize = (width * height * 5) / 4;

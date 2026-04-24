@@ -2,7 +2,9 @@ void SoftISPCameraData::stop()
 {
     LOG(SoftISPPipeline, Info) << "Stopping camera";
     
-    if (virtualCamera_) {
-        virtualCamera_->stop();
+    // Stop all VirtualCamera instances
+    for (auto& [key, virtCam] : virtualCameras_) {
+        virtCam->stop();
+        LOG(SoftISPPipeline, Info) << "VirtualCamera stopped: " << key;
     }
 }

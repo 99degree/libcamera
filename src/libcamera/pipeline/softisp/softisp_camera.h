@@ -51,15 +51,16 @@ public:
     void processRequest(Request *request);
 
     // Get VirtualCamera
-    VirtualCamera *virtualCamera() { return virtualCamera_.get(); }
-    const VirtualCamera *virtualCamera() const { return virtualCamera_.get(); }
 
+    std::map<std::string, std::unique_ptr<VirtualCamera>> virtualCameras_;  // Map of virtual camera instances
+    VirtualCamera *virtualCamera(const std::string &key = "default") {
+        auto it = virtualCameras_.find(key);
+        return it != virtualCameras_.end() ? it->second.get() : nullptr;
+    }
 private:
 
-    std::unique_ptr<VirtualCamera> virtualCamera_;
     std::map<uint32_t, FrameBuffer*> bufferMap_;
 
-    bool isVirtualCamera = true;
     Mutex mutex_;
 };
 

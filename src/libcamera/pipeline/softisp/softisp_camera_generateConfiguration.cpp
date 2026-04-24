@@ -2,7 +2,7 @@ std::unique_ptr<CameraConfiguration> SoftISPCameraData::generateConfiguration(Sp
 {
     LOG(SoftISPPipeline, Info) << "SoftISPCameraData::generateConfiguration called";
     
-    if (!virtualCamera_) {
+    if (!virtualCamera("default")) {
         LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
         return nullptr;
     }
@@ -24,9 +24,9 @@ std::unique_ptr<CameraConfiguration> SoftISPCameraData::generateConfiguration(Sp
                 return nullptr;
         }
         
-        unsigned int width = virtualCamera_->width();
-        unsigned int height = virtualCamera_->height();
-        unsigned int bufferCount = virtualCamera_->bufferCount();
+        unsigned int width = virtualCamera("default")->width();
+        unsigned int height = virtualCamera("default")->height();
+        unsigned int bufferCount = virtualCamera("default")->bufferCount();
         
         std::map<PixelFormat, std::vector<SizeRange>> streamFormats;
         PixelFormat pixelFormat = formats::SBGGR10;

@@ -1,227 +1,77 @@
-#include "softisp.h"
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
-/*
- * Copyright (C) 2024
- *
- * Virtual Camera - Standalone virtual camera implementation
- */
-
 #include "virtual_camera.h"
 
-#include <algorithm>
-#include <cstring>
-
 #include <libcamera/base/log.h>
-#include <sys/mman.h>
 
 namespace libcamera {
 
 LOG_DEFINE_CATEGORY(VirtualCamera)
 
 VirtualCamera::VirtualCamera()
-	: Thread("VirtualCamera")
+    : running_(false)
 {
+    LOG(VirtualCamera, Info) << "Virtual camera initialized: " << width_ << "x" << height_;
 }
 
 VirtualCamera::~VirtualCamera()
 {
-	stop();
-}
-
-int VirtualCamera::init(unsigned int width, unsigned int height)
-{
-	width_ = width;
-	height_ = height;
-
-	LOG(VirtualCamera, Info) << "Virtual camera initialized: "
-	                         << width << "x" << height;
-
-	return 0;
+    stop();
+    LOG(VirtualCamera, Info) << "Virtual camera destroyed";
 }
 
 int VirtualCamera::start()
 {
-	if (running_)
-		return 0;
-
-	running_ = true;
-	start();
-
-	LOG(VirtualCamera, Info) << "Virtual camera started";
-
-	return 0;
+    if (running_)
+        return 0;
+    
+    LOG(VirtualCamera, Info) << "Starting VirtualCamera";
+    running_ = true;
+    Thread::start();
+    return 0;
 }
 
 void VirtualCamera::stop()
 {
-	if (!running_)
-		return;
-
-	running_ = false;
-	bufferCV_.notify_all();
-	exit(0);
-	wait();
-
-	LOG(VirtualCamera, Info) << "Virtual camera stopped";
+    if (!running_)
+        return;
+    
+    LOG(VirtualCamera, Info) << "Stopping VirtualCamera";
+    running_ = false;
+    exit();
+    wait();
 }
 
-void VirtualCamera::queueBuffer(FrameBuffer *buffer)
+int VirtualCamera::init(unsigned int width, unsigned int height)
 {
-	if (!running_ || !buffer)
-		return;
-
-	{
-		std::lock_guard<std::mutex> lock(queueMutex_);
-		bufferQueue_.push(buffer);
-	}
-
-	bufferCV_.notify_one();
+    width_ = width;
+    height_ = height;
+    LOG(VirtualCamera, Info) << "Initialized: " << width << "x" << height;
+    return 0;
 }
 
-void VirtualCamera::setPattern(Pattern pattern)
+int VirtualCamera::queueBuffer(FrameBuffer *buffer)
 {
-	pattern_ = pattern;
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    bufferQueue_.push(buffer);
+    return 0;
 }
 
-void VirtualCamera::setBrightness(float brightness)
+void VirtualCamera::generateFrame()
 {
-	brightness_ = std::clamp(brightness, 0.0f, 1.0f);
+    static int frameCount = 0;
+    frameCount++;
+    LOG(VirtualCamera, Debug) << "Frame " << frameCount << " generated";
 }
 
-void VirtualCamera::setContrast(float contrast)
+void VirtualCamera::run()
 {
-	contrast_ = std::clamp(contrast, 0.0f, 2.0f);
+    LOG(VirtualCamera, Info) << "VirtualCamera thread running";
+    
+    while (running_) {
+        generateFrame();
+        std::this_thread::sleep_for(std::chrono::milliseconds(33));
+    }
+    
+    LOG(VirtualCamera, Info) << "VirtualCamera thread exiting";
 }
 
-void VirtualCamera::run() {
-	while (running_) {
-		FrameBuffer *buffer = nullptr;
-		{
-			std::unique_lock<std::mutex> lock(queueMutex_);
-			bufferCV_.wait(lock, [this] { return !running_ || !bufferQueue_.empty(); });
-			if (!running_) break;
-			if (bufferQueue_.empty()) continue;
-			buffer = bufferQueue_.front();
-			bufferQueue_.pop();
-		}
-
-		if (!buffer || buffer->planes().empty()) {
-			LOG(VirtualCamera, Error) << "Invalid buffer received";
-			continue;
-		}
-
-		/* Map the buffer memory */
-		const auto &plane = buffer->planes()[0];
-		void *mem = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.get(), 0);
-		if (mem == MAP_FAILED) {
-			LOG(VirtualCamera, Error) << "Failed to map buffer";
-			continue;
-		}
-
-		/* Generate Bayer RGGB 10-bit pattern */
-		sequence_++;
-		LOG(VirtualCamera, Info) << "Generated frame " << sequence_ << " (Bayer10 RGGB " << width_ << "x" << height_ << ")";
-
-		uint8_t *data = static_cast<uint8_t*>(mem);
-		// 10-bit packed format
-		// Calculated dynamically
-
-		/* Generate Bayer RGGB pattern */
-		for (unsigned int y = 0; y < height_; y++) {
-			for (unsigned int x = 0; x < width_; x++) {
-				uint16_t pixelValue;
-				/* Bayer RGGB pattern with test pattern values */
-				if ((x % 2 == 0) && (y % 2 == 0)) {
-					/* Red */
-					pixelValue = 0x200 + ((x * 3) % 256);
-				} else if ((x % 2 == 1) && (y % 2 == 0)) {
-					/* Green (top) */
-					pixelValue = 0x300 + ((y * 5) % 256);
-				} else if ((x % 2 == 0) && (y % 2 == 1)) {
-					/* Green (bottom) */
-					pixelValue = 0x300 + ((y * 5) % 256);
-				} else {
-					/* Blue */
-					pixelValue = 0x400 + ((x * 3) % 256);
-				}
-
-				/* Write 10-bit pixel in packed format */
-				unsigned int bitOffset = (y * width_ + x) * 10;
-				unsigned int byteOffset = bitOffset / 8;
-				unsigned int bitInByte = bitOffset % 8;
-
-				if (byteOffset + 1 < plane.length) {
-					/* Clear existing bits */
-					data[byteOffset] &= ~(0x3 << bitInByte);
-					data[byteOffset] |= (pixelValue & 0x3F) << bitInByte;
-					if (bitInByte > 6) {
-						data[byteOffset + 1] &= ~(0x3F >> (8 - bitInByte));
-						data[byteOffset + 1] |= (pixelValue >> (8 - bitInByte)) & (0x3F >> (8 - bitInByte));
-					}
-				}
-			}
-		}
-
-		munmap(mem, plane.length);
-
-		/* Simulate 30fps */
-		std::this_thread::sleep_for(std::chrono::milliseconds(33));
-	}
-}
-
-
-// ============================================================================
-// Camera-like interface (VirtualCamera as a real camera object)
-// ============================================================================
-
-std::unique_ptr<CameraConfiguration> VirtualCamera::generateConfiguration(Span<const StreamRole> roles) {
-	LOG(VirtualCamera, Info) << "VirtualCamera::generateConfiguration called";
-	// Create configuration using SoftISPConfiguration
-	// Note: We return unique_ptr<CameraConfiguration> as required by the interface
-	auto config = std::make_unique<SoftISPConfiguration>();
-	
-	if (roles.empty()) {
-		return config;
-	}
-	
-	for (const auto& role : roles) {
-		switch (role) {
-			case StreamRole::StillCapture:
-			case StreamRole::VideoRecording:
-			case StreamRole::Viewfinder:
-				break;
-			case StreamRole::Raw:
-			default:
-				LOG(VirtualCamera, Error) << "Unsupported stream role: " << role;
-				return nullptr;
-		}
-		
-		// Create stream configuration
-		std::map<PixelFormat, std::vector<SizeRange>> streamFormats;
-		PixelFormat pixelFormat = formats::SBGGR10; // Bayer RGGB 10-bit
-		streamFormats[pixelFormat] = { SizeRange(Size(width_, height_), Size(width_, height_)) };
-		
-		StreamFormats formats(streamFormats);
-		auto cfg = StreamConfiguration(formats);
-		cfg.pixelFormat = pixelFormat;
-		cfg.size = Size(width_, height_);
-		cfg.bufferCount = bufferCount();
-		cfg.colorSpace = ColorSpace::Rec709;
-		
-		config->addConfiguration(cfg);
-	}
-	
-	auto status = config->validate();
-	if (status == CameraConfiguration::Invalid) {
-		LOG(VirtualCamera, Error) << "Invalid configuration";
-		return nullptr;
-	}
-	
-	LOG(VirtualCamera, Info) << "Generated config: " << width_ << "x" << height_;
-	return config;
-}
-
-
-
-
-} /* namespace libcamera */
+} // namespace libcamera

@@ -2,11 +2,15 @@ int SoftISPCameraData::start([[maybe_unused]] const ControlList *controls)
 {
     LOG(SoftISPPipeline, Info) << "Starting camera";
     
-    if (!virtualCamera_) {
-        LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
-        return -EINVAL;
+    // Start all VirtualCamera instances
+    for (auto& [key, virtCam] : virtualCameras_) {
+        int ret = virtCam->start();
+        if (ret < 0) {
+            LOG(SoftISPPipeline, Error) << "Failed to start VirtualCamera: " << key;
+            return ret;
+        }
+        LOG(SoftISPPipeline, Info) << "VirtualCamera started: " << key;
     }
     
-    // Start the VirtualCamera - it manages its own thread and frame generation
-    return virtualCamera_->start();
+    return 0;
 }

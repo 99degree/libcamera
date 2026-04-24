@@ -1,6 +1,5 @@
 SoftISPCameraData::SoftISPCameraData(PipelineHandlerSoftISP *pipe)
-    : Camera::Private(pipe),
-      virtualCamera_(std::make_unique<VirtualCamera>())
+    : Camera::Private(pipe)
 {
     LOG(SoftISPPipeline, Info) << "SoftISPCameraData created";
 }
