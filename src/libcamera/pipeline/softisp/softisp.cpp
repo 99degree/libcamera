@@ -154,13 +154,57 @@ void SoftISPCameraData::storeBuffer(uint32_t bufferId, FrameBuffer *buffer) {
 
 std::unique_ptr<CameraConfiguration>
 SoftISPCameraData::generateConfiguration(Span<const StreamRole> roles) {
-	// Delegate to VirtualCamera which acts as a real camera object
-	// This follows the SimplePipeline pattern where CameraData delegates to its worker
+	// Build configuration directly (like SimpleCameraData)
+	// VirtualCamera is the source of truth for capabilities
 	if (!virtualCamera_) {
 		LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
 		return nullptr;
 	}
-	return virtualCamera_->generateConfiguration(roles);
+
+	LOG(SoftISPPipeline, Info) << "SoftISPCameraData::generateConfiguration called (Camera Object)";
+
+	auto config = std::make_unique<SoftISPConfiguration>();
+	if (roles.empty()) {
+		return config;
+	}
+
+	for (const auto& role : roles) {
+		switch (role) {
+			case StreamRole::StillCapture:
+			case StreamRole::VideoRecording:
+			case StreamRole::Viewfinder:
+				break;
+			case StreamRole::Raw:
+			default:
+				LOG(SoftISPPipeline, Error) << "Unsupported stream role: " << role;
+				return nullptr;
+		}
+
+		unsigned int width = virtualCamera_->width();
+		unsigned int height = virtualCamera_->height();
+		unsigned int bufferCount = virtualCamera_->bufferCount();
+
+		std::map<PixelFormat, std::vector<SizeRange>> streamFormats;
+		PixelFormat pixelFormat = formats::SBGGR10;
+		streamFormats[pixelFormat] = { SizeRange(Size(width, height), Size(width, height)) };
+
+		StreamFormats formats(streamFormats);
+		auto cfg = StreamConfiguration(formats);
+		cfg.pixelFormat = pixelFormat;
+		cfg.size = Size(width, height);
+		cfg.bufferCount = bufferCount;
+		cfg.colorSpace = ColorSpace::Rec709;
+
+		config->addConfiguration(cfg);
+		LOG(SoftISPPipeline, Info) << "Added stream: " << width << "x" << height;
+	}
+
+	if (config->validate() == CameraConfiguration::Invalid) {
+		LOG(SoftISPPipeline, Error) << "Invalid configuration";
+		return nullptr;
+	}
+
+	return config;
 }
 
 
@@ -254,14 +298,16 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator
 
 std::unique_ptr<CameraConfiguration> PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
 	Span<const StreamRole> roles) {
-	// Follow SimplePipeline pattern: Get camera data and delegate
+	// Follow SimplePipeline pattern: Delegate everything to CameraData
 	SoftISPCameraData *data = cameraData(camera);
 	if (!data) {
 		LOG(SoftISPPipeline, Error) << "Failed to get camera data";
 		return nullptr;
 	}
-	// Delegate to VirtualCamera which acts as a real camera object
-	return data->virtualCamera()->generateConfiguration(roles);
+
+	LOG(SoftISPPipeline, Info) << "PipelineHandlerSoftISP::generateConfiguration called (Dispatcher)";
+	// Delegate to the Camera Object (SoftISPCameraData)
+	return data->generateConfiguration(roles);
 }
 
 
