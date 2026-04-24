@@ -17,11 +17,14 @@
 #pragma GCC diagnostic pop
 
 // libcamera headers - use paths available through ipa_includes
+// Based on what simple pipeline uses
 #include <libcamera/ipa/ipa_interface.h>
+#include <libcamera/ipa/soft_ipa_interface.h>
 #include <libcamera/base/shared_fd.h>
 #include <libcamera/base/signal.h>
-#include <libcamera/control_list.h>
+#include <libcamera/base/log.h>
 #include <libcamera/control_ids.h>
+#include <libcamera/controls.h>
 #include <libcamera/geometry.h>
 
 namespace libcamera {
