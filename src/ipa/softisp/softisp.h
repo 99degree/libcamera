@@ -15,7 +15,7 @@
 #include <memory>
 #include <string>
 #include <libcamera/base/signal.h>
-#include <libcamera/base/sharedfd.h>
+#include <libcamera/base/shared_fd.h>
 #include <libcamera/base/utils.h>
 #include <libcamera/control_list.h>
 #include <libcamera/ipa/ipa.h>
