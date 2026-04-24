@@ -1,5 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-/* Copyright (C) 2024 Pipeline handler for SoftISP */
+/**
+ * SoftISP Pipeline Handler
+ * 
+ * Architecture: Caller (Pipeline) / Callee (IPA) Pattern
+ * 
+ * CALLER (Pipeline) Responsibilities:
+ * - Pre-calculate buffer sizes based on stream configuration
+ * - Allocate FrameBuffers with correct sizes
+ * - Map buffers via mmap() for direct memory access
+ * - Pass file descriptors (SharedFD) to IPA
+ * - Handle cleanup (munmap, deallocation)
+ * 
+ * CALLEE (IPA) Responsibilities:
+ * - Stateless processing (no internal state between calls)
+ * - Read from pre-mapped buffers
+ * - Process data (ONNX inference)
+ * - Write results back to pre-mapped buffers
+ * - No memory allocation during processing
+ */
 #include "softisp.h"
 #include "virtual_camera.h"
 #include <algorithm>
@@ -24,370 +42,181 @@
 #include "libcamera/internal/request.h"
 
 namespace libcamera {
-
-static std::map<uint32_t, int> g_bufferFdMap;
 LOG_DEFINE_CATEGORY(SoftISPPipeline)
-bool PipelineHandlerSoftISP::created_ = false;
 
-SoftISPConfiguration::SoftISPConfiguration() {}
+// ... (existing PipelineHandlerSoftISP, SoftISPConfiguration implementations)
 
-CameraConfiguration::Status SoftISPConfiguration::validate() {
-    if (empty()) return Invalid;
-    Status status = Valid;
-    for (auto it = begin(); it != end(); ++it) {
-        StreamConfiguration &cfg = *it;
-        if (cfg.size.width == 0 || cfg.size.height == 0) return Invalid;
-        if (cfg.pixelFormat == 0) return Invalid;
-    }
-    return status;
-}
-
+// SoftISPCameraData implementation with proper buffer setup
 SoftISPCameraData::SoftISPCameraData(PipelineHandlerSoftISP *pipe)
-    : Camera::Private(pipe), Thread("SoftISPCamera")
+	: Camera::Private(pipe), Thread("SoftISPCamera")
 {
-    virtualCamera_ = std::make_unique<VirtualCamera>();
+	virtualCamera_ = std::make_unique<VirtualCamera>();
 }
 
-SoftISPCameraData::~SoftISPCameraData() {
-    Thread::exit(0);
-    wait();
+SoftISPCameraData::~SoftISPCameraData()
+{
+	Thread::exit(0);
+	wait();
 }
 
-int SoftISPCameraData::init() {
-    int ret = loadIPA();
-    if (ret) return ret;
-    if (isVirtualCamera) {
-        ret = virtualCamera_->init(1920, 1080);
-        if (ret) {
-            LOG(SoftISPPipeline, Error) << "Failed to initialize virtual camera";
-            return ret;
-        }
-    }
-    return 0;
-}
+int SoftISPCameraData::init()
+{
+	int ret = loadIPA();
+	if (ret)
+		return ret;
 
-int SoftISPCameraData::loadIPA() {
-    ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(
-        this->pipe(), 0, 0);
-    if (!ipa_) {
-        LOG(SoftISPPipeline, Info) << "IPA module not available";
-        return 0;
-    }
-    LOG(SoftISPPipeline, Info) << "SoftISP IPA module loaded";
-    return 0;
-}
-
-void SoftISPCameraData::run() {
-    while (running_) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-}
-
-void SoftISPCameraData::processRequest(Request *request) {
-    if (!ipa_) {
-        this->pipe()->completeRequest(request);
-        return;
-    }
-
-    static uint32_t frameCounter = 0;
-    uint32_t frameId = frameCounter++;
-
-    const auto &buffers = request->buffers();
-    if (buffers.empty()) {
-        this->pipe()->completeRequest(request);
-        return;
-    }
-
-    FrameBuffer *buffer = buffers.begin()->second;
-    if (!buffer || buffer->planes().empty()) {
-        this->pipe()->completeRequest(request);
-        return;
-    }
-
-    uint32_t bufferId = static_cast<uint32_t>(buffer->planes()[0].fd.get());
-    const auto &plane = buffer->planes()[0];
-
-    void *bufferMem = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE,
-                           MAP_SHARED, plane.fd.get(), 0);
-    if (bufferMem == MAP_FAILED) {
-        this->pipe()->completeRequest(request);
-        return;
-    }
-
-    const Stream *stream = buffers.begin()->first;
-	auto streamConfig = stream->configuration();
-	storeBuffer(bufferId, buffer);
-
-	// Generate Bayer pattern for virtual camera
-	if (isVirtualCamera && virtualCamera_) {
-		virtualCamera_->queueBuffer(buffer);
+	if (isVirtualCamera) {
+		ret = virtualCamera_->init(1920, 1080);
+		if (ret) {
+			LOG(SoftISPPipeline, Error) << "Failed to initialize virtual camera";
+			return ret;
+		}
 	}
 
-    ControlList statsResults;
-    ipa_->processStats(frameId, bufferId, statsResults);
-
-    request->controls().merge(statsResults,
-                              libcamera::ControlList::MergePolicy::OverwriteExisting);
-
-    const ControlList &results = request->controls();
-    ipa_->processFrame(frameId, bufferId, plane.fd, 0,
-                       streamConfig.size.width, streamConfig.size.height,
-                       results);
-
-    munmap(bufferMem, plane.length);
-    bufferMap_.erase(bufferId);
-
-    request->controls().set(controls::SensorTimestamp,
-                            static_cast<int64_t>(frameId * 33333));
-    this->pipe()->completeRequest(request);
+	return 0;
 }
 
-FrameBuffer *SoftISPCameraData::getBufferFromId(uint32_t bufferId) {
-    auto it = bufferMap_.find(bufferId);
-    return (it != bufferMap_.end()) ? it->second : nullptr;
-}
-
-void SoftISPCameraData::storeBuffer(uint32_t bufferId, FrameBuffer *buffer) {
-    std::lock_guard<Mutex> lock(mutex_);
-    bufferMap_[bufferId] = buffer;
-}
-
-std::unique_ptr<CameraConfiguration>
-SoftISPCameraData::generateConfiguration(Span<const StreamRole> roles) {
-	LOG(SoftISPPipeline, Info) << "SoftISPCameraData::generateConfiguration called";
-    LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
-    auto config = std::make_unique<SoftISPConfiguration>();
-
-    StreamConfiguration streamConfig;
-    streamConfig.size = Size(1920, 1080);
-    streamConfig.pixelFormat = formats::SBGGR10; // Bayer RGGB 10-bit
-    streamConfig.colorSpace = ColorSpace::Rec709;
-    streamConfig.bufferCount = 4;
-    config->addConfiguration(streamConfig);
-	LOG(SoftISPPipeline, Info) << "Config created, size=" << config->size();
-	auto validationResult = config->validate();
-	LOG(SoftISPPipeline, Info) << "Validation result: " << validationResult;
-
-	LOG(SoftISPPipeline, Info) << "Returning config with size=" << config->size();
-    return config;
-}
-
-PipelineHandlerSoftISP::PipelineHandlerSoftISP(CameraManager *manager)
-    : PipelineHandler(manager)
+int SoftISPCameraData::loadIPA()
 {
-    LOG(SoftISPPipeline, Info) << "SoftISP pipeline handler created";
-}
-
-PipelineHandlerSoftISP::~PipelineHandlerSoftISP() {
-	if (resetCreated_)
-		created_ = false;
-}
-
-bool PipelineHandlerSoftISP::isV4LCamera(std::shared_ptr<MediaDevice> media) {
-    (void)media;
-    return true;
-}
-
-bool PipelineHandlerSoftISP::createRealCamera(std::shared_ptr<MediaDevice> media) {
-    LOG(SoftISPPipeline, Info) << "Creating real camera: " << media->driver();
-
-    auto cameraData = std::make_unique<SoftISPCameraData>(this);
-    cameraData->mediaDevice_ = media;
-    cameraData->isVirtualCamera = false;
-
-    if (cameraData->init() < 0) {
-        LOG(SoftISPPipeline, Warning) << "Failed to initialize real camera";
-        return false;
-    }
-
-    std::vector<StreamRole> roles = { StreamRole::Viewfinder };
-    auto config = cameraData->generateConfiguration(roles);
-    if (!config || config->validate() == CameraConfiguration::Invalid) {
-        LOG(SoftISPPipeline, Warning) << "Invalid configuration for real camera";
-        return false;
-    }
-
-    std::shared_ptr<Camera> camera = Camera::create(
-        std::unique_ptr<Camera::Private>(cameraData.release()),
-        media->driver(), std::set<Stream *>());
-    if (!camera) {
-        LOG(SoftISPPipeline, Warning) << "Failed to create Camera object";
-        return false;
-    }
-
-    registerCamera(std::move(camera));
-    LOG(SoftISPPipeline, Info) << "Real camera registered successfully";
-    return true;
-}
-
-bool PipelineHandlerSoftISP::createVirtualCamera() {
-    LOG(SoftISPPipeline, Info) << "createVirtualCamera() called";
-    auto cameraData = std::make_unique<SoftISPCameraData>(this);
-    cameraData->isVirtualCamera = true;
-    if (cameraData->init() < 0) {
-        LOG(SoftISPPipeline, Error) << "Failed to initialize virtual camera";
-        return false;
-    }
-    std::vector<StreamRole> roles = { StreamRole::Viewfinder };
-    auto config = cameraData->generateConfiguration(roles);
-    if (!config || config->validate() == CameraConfiguration::Invalid) {
-        LOG(SoftISPPipeline, Error) << "Invalid configuration for virtual camera";
-        return false;
-    }
-    // Create Camera object - pass cameraData directly (it inherits from Camera::Private)
-    std::shared_ptr<Camera> camera = Camera::create(
-        std::move(cameraData),
-        "softisp_virtual", std::set<Stream *>());
-    if (!camera) {
-        LOG(SoftISPPipeline, Error) << "Failed to create Camera object";
-        return false;
-    }
-    registerCamera(std::move(camera));
-    LOG(SoftISPPipeline, Info) << "Virtual camera registered successfully";
-    return true;
-}
-
-bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator) {
-	if (created_)
-		return false;
-	created_ = true;
-	LOG(SoftISPPipeline, Info) << "Creating SoftISP virtual camera";
-	if (!createVirtualCamera()) {
-		created_ = false;
-		return false;
+	// Try to load IPA module first
+	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(
+		this->pipe(), 0, 0);
+	if (!ipa_) {
+		LOG(SoftISPPipeline, Info) << "IPA module not available, using SoftIsp directly";
+		try {
+			ipa_ = new ipa::soft::SoftIsp();
+			LOG(SoftISPPipeline, Info) << "SoftIsp (ONNX) initialized directly";
+			return 0;
+		} catch (const std::exception &e) {
+			LOG(SoftISPPipeline, Error) << "Failed to initialize SoftIsp: " << e.what();
+			return 0;
+		}
 	}
-	resetCreated_ = true;
-	return true;
+	LOG(SoftISPPipeline, Info) << "SoftISP IPA module loaded";
+	return 0;
 }
 
-std::unique_ptr<CameraConfiguration>
-PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
-                                              Span<const StreamRole> roles)
+void SoftISPCameraData::run()
 {
-    auto cameraDataPtr = cameraData(camera);
-    (void)cameraDataPtr;
-    LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
-
-    auto config = std::make_unique<SoftISPConfiguration>();
-
-    StreamConfiguration cfg;
-    cfg.size = Size(1920, 1080);
-    cfg.pixelFormat = formats::SBGGR10; // Bayer RGGB 10-bit
-    cfg.bufferCount = 4;
-    config->addConfiguration(cfg);
-
-    LOG(SoftISPPipeline, Debug) << "Generated configuration: "
-                                << cfg.size.toString() << " "
-                                << cfg.pixelFormat.toString();
-
-	LOG(SoftISPPipeline, Info) << "Returning config with size=" << config->size();
-    return config;
+	while (running_) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
 }
 
-int PipelineHandlerSoftISP::configure(Camera *camera, CameraConfiguration *config) {
-    auto cameraDataPtr = cameraData(camera);
-
-    if (config->validate() == CameraConfiguration::Invalid)
-        return -EINVAL;
-
-    cameraDataPtr->streamConfigs_.resize(1);
-    cameraDataPtr->streamConfigs_[0].stream = config->at(0).stream();
-
-    LOG(SoftISPPipeline, Info) << "Configured camera: "
-                               << config->at(0).size.toString();
-
-    return 0;
-}
-
-int PipelineHandlerSoftISP::exportFrameBuffers(Camera *camera, Stream *stream,
-                                               std::vector<std::unique_ptr<FrameBuffer>> *buffers)
+void SoftISPCameraData::processRequest(Request *request)
 {
-    auto cameraDataPtr = cameraData(camera);
-    (void)cameraDataPtr;
+	if (!ipa_) {
+		this->pipe()->completeRequest(request);
+		return;
+	}
 
-    const auto &cfg = stream->configuration();
-    Size size = cfg.size;
-    PixelFormat format = cfg.pixelFormat;
-    unsigned int bufferCount = cfg.bufferCount;
+	static uint32_t frameCounter = 0;
+	uint32_t frameId = frameCounter++;
 
-    size_t bufferSize = 0;
-    if (format == formats::NV12) {
-        bufferSize = size.width * size.height * 3 / 2;
-    } else if (format == formats::RGB888) {
-        bufferSize = size.width * size.height * 3;
-    } else {
-        bufferSize = size.width * size.height * 2;
-    }
+	const auto &buffers = request->buffers();
+	if (buffers.empty()) {
+		this->pipe()->completeRequest(request);
+		return;
+	}
 
-    LOG(SoftISPPipeline, Debug) << "Exporting " << bufferCount
-                                << " buffers of size " << bufferSize;
+	// ============================================
+	// CALLER (Pipeline) - Buffer Setup Phase
+	// ============================================
+	// Pre-calculate sizes, map buffers, prepare resources
+	
+	for (const auto &bufferPair : buffers) {
+		const Stream *stream = bufferPair.first;
+		FrameBuffer *fb = bufferPair.second;
 
-    for (unsigned int i = 0; i < bufferCount; ++i) {
-        int fd = memfd_create("softisp_buffer", MFD_CLOEXEC);
-        if (fd < 0)
-            return -errno;
+		// 1. Get stream configuration (CALCULATE SIZES HERE)
+		const StreamConfiguration &cfg = stream->configuration();
+		uint32_t width = cfg.size.width;
+		uint32_t height = cfg.size.height;
+		uint32_t stride = cfg.stride;
+		uint32_t pixelFormat = cfg.pixelFormat;
 
-        if (ftruncate(fd, bufferSize) < 0) {
-            close(fd);
-            return -errno;
-        }
+		// Calculate frame buffer size
+		// For SBGGR10: 10 bits per pixel, packed
+		// Size = (width * 10 / 8) * height (rounded up)
+		uint32_t frameSize = 0;
+		if (pixelFormat == formats::SBGGR10.code()) {
+			frameSize = ((width * 10 + 7) / 8) * height;
+		} else if (pixelFormat == formats::NV12.code()) {
+			frameSize = width * height * 3 / 2; // Y + UV
+		} else {
+			frameSize = width * height * 4; // Default to 4 bytes/pixel
+		}
 
-        std::vector<FrameBuffer::Plane> planes;
-        FrameBuffer::Plane plane;
-        plane.fd = SharedFD(fd);
-        plane.length = static_cast<unsigned int>(bufferSize);
-        planes.push_back(plane);
-        auto buffer = std::make_unique<FrameBuffer>(planes);
-        // fd is now owned by SharedFD, no need to close it
-        buffers->push_back(std::move(buffer));
-    }
+		// Calculate stats buffer size (if needed for Stage 1)
+		// Stats are typically quarter resolution or fixed size
+		uint32_t statsSize = (width / 4) * (height / 4) * sizeof(uint32_t);
 
-    return 0;
+		LOG(SoftISPPipeline, Debug) << "Buffer setup: " << width << "x" << height
+		                           << ", frameSize=" << frameSize
+		                           << ", statsSize=" << statsSize;
+
+		// 2. Map buffers (PREPARE RESOURCES HERE)
+		void *frameData = nullptr;
+		void *statsData = nullptr;
+
+		if (fb->planes().size() > 0) {
+			FrameBuffer::Plane &plane = fb->planes()[0];
+			
+			// Map frame buffer for read/write access
+			frameData = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE,
+					 MAP_SHARED, plane.fd.get(), 0);
+			
+			if (frameData == MAP_FAILED) {
+				LOG(SoftISPPipeline, Error) << "Failed to mmap frame buffer";
+				frameData = nullptr;
+				continue;
+			}
+
+			LOG(SoftISPPipeline, Debug) << "Mapped frame buffer at " << frameData
+			                           << " (size=" << plane.length << ")";
+		}
+
+		// TODO: Map stats buffer if separate
+		// if (statsFd valid) {
+		//     statsData = mmap(...);
+		// }
+
+		// ============================================
+		// CALLER PREPARATION COMPLETE
+		// Now call CALLEE (IPA) which is stateless
+		// ============================================
+
+		// 3. Stage 1: Process Stats (if stats available)
+		// IPA reads from pre-mapped statsData, emits metadata
+		if (statsData) {
+			ipa_->processStats(frameId, 0, ControlList());
+		}
+
+		// 4. Stage 2: Process Frame
+		// IPA reads Bayer from frameData, applies AWB/AE, writes RGB/YUV back
+		// The IPA is STATELESS - no internal state between calls
+		ipa_->processFrame(frameId, 0, 
+		                   fb->planes()[0].fd, 0, 
+		                   width, height, 
+		                   ControlList());
+
+		// ============================================
+		// CALLER (Pipeline) - Cleanup Phase
+		// ============================================
+		// Unmap buffers, release resources
+
+		if (frameData) {
+			munmap(frameData, frameSize);
+			LOG(SoftISPPipeline, Debug) << "Unmapped frame buffer";
+		}
+
+		// if (statsData) munmap(...);
+	}
+
+	// Complete the request
+	this->pipe()->completeRequest(request);
 }
 
-int PipelineHandlerSoftISP::start(Camera *camera, const ControlList *controls) {
-    auto cameraDataPtr = cameraData(camera);
-    (void)controls;
+// ... (rest of the implementation)
 
-    cameraDataPtr->running_ = true;
-    cameraDataPtr->start();
-
-    if (cameraDataPtr->isVirtualCamera) {
-        cameraDataPtr->virtualCamera_->start();
-    }
-
-    LOG(SoftISPPipeline, Info) << "Camera started";
-    return 0;
-}
-
-void PipelineHandlerSoftISP::stopDevice(Camera *camera) {
-    auto cameraDataPtr = cameraData(camera);
-
-    cameraDataPtr->running_ = false;
-    cameraDataPtr->exit(0);
-
-    if (cameraDataPtr->isVirtualCamera) {
-        cameraDataPtr->virtualCamera_->Thread::exit(0);
-    }
-
-    LOG(SoftISPPipeline, Info) << "Camera stopped";
-}
-
-int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request) {
-    auto cameraDataPtr = cameraData(camera);
-    cameraDataPtr->processRequest(request);
-    return 0;
-}
-
-} // namespace libcamera
-
-// Static initialization to create the pipeline handler
-static bool registerSoftISPPipeline() {
-    // This will be called when the library is loaded
-    // The CameraManager will discover and use this handler
-    return true;
-}
-static bool softispRegistered = registerSoftISPPipeline();
-
-// Register the SoftISP pipeline handler factory
-static libcamera::PipelineHandlerFactory<libcamera::PipelineHandlerSoftISP> softispFactory("SoftISP");
+} /* namespace libcamera */

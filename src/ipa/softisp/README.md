@@ -3,64 +3,95 @@
 ## Architecture: Caller/Callee Pattern
 
 ### Design Principle
-- **Caller (Pipeline)**: Pre-calculates all buffer sizes, maps memory, prepares resources
-- **Callee (IPA)**: Stateless processing unit, only reads/writes data
+The SoftISP system follows a strict **Caller/Callee** pattern:
+
+**CALLER (Pipeline Handler)**:
+- Owns memory management
+- Pre-calculates all buffer sizes
+- Allocates FrameBuffers
+- Maps buffers via `mmap()`
+- Passes file descriptors (SharedFD) to IPA
+- Handles cleanup (munmap, deallocation)
+
+**CALLEE (IPA Module)**:
+- **Stateless**: No internal state between calls
+- **No allocation**: Uses pre-mapped buffers only
+- **Read/Write**: Reads input, writes output to provided buffers
+- **Processing**: Performs ONNX inference
+- **Returns**: Results via metadata signal (for stats) or buffer write (for frames)
 
 ### Benefits
-- **Stateless IPA**: Easier to test, no hidden state, thread-safe
-- **Clear Separation**: Pipeline owns memory management, IPA owns processing
-- **Performance**: Buffers pre-mapped, no allocation during processing
+- **Performance**: No allocation during processing
+- **Thread Safety**: Stateless IPA is inherently thread-safe
+- **Predictability**: Fixed buffer sizes, no dynamic memory
 - **Debugging**: Clear boundary between resource management and processing
+- **Testing**: Easy to mock buffers for testing
 
 ## Two-Stage Processing
 
 ### Stage 1: `processStats()` (Callee)
-**Caller (Pipeline) Preparation:**
-1. Calculate stats buffer size based on sensor format
-2. Map stats buffer via `mmap()`
-3. Populate stats buffer with sensor data
+**Caller Preparation:**
+```cpp
+// 1. Calculate stats buffer size
+uint32_t statsSize = (width/4) * (height/4) * sizeof(uint32_t);
 
-**Callee (IPA) Processing:**
-1. Read stats data from pre-mapped buffer
-2. Run `algo.onnx` inference
-3. Extract AWB/AE parameters
-4. Emit metadata via `metadataReady` signal
+// 2. Allocate and map stats buffer
+void *statsData = mmap(nullptr, statsSize, PROT_READ | PROT_WRITE, ...);
 
-**IPA is stateless:** No internal state between calls.
+// 3. Populate with sensor statistics
+populateStats(statsData, sensorData);
+```
+
+**Callee Processing:**
+```cpp
+void SoftIsp::processStats(...) {
+    // Read from pre-mapped statsData (no allocation)
+    // Run algo.onnx
+    // Emit metadata via signal
+    metadataReady.emit(frame, metadata);
+}
+```
 
 ### Stage 2: `processFrame()` (Callee)
-**Caller (Pipeline) Preparation:**
-1. Calculate frame buffer size (width × height × bytes_per_pixel)
-2. Map frame buffer via `mmap()`
-3. Ensure AWB/AE metadata from Stage 1 is available
+**Caller Preparation:**
+```cpp
+// 1. Calculate frame buffer size
+uint32_t frameSize = ((width * 10 + 7) / 8) * height; // SBGGR10
 
-**Callee (IPA) Processing:**
-1. Read Bayer frame from pre-mapped buffer
-2. Apply AWB/AE parameters
-3. Run `applier.onnx` inference
-4. Convert Bayer → RGB/YUV
-5. Write processed data back to pre-mapped buffer
+// 2. Allocate and map frame buffer
+void *frameData = mmap(nullptr, frameSize, PROT_READ | PROT_WRITE, ...);
 
-**IPA is stateless:** No internal state between calls.
+// 3. Populate with Bayer sensor data
+populateBayer(frameData, sensorData);
+```
+
+**Callee Processing:**
+```cpp
+void SoftIsp::processFrame(...) {
+    // Read Bayer from pre-mapped frameData (no allocation)
+    // Apply AWB/AE parameters from Stage 1
+    // Run applier.onnx
+    // Write RGB/YUV back to frameData
+}
+```
 
 ## Data Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    CALLER (Pipeline)                        │
-│  1. Calculate buffer sizes (width, height, stride)          │
-│  2. Allocate buffers (FrameBuffer)                          │
+│  1. Calculate sizes (width, height, stride)                 │
+│  2. Allocate FrameBuffers                                   │
 │  3. Map buffers (mmap)                                      │
 │  4. Populate with sensor data                               │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    CALLEE (IPA)                             │
-│  Stateless Processing:                                      │
+│                    CALLEE (IPA) - Stateless                 │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │ processStats │ →  │ algo.onnx    │ →  │ metadata     │  │
-│  │ (read stats) │    │ (AWB/AE)     │    │ (emit)       │  │
+│  │processStats  │ →  │ algo.onnx    │ →  │ metadata     │  │
+│  │(read stats)  │    │ (AWB/AE)     │    │ (emit)       │  │
 │  └──────────────┘    └──────────────┘    └──────────────┘  │
 │                                                             │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
@@ -81,50 +112,41 @@
 
 ### For Pipeline (Caller)
 ```cpp
-// 1. Pre-calculate sizes
-uint32_t frameSize = width * height * bytes_per_pixel;
-uint32_t statsSize = calculateStatsSize(sensorFormat);
-
-// 2. Allocate and map
-void *frameData = mmap(nullptr, frameSize, PROT_READ | PROT_WRITE, ...);
-void *statsData = mmap(nullptr, statsSize, PROT_READ | PROT_WRITE, ...);
-
-// 3. Populate data
-populateStats(statsData, sensorData);
-
-// 4. Call IPA (stateless)
-ipa_->processStats(frameId, bufferId, metadata);
-ipa_->processFrame(frameId, bufferId, fd, planeIndex, width, height, results);
-
-// 5. Cleanup
-munmap(frameData, frameSize);
-munmap(statsData, statsSize);
+// In processRequest():
+for (const auto &buffer : buffers) {
+    // 1. Calculate sizes
+    uint32_t frameSize = calculateFrameSize(cfg);
+    
+    // 2. Map buffers
+    void *data = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE, ...);
+    
+    // 3. Populate data
+    populateBuffer(data, sensorData);
+    
+    // 4. Call IPA (stateless)
+    ipa_->processStats(frameId, ...);
+    ipa_->processFrame(frameId, fd, width, height, ...);
+    
+    // 5. Cleanup
+    munmap(data, frameSize);
+}
 ```
 
 ### For IPA (Callee)
 ```cpp
-void SoftIsp::processStats(uint32_t frame, uint32_t bufferId,
-                           const ControlList &sensorControls)
-{
-    // NO state maintained
-    // Just read from provided buffers, process, emit metadata
-    
-    // 1. Read stats (caller already mapped)
-    // 2. Run ONNX
-    // 3. Emit metadata
-    metadataReady.emit(frame, metadata);
+void SoftIsp::processStats(...) {
+    // NO allocation
+    // Read from provided buffer (already mapped by caller)
+    // Run ONNX
+    // Emit metadata
 }
 
-void SoftIsp::processFrame(uint32_t frame, uint32_t bufferId,
-                           const SharedFD &bufferFd, ...)
-{
-    // NO state maintained
-    // Just read from provided buffers, process, write back
-    
-    // 1. Read Bayer (caller already mapped)
-    // 2. Apply AWB/AE (from previous processStats)
-    // 3. Run ONNX
-    // 4. Write back to buffer (caller will munmap)
+void SoftIsp::processFrame(...) {
+    // NO allocation
+    // Read from provided buffer (already mapped by caller)
+    // Apply AWB/AE
+    // Run ONNX
+    // Write back to buffer (caller will munmap)
 }
 ```
 
@@ -132,10 +154,18 @@ void SoftIsp::processFrame(uint32_t frame, uint32_t bufferId,
 ```
 src/ipa/softisp/
 ├── softisp.h              # Class declaration
-├── softisp.cpp            # Stateless method implementations
-├── onnx_engine.h/cpp      # ONNX Runtime wrapper
-├── softisp_module.cpp     # Module entry point
-└── README.md              # This file
+├── softisp.cpp            # Skeleton (includes methods)
+├── SoftIsp_init.cpp       # Model loading
+├── SoftIsp_start.cpp      # Start processing
+├── SoftIsp_stop.cpp       # Stop processing
+├── SoftIsp_configure.cpp  # Configure
+├── SoftIsp_queueRequest.cpp
+├── SoftIsp_computeParams.cpp
+├── SoftIsp_processStats.cpp   # Stage 1: Stats → AWB/AE
+├── SoftIsp_processFrame.cpp   # Stage 2: Bayer → RGB/YUV
+├── SoftIsp_logPrefix.cpp
+├── onnx_engine.cpp        # ONNX Runtime wrapper
+└── softisp_module.cpp     # Module entry point
 ```
 
 ## License

@@ -5,7 +5,16 @@
 onnxruntime_dep = dependency('onnxruntime', version: '>=1.14.0')
 
 softisp_sources = files([
-    'softisp.cpp',      # Includes all method files
+    'softisp.cpp',              # Skeleton (includes all SoftIsp_*.cpp)
+    'SoftIsp_init.cpp',
+    'SoftIsp_start.cpp',
+    'SoftIsp_stop.cpp',
+    'SoftIsp_configure.cpp',
+    'SoftIsp_queueRequest.cpp',
+    'SoftIsp_computeParams.cpp',
+    'SoftIsp_processStats.cpp',
+    'SoftIsp_processFrame.cpp',
+    'SoftIsp_logPrefix.cpp',
     'onnx_engine.cpp',
     'softisp_module.cpp',
 ])

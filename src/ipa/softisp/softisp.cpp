@@ -20,15 +20,16 @@ SoftIsp::SoftIsp() : impl_(std::make_unique<Impl>())
 
 SoftIsp::~SoftIsp() = default;
 
-#include "init.cpp"
-#include "start.cpp"
-#include "stop.cpp"
-#include "configure.cpp"
-#include "queueRequest.cpp"
-#include "computeParams.cpp"
-#include "processStats.cpp"
-#include "processFrame.cpp"
-#include "logPrefix.cpp"
+// Include method implementations (prefixed with SoftIsp_)
+#include "SoftIsp_init.cpp"
+#include "SoftIsp_start.cpp"
+#include "SoftIsp_stop.cpp"
+#include "SoftIsp_configure.cpp"
+#include "SoftIsp_queueRequest.cpp"
+#include "SoftIsp_computeParams.cpp"
+#include "SoftIsp_processStats.cpp"
+#include "SoftIsp_processFrame.cpp"
+#include "SoftIsp_logPrefix.cpp"
 
 } /* namespace soft */
 } /* namespace ipa */
