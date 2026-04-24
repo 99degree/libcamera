@@ -260,29 +260,20 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator
 	return true;
 }
 
-std::unique_ptr<CameraConfiguration>
-PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
-                                              Span<const StreamRole> roles)
-{
-    auto cameraDataPtr = cameraData(camera);
-    (void)cameraDataPtr;
-    LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
-
-    auto config = std::make_unique<SoftISPConfiguration>();
-
-    StreamConfiguration cfg;
-    cfg.size = Size(1920, 1080);
-    cfg.pixelFormat = formats::SBGGR10; // Bayer RGGB 10-bit
-    cfg.bufferCount = 4;
-    config->addConfiguration(cfg);
-
-    LOG(SoftISPPipeline, Debug) << "Generated configuration: "
-                                << cfg.size.toString() << " "
-                                << cfg.pixelFormat.toString();
-
-	LOG(SoftISPPipeline, Info) << "Returning config with size=" << config->size();
-    return config;
+std::unique_ptr<CameraConfiguration> PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
+	Span<const StreamRole> roles) {
+	// Division of Duty: PipelineHandler is the Dispatcher, SoftISPCameraData is the Worker
+	SoftISPCameraData *cameraDataPtr = cameraData(camera);
+	if (!cameraDataPtr) {
+		LOG(SoftISPPipeline, Error) << "Failed to get camera data for generateConfiguration";
+		return nullptr;
+	}
+	LOG(SoftISPPipeline, Info) << "PipelineHandlerSoftISP::generateConfiguration called (Dispatcher)";
+	LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
+	// Delegate to the Camera Data (Worker) which holds the VirtualCamera state
+	return cameraDataPtr->generateConfiguration(roles);
 }
+
 
 int PipelineHandlerSoftISP::configure(Camera *camera, CameraConfiguration *config) {
     auto cameraDataPtr = cameraData(camera);
