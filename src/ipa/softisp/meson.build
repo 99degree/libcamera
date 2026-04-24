@@ -23,8 +23,10 @@ softisp_sources = files([
 mod = shared_module('ipa_softisp',
     softisp_sources,
     name_prefix : '',
-    include_directories : [ipa_includes],  # Use parent's ipa_includes
+    include_directories : [ipa_includes],
     dependencies : [libcamera_private, libipa_dep, onnxruntime_dep],
     install : true,
     install_dir : ipa_install_dir,
+    # Disable -Werror for this module due to ONNX Runtime header warnings
+    cpp_args : ['-Wno-error'],
 )
