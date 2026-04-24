@@ -27,7 +27,7 @@ class SoftISPConfiguration;
  * \class SoftISPCameraData softisp_camera.h
  * \brief The Camera Object that holds all camera-specific state and logic.
  */
-class SoftISPCameraData : public Camera::Private, public Thread
+class SoftISPCameraData : public Camera::Private
 {
 public:
     SoftISPCameraData(PipelineHandlerSoftISP *pipe);
@@ -55,11 +55,10 @@ public:
     const VirtualCamera *virtualCamera() const { return virtualCamera_.get(); }
 
 private:
-    void run() override;
 
     std::unique_ptr<VirtualCamera> virtualCamera_;
     std::map<uint32_t, FrameBuffer*> bufferMap_;
-    bool running_ = false;
+
     bool isVirtualCamera = true;
     Mutex mutex_;
 };

@@ -35,11 +35,10 @@ LOG_DECLARE_CATEGORY(SoftISPPipeline)
 #include "softisp_camera_processRequest.cpp"
 #include "softisp_camera_getBufferFromId.cpp"
 #include "softisp_camera_storeBuffer.cpp"
-#include "softisp_camera_run.cpp"
 #include "softisp_camera_configure.cpp"
 #include "softisp_camera_exportFrameBuffers.cpp"
+#include "softisp_camera_queueRequest.cpp"
 #include "softisp_camera_start.cpp"
 #include "softisp_camera_stop.cpp"
-#include "softisp_camera_queueRequest.cpp"
 
 } // namespace libcamera
