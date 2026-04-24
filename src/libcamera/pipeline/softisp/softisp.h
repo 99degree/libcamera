@@ -24,6 +24,9 @@
 
 namespace libcamera {
 
+// Forward declaration for SoftISPCameraData (defined in softisp_camera.h)
+class SoftISPCameraData;
+
 class SoftISPConfiguration : public libcamera::CameraConfiguration {
 public:
     SoftISPConfiguration();
@@ -38,40 +41,6 @@ class VirtualCamera;
  * SoftISPCameraData - Camera data structure for SoftISP pipeline.
  * Supports both real V4L2 cameras and virtual test cameras.
  */
-class SoftISPCameraData : public Camera::Private, public Thread {
-public:
-    SoftISPCameraData(PipelineHandlerSoftISP *pipe);
-    ~SoftISPCameraData();
-
-    int init();
-    int loadIPA();
-    void run() override;
-
-    void processRequest(Request *request);
-    FrameBuffer* getBufferFromId(uint32_t bufferId);
-    void storeBuffer(uint32_t bufferId, FrameBuffer *buffer);
-std::unique_ptr<CameraConfiguration> generateConfiguration(Span<const StreamRole> roles);
-	// Get VirtualCamera (acts as a real camera object)
-	VirtualCamera *virtualCamera() { return virtualCamera_.get(); }
-	const VirtualCamera *virtualCamera() const { return virtualCamera_.get(); }
-
-    struct StreamConfig {
-        Stream *stream = nullptr;
-        unsigned int seq = 0;
-    };
-
-    std::unique_ptr<ipa::soft::IPASoftIspInterface> ipa_;
-    std::unique_ptr<VirtualCamera> virtualCamera_;
-    std::vector<StreamConfig> streamConfigs_;
-    bool running_ = false;
-    Mutex mutex_;
-    std::map<uint32_t, FrameBuffer*> bufferMap_;
-
-    // Real camera support
-    std::shared_ptr<MediaDevice> mediaDevice_;
-    /* std::unique_ptr<V4L2VideoDevice> captureDevice_; */ // Not used
-    bool isVirtualCamera = true;
-};
 
 /*
  * Pipeline handler for SoftISP with both real and virtual cameras.
