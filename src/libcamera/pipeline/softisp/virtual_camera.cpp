@@ -11,6 +11,7 @@
 #include <cstring>
 
 #include <libcamera/base/log.h>
+#include <sys/mman.h>
 
 namespace libcamera {
 
@@ -91,23 +92,14 @@ void VirtualCamera::setContrast(float contrast)
 	contrast_ = std::clamp(contrast, 0.0f, 2.0f);
 }
 
-void VirtualCamera::run()
-{
+void VirtualCamera::run() {
 	while (running_) {
 		FrameBuffer *buffer = nullptr;
-
 		{
 			std::unique_lock<std::mutex> lock(queueMutex_);
-			bufferCV_.wait(lock, [this] {
-				return !running_ || !bufferQueue_.empty();
-			});
-
-			if (!running_)
-				break;
-
-			if (bufferQueue_.empty())
-				continue;
-
+			bufferCV_.wait(lock, [this] { return !running_ || !bufferQueue_.empty(); });
+			if (!running_) break;
+			if (bufferQueue_.empty()) continue;
 			buffer = bufferQueue_.front();
 			bufferQueue_.pop();
 		}
@@ -117,11 +109,61 @@ void VirtualCamera::run()
 			continue;
 		}
 
-		/* Generate pattern into buffer */
+		/* Map the buffer memory */
+		const auto &plane = buffer->planes()[0];
+		void *mem = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.get(), 0);
+		if (mem == MAP_FAILED) {
+			LOG(VirtualCamera, Error) << "Failed to map buffer";
+			continue;
+		}
+
+		/* Generate Bayer RGGB 10-bit pattern */
 		sequence_++;
+		LOG(VirtualCamera, Info) << "Generated frame " << sequence_ << " (Bayer10 RGGB " << width_ << "x" << height_ << ")";
 
-		LOG(VirtualCamera, Debug) << "Generated frame " << sequence_;
+		uint8_t *data = static_cast<uint8_t*>(mem);
+		// 10-bit packed format
+		// Calculated dynamically
 
+		/* Generate Bayer RGGB pattern */
+		for (unsigned int y = 0; y < height_; y++) {
+			for (unsigned int x = 0; x < width_; x++) {
+				uint16_t pixelValue;
+				/* Bayer RGGB pattern with test pattern values */
+				if ((x % 2 == 0) && (y % 2 == 0)) {
+					/* Red */
+					pixelValue = 0x200 + ((x * 3) % 256);
+				} else if ((x % 2 == 1) && (y % 2 == 0)) {
+					/* Green (top) */
+					pixelValue = 0x300 + ((y * 5) % 256);
+				} else if ((x % 2 == 0) && (y % 2 == 1)) {
+					/* Green (bottom) */
+					pixelValue = 0x300 + ((y * 5) % 256);
+				} else {
+					/* Blue */
+					pixelValue = 0x400 + ((x * 3) % 256);
+				}
+
+				/* Write 10-bit pixel in packed format */
+				unsigned int bitOffset = (y * width_ + x) * 10;
+				unsigned int byteOffset = bitOffset / 8;
+				unsigned int bitInByte = bitOffset % 8;
+
+				if (byteOffset + 1 < plane.length) {
+					/* Clear existing bits */
+					data[byteOffset] &= ~(0x3 << bitInByte);
+					data[byteOffset] |= (pixelValue & 0x3F) << bitInByte;
+					if (bitInByte > 6) {
+						data[byteOffset + 1] &= ~(0x3F >> (8 - bitInByte));
+						data[byteOffset + 1] |= (pixelValue >> (8 - bitInByte)) & (0x3F >> (8 - bitInByte));
+					}
+				}
+			}
+		}
+
+		munmap(mem, plane.length);
+
+		/* Simulate 30fps */
 		std::this_thread::sleep_for(std::chrono::milliseconds(33));
 	}
 }

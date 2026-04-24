@@ -80,6 +80,7 @@ CameraSession::CameraSession(CameraManager *cm,
 	bool valid = false;
 	for (std::vector<StreamRole> &rolesIt : tryRoles) {
 		config = camera_->generateConfiguration(rolesIt);
+		std::cerr << "DEBUG: config=" << (config ? "not null" : "null") << ", config->size()=" << (config ? std::to_string(config->size()) : "N/A") << ", rolesIt.size()=" << rolesIt.size() << std::endl;
 		if (config && config->size() == rolesIt.size()) {
 			roles = rolesIt;
 			valid = true;
