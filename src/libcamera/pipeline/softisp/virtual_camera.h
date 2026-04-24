@@ -6,17 +6,14 @@
  * Provides test pattern generation and frame streaming for testing
  */
 #pragma once
-
 #include <map>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
 #include <vector>
-
 #include <libcamera/base/thread.h>
 #include <libcamera/base/mutex.h>
-
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/framebuffer.h"
 
@@ -44,7 +41,7 @@ public:
 	void setContrast(float contrast);
 
 	unsigned int sequence() const { return sequence_; }
-
+	
 	/* Accessors for buffer size */
 	unsigned int width() const { return width_; }
 	unsigned int height() const { return height_; }
@@ -58,13 +55,11 @@ private:
 	Pattern pattern_ = Pattern::ColorBars;
 	float brightness_ = 0.5f;
 	float contrast_ = 1.0f;
-
 	bool running_ = false;
 	unsigned int sequence_ = 0;
-
 	std::mutex queueMutex_;
-	std::queue<FrameBuffer*> bufferQueue_;
 	std::condition_variable bufferCV_;
+	std::queue<FrameBuffer*> bufferQueue_;
 };
 
 } /* namespace libcamera */
