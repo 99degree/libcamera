@@ -30,3 +30,21 @@ summary({
         },
         section : 'Applications',
         bool_yn : true)
+
+# SoftISP frame capture utility
+if get_option('pipelines').contains('softisp')
+  executable('softisp-save', 'softisp-save.cpp',
+    include_directories: [
+      include_directories('..'),
+      include_directories('../../include'),
+      include_directories('../../include/libcamera'),
+      include_directories('../../include/libcamera/internal'),
+    ],
+    link_with: [ libcamera ],
+    dependencies: [
+      dependency('onnxruntime'),
+      dependency('threads'),
+    ],
+    install: false
+  )
+endif

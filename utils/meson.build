@@ -13,3 +13,4 @@ install_data(
     'libcamera-bug-report',
     install_dir: get_option('bindir'),
 )
+

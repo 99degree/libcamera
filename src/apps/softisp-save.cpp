@@ -26,9 +26,8 @@
 #include <libcamera/controls.h>
 #include <libcamera/formats.h>
 #include <libcamera/framebuffer_allocator.h>
-#include <libcamera/requests.h>
+#include <libcamera/request.h>
 #include <libcamera/stream.h>
-#include <libcamera/control_list.h>
 
 using namespace libcamera;
 
