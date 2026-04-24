@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -34,6 +33,7 @@ public:
 };
 
 /* Forward declarations */
+class DeviceEnumerator;
 class PipelineHandlerSoftISP;
 class VirtualCamera;
 
@@ -67,14 +67,12 @@ public:
     bool match(DeviceEnumerator *enumerator) override;
 
 private:
-    SoftISPCameraData *cameraData(Camera *camera) {
-(void)camera;
-        return nullptr; // static_cast<SoftISPCameraData *>(camera->_d()); // TODO: Fix cast
+    std::unique_ptr<SoftISPCameraData> virtualCameraData_;
+    
+    SoftISPCameraData *cameraData([[maybe_unused]] Camera *camera) {
+        return virtualCameraData_.get();
     }
 
-    bool isV4LCamera(std::shared_ptr<MediaDevice> media);
-    bool createRealCamera(std::shared_ptr<MediaDevice> media);
-    bool createVirtualCamera();
-};
+            };
 
 } // namespace libcamera

@@ -7,7 +7,7 @@ int SoftISPCameraData::init()
     if (ret < 0)
         return ret;
     
-    // Initialize virtual camera
+    // Initialize virtual camera (but don't start yet)
     if (isVirtualCamera) {
         ret = virtualCamera_->init(1920, 1080);
         if (ret < 0) {
@@ -15,14 +15,7 @@ int SoftISPCameraData::init()
             return ret;
         }
         
-        // Start the virtual camera to begin frame generation
-        ret = virtualCamera_->start();
-        if (ret < 0) {
-            LOG(SoftISPPipeline, Error) << "Failed to start virtual camera";
-            return ret;
-        }
-        
-        LOG(SoftISPPipeline, Info) << "Virtual camera started and generating frames";
+        LOG(SoftISPPipeline, Info) << "Virtual camera initialized (waiting for start())";
     }
     
     LOG(SoftISPPipeline, Info) << "SoftISPCameraData initialized";

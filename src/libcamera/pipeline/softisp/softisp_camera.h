@@ -15,6 +15,7 @@
 #include <libcamera/base/thread.h>
 
 #include "libcamera/internal/camera.h"
+#include "softisp.h"
 
 namespace libcamera {
 
