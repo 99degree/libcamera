@@ -79,6 +79,7 @@ subdir('android')
 subdir('ipa')
 
 subdir('apps')
+subdir('tools')
 
 subdir('gstreamer')
 subdir('py')
