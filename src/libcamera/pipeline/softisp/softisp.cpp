@@ -265,6 +265,7 @@ PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
                                               Span<const StreamRole> roles)
 {
     auto cameraDataPtr = cameraData(camera);
+ LOG(SoftISPPipeline, Fatal) << "=== PipelineHandlerSoftISP::generateConfiguration CALLED ===";
     (void)cameraDataPtr;
     LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
 
@@ -379,15 +380,6 @@ int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
     return 0;
 }
 
-} // namespace libcamera
 
-// Static initialization to create the pipeline handler
-static bool registerSoftISPPipeline() {
-    // This will be called when the library is loaded
-    // The CameraManager will discover and use this handler
-    return true;
-}
-static bool softispRegistered = registerSoftISPPipeline();
-
-// Register the SoftISP pipeline handler factory
-static libcamera::PipelineHandlerFactory<libcamera::PipelineHandlerSoftISP> softispFactory("SoftISP");
+REGISTER_PIPELINE_HANDLER(PipelineHandlerSoftISP, "SoftISP")
+} /* namespace libcamera */
