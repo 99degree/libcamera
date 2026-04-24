@@ -1,4 +1,4 @@
-int SoftISPCameraData::exportFrameBuffers([[maybe_unused]] [[maybe_unused]] Stream *stream, [[maybe_unused]] [[maybe_unused]] std::vector<std::unique_ptr<FrameBuffer>> *buffers)
+int SoftISPCameraData::exportFrameBuffers([[maybe_unused]] Stream *stream, [[maybe_unused]] std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
     LOG(SoftISPPipeline, Info) << "Exporting frame buffers for stream";
     // Frame buffer export would be handled by the pipeline handler

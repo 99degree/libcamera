@@ -1,4 +1,4 @@
-void SoftISPCameraData::processRequest([[maybe_unused]] [[maybe_unused]] Request *request)
+void SoftISPCameraData::processRequest([[maybe_unused]] Request *request)
 {
     LOG(SoftISPPipeline, Info) << "Processing request";
     
