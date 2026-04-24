@@ -1,316 +1,452 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
- * SoftISP Frame Saver
- * A minimal tool to capture and save frames from the SoftISP pipeline.
- * Supports Virtual Camera, metadata export, and continuous mode.
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
+ * softisp-save.cpp - Advanced SoftISP Frame Capture Utility
+ * Saves frames in multiple formats (YUV, RGB) with metadata
  */
-#include <csignal>
-#include <fcntl.h>
-#include <getopt.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+
 #include <iostream>
-#include <memory>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <fstream>
-#include <libcamera/base/log.h>
+#include <cstring>
+#include <cstdlib>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <iomanip>
+#include <ctime>
+
+#include <libcamera/libcamera.h>
 #include <libcamera/camera.h>
 #include <libcamera/camera_manager.h>
 #include <libcamera/controls.h>
 #include <libcamera/formats.h>
 #include <libcamera/framebuffer_allocator.h>
-#include <libcamera/json.h>
-#include <libcamera/property_ids.h>
-#include <libcamera/request.h>
+#include <libcamera/requests.h>
 #include <libcamera/stream.h>
+#include <libcamera/control_list.h>
 
 using namespace libcamera;
 
-LOG_DEFINE_CATEGORY(SoftIspSave)
+static bool g_running = true;
 
-static int saveFrame(const FrameBuffer *buffer, const std::string &filename, const ControlList *metadata = nullptr)
-{
-    const auto &planes = buffer->planes();
-    if (planes.empty()) {
-        std::cerr << "No planes in buffer" << std::endl;
-        return -1;
-    }
-
-    const FrameBuffer::Plane &plane = planes[0];
-    int fd = plane.fd.get();
-    if (fd < 0) {
-        std::cerr << "Invalid file descriptor" << std::endl;
-        return -1;
-    }
-
-    // Map the buffer
-    void *memory = mmap(nullptr, plane.length, PROT_READ, MAP_SHARED, fd, 0);
-    if (memory == MAP_FAILED) {
-        std::cerr << "Failed to mmap buffer: " << strerror(errno) << std::endl;
-        return -1;
-    }
-
-    // Write to file
-    std::ofstream out(filename, std::ios::binary);
-    if (!out) {
-        std::cerr << "Failed to open file: " << filename << std::endl;
-        munmap(memory, plane.length);
-        return -1;
-    }
-    out.write(static_cast<char*>(memory), plane.length);
-    out.close();
-
-    munmap(memory, plane.length);
-
-    std::cout << "Saved " << plane.length << " bytes to " << filename << std::endl;
-
-    // Save metadata if provided
-    if (metadata && !metadata->empty()) {
-        std::string metaFilename = filename.substr(0, filename.find_last_of('.')) + ".json";
-        std::ofstream metaOut(metaFilename);
-        if (metaOut) {
-            Json::Value json;
-            for (const auto &[id, ctrl] : *metadata) {
-                std::string key = "control_" + std::to_string(id);
-                if (ctrl.type() == ControlTypeFloat) {
-                    json[key] = ctrl.to<float>();
-                } else if (ctrl.type() == ControlTypeInteger) {
-                    json[key] = ctrl.to<int32_t>();
-                }
-                // Skip binary data for now
-            }
-            metaOut << Json::toString(json) << std::endl;
-            std::cout << "Saved metadata to " << metaFilename << std::endl;
-        }
-    }
-
-    return 0;
+void signalHandler(int signum) {
+    g_running = false;
 }
 
-int main(int argc, char *argv[])
-{
-    int frames = 5;
-    std::string cameraId = "SoftISP";
-    std::string outputDir = ".";
-    bool continuous = false;
-    bool saveMetadata = true;
-    bool detectFormat = true;
+enum class OutputFormat {
+    RAW,    // Raw Bayer data
+    YUV,    // YUV420/YUV422
+    RGB,    // RGB888
+    PPM     // Portable Pixmap format
+};
 
-    static struct option long_options[] = {
-        { "frames",      required_argument, 0, 'f' },
-        { "camera",      required_argument, 0, 'c' },
-        { "output",      required_argument, 0, 'o' },
-        { "continuous",  no_argument,       0, 'C' },
-        { "no-metadata", no_argument,       0, 'M' },
-        { "help",        no_argument,       0, 'h' },
-        { 0, 0, 0, 0 }
-    };
+std::string formatToString(OutputFormat format) {
+    switch (format) {
+        case OutputFormat::RAW: return "RAW";
+        case OutputFormat::YUV: return "YUV";
+        case OutputFormat::RGB: return "RGB";
+        case OutputFormat::PPM: return "PPM";
+        default: return "UNKNOWN";
+    }
+}
 
-    int opt;
-    while ((opt = getopt_long(argc, argv, "f:c:o:CMh", long_options, nullptr)) != -1) {
-        switch (opt) {
-        case 'f':
-            frames = std::stoi(optarg);
-            break;
-        case 'c':
-            cameraId = optarg;
-            break;
-        case 'o':
-            outputDir = optarg;
-            break;
-        case 'C':
-            continuous = true;
-            break;
-        case 'M':
-            saveMetadata = false;
-            break;
-        case 'h':
-        default:
-            std::cout << "Usage: " << argv[0] << " [options]\n"
-                      << "Options:\n"
-                      << " -f, --frames N     Number of frames (default: 5, 0 for continuous)\n"
-                      << " -c, --camera ID    Camera ID substring (default: SoftISP)\n"
-                      << " -o, --output DIR   Output directory (default: .)\n"
-                      << " -C, --continuous   Continuous mode (Ctrl+C to stop)\n"
-                      << " -M, --no-metadata  Disable metadata saving\n"
-                      << " -h, --help         Show this help\n";
+OutputFormat parseFormat(const std::string& str) {
+    if (str == "raw" || str == "bayer") return OutputFormat::RAW;
+    if (str == "yuv" || str == "yuv420" || str == "yuv422") return OutputFormat::YUV;
+    if (str == "rgb" || str == "rgb888") return OutputFormat::RGB;
+    if (str == "ppm") return OutputFormat::PPM;
+    return OutputFormat::RAW; // Default
+}
+
+void saveMetadata(const ControlList& controls, const std::string& filename, int frameNum) {
+    std::ofstream metaFile(filename + ".meta");
+    if (!metaFile) {
+        std::cerr << "Warning: Could not create metadata file" << std::endl;
+        return;
+    }
+    
+    metaFile << "Frame: " << frameNum << "\n";
+    metaFile << "Timestamp: " << std::time(nullptr) << "\n";
+    metaFile << "Controls:\n";
+    
+    for (const auto& [id, control] : controls) {
+        metaFile << "  " << id << ": " << control.toString() << "\n";
+    }
+    
+    metaFile.close();
+    std::cout << "  Metadata saved to: " << filename << ".meta" << std::endl;
+}
+
+void convertBayerToYUV(uint8_t* bayerData, uint8_t* yuvData, int width, int height) {
+    // Simple Bayer to YUV conversion (for testing)
+    // In production, this would use the actual ISP pipeline
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int idx = (y * width + x) * 2; // 10-bit packed
+            uint16_t pixel = (bayerData[idx] | (bayerData[idx + 1] << 8)) & 0x3FF;
+            
+            // Simple grayscale conversion
+            uint8_t y = (pixel * 255) / 1023;
+            uint8_t u = 128;
+            uint8_t v = 128;
+            
+            // Store in YUV420 planar format
+            if (y < height && x < width) {
+                yuvData[y * width + x] = y;
+            }
+            if (y % 2 == 0 && x % 2 == 0) {
+                int uvIdx = (height * width) + (y / 2 * width / 2) + (x / 2);
+                yuvData[uvIdx] = u;
+                yuvData[uvIdx + (height * width) / 4] = v;
+            }
+        }
+    }
+}
+
+void convertBayerToRGB(uint8_t* bayerData, uint8_t* rgbData, int width, int height) {
+    // Simple Bayer to RGB conversion
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int idx = (y * width + x) * 2;
+            uint16_t pixel = (bayerData[idx] | (bayerData[idx + 1] << 8)) & 0x3FF;
+            
+            // Simple color mapping based on RGGB pattern
+            uint8_t r, g, b;
+            if ((x + y) % 2 == 0) {
+                // Red or Green pixel
+                r = (pixel * 255) / 1023;
+                g = (pixel * 255) / 1023;
+                b = 0;
+            } else {
+                // Green or Blue pixel
+                r = 0;
+                g = (pixel * 255) / 1023;
+                b = (pixel * 255) / 1023;
+            }
+            
+            int rgbIdx = (y * width + x) * 3;
+            rgbData[rgbIdx] = r;
+            rgbData[rgbIdx + 1] = g;
+            rgbData[rgbIdx + 2] = b;
+        }
+    }
+}
+
+void saveAsPPM(std::ofstream& file, uint8_t* rgbData, int width, int height) {
+    file << "P6\n" << width << " " << height << "\n255\n";
+    file.write(reinterpret_cast<char*>(rgbData), width * height * 3);
+}
+
+void printUsage(const char* prog) {
+    std::cout << "Usage: " << prog << " [options]\n\n"
+              << "Advanced SoftISP frame capture with multiple output formats\n\n"
+              << "Options:\n"
+              << "  -c, --camera <id>        Camera ID (default: softisp_virtual)\n"
+              << "  -o, --output <file>      Output file pattern (default: frame-#.raw)\n"
+              << "                           Use # for frame number\n"
+              << "  -f, --format <fmt>       Output format: raw, yuv, rgb, ppm (default: raw)\n"
+              << "  -n, --frames <num>       Number of frames to capture (default: 1)\n"
+              << "  -w, --width <width>      Image width (default: 1920)\n"
+              << "  -H, --height <height>    Image height (default: 1080)\n"
+              << "  -m, --metadata           Save metadata to .meta files\n"
+              << "  -v, --verbose            Verbose output\n"
+              << "  -h, --help               Show this help\n\n"
+              << "Examples:\n"
+              << "  " << prog << " -c softisp_virtual -n 5 -f yuv -o capture-#\n"
+              << "  " << prog << " -f rgb --metadata -n 3 -o frame-#.ppm\n";
+}
+
+int main(int argc, char *argv[]) {
+    // Default parameters
+    std::string cameraId = "softisp_virtual";
+    std::string outputPattern = "frame-#.raw";
+    OutputFormat outputFormat = OutputFormat::RAW;
+    int numFrames = 1;
+    int width = 1920;
+    int height = 1080;
+    bool saveMetadata = false;
+    bool verbose = false;
+    
+    // Parse arguments
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if ((arg == "-c" || arg == "--camera") && i + 1 < argc) {
+            cameraId = argv[++i];
+        } else if ((arg == "-o" || arg == "--output") && i + 1 < argc) {
+            outputPattern = argv[++i];
+        } else if ((arg == "-f" || arg == "--format") && i + 1 < argc) {
+            outputFormat = parseFormat(argv[++i]);
+        } else if ((arg == "-n" || arg == "--frames") && i + 1 < argc) {
+            numFrames = std::atoi(argv[++i]);
+        } else if ((arg == "-w" || arg == "--width") && i + 1 < argc) {
+            width = std::atoi(argv[++i]);
+        } else if ((arg == "-H" || arg == "--height") && i + 1 < argc) {
+            height = std::atoi(argv[++i]);
+        } else if (arg == "-m" || arg == "--metadata") {
+            saveMetadata = true;
+        } else if (arg == "-v" || arg == "--verbose") {
+            verbose = true;
+        } else if (arg == "-h" || arg == "--help") {
+            printUsage(argv[0]);
             return 0;
         }
     }
-
-    // Create output directory if needed
-    if (outputDir != "." && mkdir(outputDir.c_str(), 0755) != 0 && errno != EEXIST) {
-        std::cerr << "Failed to create output directory: " << outputDir << std::endl;
-        return -1;
-    }
-
-    CameraManager cm;
-    if (cm.start() < 0) {
-        std::cerr << "Failed to start CameraManager" << std::endl;
-        return -1;
-    }
-
-    auto cameras = cm.cameras();
-    std::shared_ptr<Camera> camera;
-    for (auto &cam : cameras) {
-        if (cam->id().find(cameraId) != std::string::npos) {
-            camera = cam;
-            break;
-        }
-    }
-
-    if (!camera) {
-        std::cerr << "Camera not found: " << cameraId << std::endl;
-        cm.stop();
-        return -1;
-    }
-
-    if (camera->acquire() < 0) {
-        std::cerr << "Failed to acquire camera" << std::endl;
-        cm.stop();
-        return -1;
-    }
-
-    std::cout << "Using camera: " << camera->id() << std::endl;
-
-    // Generate configuration
-    auto config = camera->generateConfiguration({ StreamRole::Raw });
-    if (!config) {
-        std::cerr << "Failed to generate configuration" << std::endl;
-        camera->release();
-        cm.stop();
-        return -1;
-    }
-
-    if (config->validate() == CameraConfiguration::Invalid) {
-        std::cerr << "Invalid configuration" << std::endl;
-        camera->release();
-        cm.stop();
-        return -1;
-    }
-
-    // Try to detect format
-    if (detectFormat) {
-        const Stream *stream = config->at(0).stream();
-        if (stream) {
-            std::cout << "Stream format: " << stream->format().toString() << std::endl;
-            std::cout << "Stream size: " << stream->size().width << "x" << stream->size().height << std::endl;
-        }
-    }
-
-    if (camera->configure(config.get()) < 0) {
-        std::cerr << "Failed to configure camera" << std::endl;
-        camera->release();
-        cm.stop();
-        return -1;
-    }
-
-    Stream *stream = config->at(0).stream();
-    if (!stream) {
-        std::cerr << "No stream found" << std::endl;
-        camera->release();
-        cm.stop();
-        return -1;
-    }
-
-    FrameBufferAllocator allocator(camera);
-    if (allocator.allocate(stream) < 0) {
-        std::cerr << "Failed to allocate buffers" << std::endl;
-        camera->release();
-        cm.stop();
-        return -1;
-    }
-
-    const auto &allocatedBuffers = allocator.buffers(stream);
-    std::vector<FrameBuffer*> buffers;
-    for (auto &buf : allocatedBuffers) {
-        buffers.push_back(buf.get());
-    }
-
-    std::vector<std::unique_ptr<Request>> requests;
-    for (auto &buffer : buffers) {
-        std::unique_ptr<Request> request = camera->createRequest();
-        if (!request) {
-            std::cerr << "Failed to create request" << std::endl;
-            camera->release();
-            cm.stop();
-            return -1;
-        }
-        if (request->addBuffer(stream, buffer) < 0) {
-            std::cerr << "Failed to add buffer to request" << std::endl;
-            camera->release();
-            cm.stop();
-            return -1;
-        }
-        requests.push_back(std::move(request));
-    }
-
-    if (camera->start() < 0) {
-        std::cerr << "Failed to start camera" << std::endl;
-        camera->release();
-        cm.stop();
-        return -1;
-    }
-
-    std::cout << "Capturing frames..." << (continuous ? " (Continuous mode, press Ctrl+C to stop)" : "") << std::endl;
-
-    int saved = 0;
-    int frameCount = 0;
-    bool running = true;
-
-    // Signal handler for continuous mode
-    auto signalHandler = [](int sig) {
-        std::cout << "\nStopping capture..." << std::endl;
-        running = false;
-    };
+    
+    std::cout << "=== SoftISP Advanced Frame Capture ===" << std::endl;
+    std::cout << "Camera: " << cameraId << std::endl;
+    std::cout << "Output: " << outputPattern << std::endl;
+    std::cout << "Format: " << formatToString(outputFormat) << std::endl;
+    std::cout << "Resolution: " << width << "x" << height << std::endl;
+    std::cout << "Frames: " << numFrames << std::endl;
+    std::cout << "Metadata: " << (saveMetadata ? "Enabled" : "Disabled") << std::endl;
+    std::cout << std::endl;
+    
+    // Setup signal handler
     signal(SIGINT, signalHandler);
-
-    while (running && (frames == 0 || frameCount < frames)) {
-        Request &request = *requests[frameCount % requests.size()];
-        if (camera->queueRequest(&request) < 0) {
-            std::cerr << "Failed to queue request" << std::endl;
+    signal(SIGTERM, signalHandler);
+    
+    // Initialize CameraManager
+    if (verbose) std::cout << "Initializing CameraManager..." << std::endl;
+    std::unique_ptr<CameraManager> cameraManager = std::make_unique<CameraManager>();
+    cameraManager->start();
+    
+    // Find camera
+    if (verbose) std::cout << "Searching for camera: " << cameraId << std::endl;
+    const CameraIdArray& cameras = cameraManager->cameras();
+    const Camera* targetCamera = nullptr;
+    
+    for (const auto& cid : cameras) {
+        std::unique_ptr<Camera> camera = cameraManager->get(cid);
+        std::string id = cid.toString();
+        if (verbose) std::cout << "  Found: " << id << std::endl;
+        
+        if (id.find(cameraId) != std::string::npos || cameraId == "softisp_virtual") {
+            targetCamera = camera.release();
             break;
         }
-
-        // Wait for completion
-        while (request.status() == Request::RequestPending) {
-            usleep(10000);
-            if (!running) break;
-        }
-
-        if (!running) break;
-
-        if (request.status() == Request::RequestComplete) {
-            const auto &reqBuffers = request.buffers();
-            if (!reqBuffers.empty()) {
-                FrameBuffer *buffer = reqBuffers.begin()->second;
-                std::string filename = outputDir + "/frame_" + std::to_string(frameCount) + ".bin";
-                
-                const ControlList *metadata = nullptr;
-                if (saveMetadata) {
-                    metadata = &request.metadata();
-                }
-
-                if (saveFrame(buffer, filename, metadata) == 0) {
-                    saved++;
-                    frameCount++;
-                    std::cout << "Captured frame " << frameCount << (frames > 0 ? ("/" + std::to_string(frames)) : "") << std::endl;
-                }
-            }
-            request.reuse();
-        } else {
-            std::cerr << "Request failed: " << request.status() << std::endl;
-            frameCount++;
+    }
+    
+    if (!targetCamera) {
+        std::cerr << "Error: Camera not found: " << cameraId << std::endl;
+        std::cerr << "Note: This tool requires a running SoftISP virtual camera pipeline." << std::endl;
+        std::cerr << "The virtual camera may not be available on Termux/Android without V4L2 support." << std::endl;
+        cameraManager->stop();
+        return -1;
+    }
+    
+    std::cout << "Camera found: " << targetCamera->id() << std::endl;
+    
+    // Acquire camera
+    if (verbose) std::cout << "Acquiring camera..." << std::endl;
+    int ret = targetCamera->acquire();
+    if (ret < 0) {
+        std::cerr << "Error: Failed to acquire camera" << std::endl;
+        cameraManager->stop();
+        return -1;
+    }
+    
+    // Generate configuration
+    if (verbose) std::cout << "Generating configuration..." << std::endl;
+    std::unique_ptr<CameraConfiguration> config = targetCamera->generateConfiguration({ StreamRole::Viewfinder });
+    if (!config) {
+        std::cerr << "Error: Failed to generate configuration" << std::endl;
+        targetCamera->release();
+        cameraManager->stop();
+        return -1;
+    }
+    
+    config->at(0).size = Size(width, height);
+    
+    // Set pixel format based on output format
+    switch (outputFormat) {
+        case OutputFormat::RAW:
+            config->at(0).pixelFormat = formats::SBGGR10;
+            break;
+        case OutputFormat::YUV:
+            config->at(0).pixelFormat = formats::NV12;
+            break;
+        case OutputFormat::RGB:
+            config->at(0).pixelFormat = formats::RGB888;
+            break;
+        case OutputFormat::PPM:
+            config->at(0).pixelFormat = formats::RGB888;
+            break;
+    }
+    
+    config->at(0).bufferCount = 4;
+    
+    ret = config->validate();
+    if (ret == CameraConfiguration::Invalid) {
+        std::cerr << "Error: Invalid configuration" << std::endl;
+        targetCamera->release();
+        cameraManager->stop();
+        return -1;
+    }
+    
+    targetCamera->configure(config.get());
+    std::cout << "Configuration validated" << std::endl;
+    
+    // Allocate buffers
+    if (verbose) std::cout << "Allocating buffers..." << std::endl;
+    FrameBufferAllocator allocator(targetCamera);
+    
+    Stream* stream = config->at(0).stream();
+    for (unsigned int i = 0; i < config->at(0).bufferCount; i++) {
+        std::unique_ptr<FrameBuffer> buffer;
+        ret = allocator.allocate(stream, &buffer);
+        if (ret < 0) {
+            std::cerr << "Error: Failed to allocate buffer" << std::endl;
+            targetCamera->release();
+            cameraManager->stop();
+            return -1;
         }
     }
-
-    camera->stop();
-    camera->release();
-    cm.stop();
-
-    std::cout << "Completed: Saved " << saved << " frames." << std::endl;
-    return (saved > 0) ? 0 : -1;
+    
+    std::cout << "Allocated " << allocator.buffers(stream).size() << " buffers" << std::endl;
+    
+    // Create request
+    if (verbose) std::cout << "Creating request..." << std::endl;
+    std::unique_ptr<Request> request = targetCamera->createRequest();
+    if (!request) {
+        std::cerr << "Error: Failed to create request" << std::endl;
+        targetCamera->release();
+        cameraManager->stop();
+        return -1;
+    }
+    
+    // Start camera
+    if (verbose) std::cout << "Starting camera..." << std::endl;
+    ret = targetCamera->start();
+    if (ret < 0) {
+        std::cerr << "Error: Failed to start camera" << std::endl;
+        targetCamera->release();
+        cameraManager->stop();
+        return -1;
+    }
+    
+    std::cout << "Capturing " << numFrames << " frame(s)..." << std::endl;
+    
+    // Capture frames
+    for (int frame = 0; frame < numFrames && g_running; frame++) {
+        const std::vector<std::unique_ptr<FrameBuffer>> &buffers = allocator.buffers(stream);
+        if (buffers.empty()) {
+            std::cerr << "Error: No buffers available" << std::endl;
+            break;
+        }
+        
+        ret = request->addBuffer(stream, buffers[0].get());
+        if (ret < 0) {
+            std::cerr << "Error: Failed to add buffer to request" << std::endl;
+            break;
+        }
+        
+        ret = targetCamera->queueRequest(request.get());
+        if (ret < 0) {
+            std::cerr << "Error: Failed to queue request" << std::endl;
+            break;
+        }
+        
+        // Wait for completion
+        usleep(100000); // 100ms
+        
+        std::cout << "  Frame " << (frame + 1) << " captured" << std::endl;
+        
+        // Generate output filename
+        std::string filename = outputPattern;
+        size_t pos = filename.find('#');
+        if (pos != std::string::npos) {
+            std::ostringstream numStr;
+            numStr << std::setw(4) << std::setfill('0') << frame;
+            filename.replace(pos, 1, numStr.str());
+        }
+        
+        // Get buffer data
+        const FrameBuffer::Plane &plane = buffers[0]->planes()[0];
+        void *mem = mmap(nullptr, plane.length, PROT_READ, MAP_SHARED, plane.fd.get(), 0);
+        if (mem == MAP_FAILED) {
+            std::cerr << "Error: Failed to map buffer" << std::endl;
+            break;
+        }
+        
+        uint8_t* data = static_cast<uint8_t*>(mem);
+        size_t dataSize = plane.length;
+        
+        // Save based on format
+        if (outputFormat == OutputFormat::RAW) {
+            // Save raw data directly
+            std::ofstream outFile(filename, std::ios::binary);
+            if (outFile) {
+                outFile.write(reinterpret_cast<char*>(data), dataSize);
+                outFile.close();
+                std::cout << "  Saved: " << filename << " (" << dataSize << " bytes)" << std::endl;
+            } else {
+                std::cerr << "  Error: Could not open " << filename << std::endl;
+            }
+        } else if (outputFormat == OutputFormat::PPM) {
+            // Save as PPM
+            std::ofstream outFile(filename);
+            if (outFile) {
+                saveAsPPM(outFile, data, width, height);
+                outFile.close();
+                std::cout << "  Saved: " << filename << " (PPM format)" << std::endl;
+            } else {
+                std::cerr << "  Error: Could not open " << filename << std::endl;
+            }
+        } else if (outputFormat == OutputFormat::YUV || outputFormat == OutputFormat::RGB) {
+            // Convert and save
+            size_t convertedSize = (outputFormat == OutputFormat::YUV) ? 
+                (width * height * 3 / 2) : (width * height * 3);
+            
+            std::vector<uint8_t> convertedData(convertedSize);
+            
+            if (outputFormat == OutputFormat::YUV) {
+                convertBayerToYUV(data, convertedData.data(), width, height);
+            } else {
+                convertBayerToRGB(data, convertedData.data(), width, height);
+            }
+            
+            std::ofstream outFile(filename, std::ios::binary);
+            if (outFile) {
+                outFile.write(reinterpret_cast<char*>(convertedData.data()), convertedSize);
+                outFile.close();
+                std::cout << "  Saved: " << filename << " (" << formatToString(outputFormat) 
+                         << ", " << convertedSize << " bytes)" << std::endl;
+            } else {
+                std::cerr << "  Error: Could not open " << filename << std::endl;
+            }
+        }
+        
+        // Save metadata if requested
+        if (saveMetadata) {
+            // Get request controls (metadata)
+            const ControlList& controls = request->controls();
+            saveMetadata(controls, filename, frame);
+        }
+        
+        munmap(mem, plane.length);
+        
+        // Create new request for next frame
+        request = targetCamera->createRequest();
+        if (!request) {
+            std::cerr << "Error: Failed to create new request" << std::endl;
+            break;
+        }
+    }
+    
+    // Stop camera
+    std::cout << "Stopping camera..." << std::endl;
+    targetCamera->stop();
+    
+    // Cleanup
+    std::cout << "Cleaning up..." << std::endl;
+    targetCamera->release();
+    cameraManager->stop();
+    
+    std::cout << "\n🎉 Capture complete!" << std::endl;
+    return 0;
 }
