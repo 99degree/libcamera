@@ -66,6 +66,10 @@ private:
 /*
  * SoftISPCameraData - Camera data structure for SoftISP pipeline.
  * Supports both real V4L2 cameras and virtual test cameras.
+ * 
+ * OWNERSHIP:
+ * - CameraData owns the IPA instance (ipa_)
+ * - Pipeline accesses IPA through CameraData
  */
 class SoftISPCameraData : public Camera::Private, public Thread {
 public:
@@ -80,11 +84,6 @@ public:
 	void storeBuffer(uint32_t bufferId, FrameBuffer *buffer);
 	std::unique_ptr<CameraConfiguration> generateConfiguration(Span<const StreamRole> roles);
 
-	struct StreamConfig {
-		Stream *stream = nullptr;
-		unsigned int seq = 0;
-	};
-
 	// FrameInfo tracking (async pattern)
 	SoftISPFrames frameInfo_;
 
@@ -92,6 +91,9 @@ public:
 	void metadataReady(unsigned int frame, const ControlList &metadata);
 	void frameDone(unsigned int frame, unsigned int bufferId);
 	void tryCompleteRequest(SoftISPFrameInfo *info);
+
+	// IPA accessors (CameraData owns IPA, Pipeline accesses via getter)
+	ipa::soft::IPASoftIspInterface *ipa() const { return ipa_.get(); }
 
 	std::unique_ptr<ipa::soft::IPASoftIspInterface> ipa_;
 	std::unique_ptr<VirtualCamera> virtualCamera_;
@@ -104,6 +106,11 @@ public:
 	std::shared_ptr<MediaDevice> mediaDevice_;
 	/* std::unique_ptr<V4L2VideoDevice> captureDevice_; */
 	bool isVirtualCamera = true;
+
+	struct StreamConfig {
+		Stream *stream = nullptr;
+		unsigned int seq = 0;
+	};
 };
 
 /*
@@ -132,8 +139,7 @@ public:
 
 private:
 	SoftISPCameraData *cameraData(Camera *camera) {
-		(void)camera;
-		return nullptr; // static_cast<SoftISPCameraData *>(camera->_d()); // TODO: Fix cast
+		return static_cast<SoftISPCameraData *>(camera->_d());
 	}
 
 	bool isV4LCamera(std::shared_ptr<MediaDevice> media);
