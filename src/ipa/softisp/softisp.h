@@ -16,7 +16,7 @@
 #include <onnxruntime_cxx_api.h>
 #pragma GCC diagnostic pop
 
-// libcamera headers (use paths that are in ipa_includes)
+// libcamera headers - use paths available through ipa_includes
 #include <libcamera/ipa/ipa_interface.h>
 #include <libcamera/base/shared_fd.h>
 #include <libcamera/base/signal.h>

@@ -19,17 +19,11 @@ softisp_sources = files([
     'softisp_module.cpp',
 ])
 
-# Use the existing ipa_includes from the parent meson.build
-# This should already include:
-# - include/ (project root)
-# - build/include/ (generated headers)
-# - src/ipa/ (IPA base classes)
-# - etc.
-
-ipa_softisp = shared_module('ipa_softisp',
+# Use the exact same pattern as simple pipeline
+mod = shared_module('ipa_softisp',
     softisp_sources,
     name_prefix : '',
-    include_directories : [ipa_includes],  # Use parent's include dirs
+    include_directories : [ipa_includes],  # Use parent's ipa_includes
     dependencies : [libcamera_private, libipa_dep, onnxruntime_dep],
     install : true,
     install_dir : ipa_install_dir,
