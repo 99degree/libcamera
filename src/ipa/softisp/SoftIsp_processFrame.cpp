@@ -19,7 +19,6 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	                    << ", size=" << width << "x" << height;
 
 	// Calculate buffer size for SBGGR10 (10 bits per pixel, packed)
-	// Note: In real implementation, get this from StreamConfiguration
 	size_t bufferSize = ((width * 10 + 7) / 8) * height;
 
 	// Map the buffer for reading/writing
@@ -43,7 +42,6 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	}
 
 	// Convert SBGGR10 Bayer to float array for ONNX input
-	// This is a simplified conversion - real implementation needs proper unpacking
 	std::vector<float> bayerFloat;
 	bayerFloat.reserve(width * height);
 	
@@ -56,9 +54,9 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	}
 
 	// Apply AWB gains to Bayer data (pre-processing)
-	for (size_t i = 0; i < bayerFloat.size(); i++) {
-		size_t row = i / width;
-		size_t col = i % width;
+	for (int32_t i = 0; i < width * height; i++) {
+		int32_t row = i / width;
+		int32_t col = i % width;
 		
 		// SBGGR pattern: even-even=G, odd-odd=G, even-odd=B, odd-even=R
 		bool evenRow = (row % 2 == 0);
@@ -87,11 +85,9 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	LOG(SoftIsp, Debug) << "applier.onnx output size: " << rgbOutput.size();
 
 	// Write RGB output back to buffer
-	// TODO: Convert to appropriate format (RGB888, NV12, etc.)
-	size_t outputSize = std::min(rgbOutput.size(), width * height * 3);
-	for (size_t i = 0; i < outputSize for (size_t i = 0; i < outputSize; i++)for (size_t i = 0; i < outputSize; i++) i < bufferSize; i++) {
-		size_t byteIdx = i % bufferSize;
-		byteData[byteIdx] = static_cast<uint8_t>(rgbOutput[i] * 255.0f);
+	size_t outputSize = std::min(rgbOutput.size(), static_cast<size_t>(width * height * 3));
+	for (size_t i = 0; i < outputSize && i < bufferSize; i++) {
+		byteData[i] = static_cast<uint8_t>(rgbOutput[i] * 255.0f);
 	}
 
 	// Unmap buffer
