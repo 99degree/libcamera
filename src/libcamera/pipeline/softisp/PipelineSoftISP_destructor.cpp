@@ -1,5 +1,10 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#include "softisp.h"
+
+namespace libcamera {
+
 PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
 {
-    LOG(SoftISPPipeline, Info) << "SoftISP pipeline handler destroyed";
-    resetCreated_ = false;
 }
+
+} /* namespace libcamera */
