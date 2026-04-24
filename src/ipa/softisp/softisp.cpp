@@ -9,7 +9,6 @@
 #include <cstdlib>
 
 namespace libcamera {
-LOG_DEFINE_CATEGORY(SoftIsp)
 
 namespace ipa::soft {
 

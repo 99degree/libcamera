@@ -45,6 +45,11 @@ public:
 
 	unsigned int sequence() const { return sequence_; }
 
+	/* Accessors for buffer size */
+	unsigned int width() const { return width_; }
+	unsigned int height() const { return height_; }
+	unsigned int bufferCount() const { return 4; }
+
 private:
 	void run() override;
 

@@ -16,7 +16,13 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
 	// TODO: Extract AWB/AE parameters
 	// TODO: Populate metadata ControlList
 
-	ControlList metadata(0);
+	ControlList metadata(controls::controls);
+	
+	// TODO: Populate metadata with AWB/AE parameters
+	// metadata.set(controls::AeState, ...);
+	// metadata.set(controls::AwbState, ...);
+
+	// Signal completion (Stage 1 done)
 	metadataReady.emit(frame, metadata);
 
 	LOG(SoftIsp, Debug) << "processStats complete, metadata emitted for frame " << frame;
