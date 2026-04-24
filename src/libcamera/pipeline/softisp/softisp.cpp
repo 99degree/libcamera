@@ -265,7 +265,6 @@ PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
                                               Span<const StreamRole> roles)
 {
     auto cameraDataPtr = cameraData(camera);
- LOG(SoftISPPipeline, Fatal) << "=== PipelineHandlerSoftISP::generateConfiguration CALLED ===";
     (void)cameraDataPtr;
     LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
 
