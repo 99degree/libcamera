@@ -4,13 +4,6 @@
 # Find ONNX Runtime
 onnxruntime_dep = dependency('onnxruntime', version: '>=1.14.0')
 
-# Define include directories
-# Need to include:
-# 1. src/ipa (for IPA base classes)
-# 2. include (for libcamera public headers)
-# 3. build/include (for generated headers)
-# 4. src/ipa/softisp (for local headers)
-
 softisp_sources = files([
     'softisp.cpp',              # Skeleton (includes all SoftIsp_*.cpp)
     'SoftIsp_init.cpp',
@@ -26,19 +19,17 @@ softisp_sources = files([
     'softisp_module.cpp',
 ])
 
-# Get include directories from the build system
-# These should include both source and build directories
-softisp_includes = [
-    include_directories('include'),
-    include_directories('src/ipa'),
-    include_directories('build/include'),
-    include_directories('.'),  # Current directory for local headers
-]
+# Use the existing ipa_includes from the parent meson.build
+# This should already include:
+# - include/ (project root)
+# - build/include/ (generated headers)
+# - src/ipa/ (IPA base classes)
+# - etc.
 
 ipa_softisp = shared_module('ipa_softisp',
     softisp_sources,
     name_prefix : '',
-    include_directories : softisp_includes + [ipa_includes],
+    include_directories : [ipa_includes],  # Use parent's include dirs
     dependencies : [libcamera_private, libipa_dep, onnxruntime_dep],
     install : true,
     install_dir : ipa_install_dir,

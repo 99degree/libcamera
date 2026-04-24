@@ -16,15 +16,13 @@
 #include <onnxruntime_cxx_api.h>
 #pragma GCC diagnostic pop
 
-// Forward declarations (actual types provided by IPA interface)
-namespace libcamera {
-class SharedFD;
-class ControlList;
-struct IPASettings;
-struct IPACameraSensorInfo;
-struct IPAConfigInfo;
-class ControlInfoMap;
-}
+// libcamera headers (use paths that are in ipa_includes)
+#include <libcamera/ipa/ipa_interface.h>
+#include <libcamera/base/shared_fd.h>
+#include <libcamera/base/signal.h>
+#include <libcamera/control_list.h>
+#include <libcamera/control_ids.h>
+#include <libcamera/geometry.h>
 
 namespace libcamera {
 namespace ipa {
