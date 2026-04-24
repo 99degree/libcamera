@@ -6,49 +6,17 @@
  */
 
 #include "softisp.h"
-
-#include <algorithm>
-#include <cstring>
-#include <fcntl.h>
-#include <memory>
-#include <queue>
-#include <sys/mman.h>
-#include <unistd.h>
+#include "softisp_camera.h"
 
 #include <libcamera/base/log.h>
-#include <libcamera/control_ids.h>
-#include <libcamera/controls.h>
-#include <libcamera/formats.h>
-
-#include "libcamera/internal/camera.h"
-#include "libcamera/internal/camera_manager.h"
-#include "libcamera/internal/device_enumerator.h"
-#include "libcamera/internal/formats.h"
-#include "libcamera/internal/framebuffer.h"
-#include "libcamera/internal/ipa_manager.h"
-#include "libcamera/internal/media_device.h"
-#include "libcamera/internal/request.h"
-
-#include "virtual_camera.h"
 
 namespace libcamera {
 
-LOG_DEFINE_CATEGORY(SoftISPPipeline)
-LOG_DEFINE_CATEGORY(SoftISPCameraData)
-
-// Forward declaration
-class SoftISPCameraData;
-
-static std::map<uint32_t, int> g_bufferFdMap;
-
-/* ============================================================================
- * SoftISPConfiguration
- * ============================================================================
- */
-
+// SoftISPConfiguration implementation
 SoftISPConfiguration::SoftISPConfiguration()
 {
 }
+
 
 CameraConfiguration::Status SoftISPConfiguration::validate()
 {
@@ -69,30 +37,35 @@ CameraConfiguration::Status SoftISPConfiguration::validate()
     return status;
 }
 
-/* ============================================================================
- * PipelineHandlerSoftISP
- * ============================================================================
- */
 
+
+// Log categories
+LOG_DEFINE_CATEGORY(SoftISPPipeline)
+LOG_DEFINE_CATEGORY(SoftISPCameraData)
+
+// Static member
 bool PipelineHandlerSoftISP::created_ = false;
 
+// Constructor
 PipelineHandlerSoftISP::PipelineHandlerSoftISP(CameraManager *manager)
     : PipelineHandler(manager)
 {
     LOG(SoftISPPipeline, Info) << "SoftISP pipeline handler created";
 }
 
+// Destructor
 PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
 {
     if (resetCreated_)
         created_ = false;
 }
 
-bool PipelineHandlerSoftISP::match([[maybe_unused]] MediaDevice *media,
-                                   std::vector<std::shared_ptr<Camera>> *cameras)
+// match()
+bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
 {
+    (void)enumerator;
+    
     if (!created_) {
-        std::shared_ptr<Camera> camera;
         std::unique_ptr<SoftISPCameraData> data =
             std::make_unique<SoftISPCameraData>(this);
 
@@ -102,9 +75,8 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] MediaDevice *media,
             return false;
         }
 
-        camera = std::make_shared<Camera>(std::move(data));
-        cameras->push_back(camera);
-        LOG(SoftISPPipeline, Info) << "Virtual camera registered successfully";
+        // Camera registration handled by CameraManager
+        LOG(SoftISPPipeline, Info) << "Virtual camera created successfully";
         created_ = true;
         resetCreated_ = true;
     }
@@ -112,6 +84,7 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] MediaDevice *media,
     return true;
 }
 
+// generateConfiguration()
 std::unique_ptr<CameraConfiguration> PipelineHandlerSoftISP::generateConfiguration(
     Camera *camera, Span<const StreamRole> roles)
 {
@@ -125,6 +98,7 @@ std::unique_ptr<CameraConfiguration> PipelineHandlerSoftISP::generateConfigurati
     return data->generateConfiguration(roles);
 }
 
+// configure()
 int PipelineHandlerSoftISP::configure(Camera *camera, CameraConfiguration *config)
 {
     SoftISPCameraData *data = cameraData(camera);
@@ -136,6 +110,7 @@ int PipelineHandlerSoftISP::configure(Camera *camera, CameraConfiguration *confi
     return data->configure(config);
 }
 
+// exportFrameBuffers()
 int PipelineHandlerSoftISP::exportFrameBuffers(Camera *camera, Stream *stream,
                                                std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
@@ -148,6 +123,7 @@ int PipelineHandlerSoftISP::exportFrameBuffers(Camera *camera, Stream *stream,
     return data->exportFrameBuffers(stream, buffers);
 }
 
+// start()
 int PipelineHandlerSoftISP::start(Camera *camera, const ControlList *controls)
 {
     SoftISPCameraData *data = cameraData(camera);
@@ -159,18 +135,19 @@ int PipelineHandlerSoftISP::start(Camera *camera, const ControlList *controls)
     return data->start(controls);
 }
 
-int PipelineHandlerSoftISP::stopDevice(Camera *camera)
+// stopDevice()
+void PipelineHandlerSoftISP::stopDevice(Camera *camera)
 {
     SoftISPCameraData *data = cameraData(camera);
     if (!data) {
         LOG(SoftISPPipeline, Error) << "Failed to get camera data";
-        return -EINVAL;
+        return;
     }
 
     data->stop();
-    return 0;
 }
 
+// queueRequestDevice()
 int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
 {
     SoftISPCameraData *data = cameraData(camera);
@@ -182,11 +159,10 @@ int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
     return data->queueRequest(request);
 }
 
-SoftISPCameraData *PipelineHandlerSoftISP::cameraData(Camera *camera) const
-{
-    return static_cast<SoftISPCameraData *>(camera->privateData());
-}
+// cameraData() - inline in header, but we can define out-of-class if needed
+// SoftISPCameraData *PipelineHandlerSoftISP::cameraData(Camera *camera) { ... }
 
+// Register the pipeline handler
 REGISTER_PIPELINE_HANDLER(PipelineHandlerSoftISP, "SoftISP")
 
 } // namespace libcamera

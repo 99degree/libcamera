@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <vector>
+#include <cstdint>
 
 #include <libcamera/base/mutex.h>
 #include <libcamera/base/thread.h>
@@ -42,6 +43,10 @@ public:
 	void stop();
 	int queueRequest(Request *request);
 
+	int loadIPA();
+	FrameBuffer *getBufferFromId(uint32_t bufferId);
+	void storeBuffer(uint32_t bufferId, FrameBuffer *buffer);
+	void processRequest(Request *request);
 	// Get VirtualCamera
 	VirtualCamera *virtualCamera() { return virtualCamera_.get(); }
 	const VirtualCamera *virtualCamera() const { return virtualCamera_.get(); }
@@ -50,7 +55,6 @@ private:
 	void run() override;
 
 	std::unique_ptr<VirtualCamera> virtualCamera_;
-	bool running_ = false;
 	Mutex mutex_;
 };
 
