@@ -5,6 +5,7 @@
 #include "softisp.h"
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
+#include <libcamera/controls.h>
 #include <cstdlib>
 
 namespace libcamera {
@@ -115,6 +116,16 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
 	}
 
 	LOG(SoftIsp, Debug) << "processStats: frame=" << frame << ", buffer=" << bufferId;
+
+	// Create metadata to return via signal
+	ControlList metadata;
+
+	// TODO: Populate metadata with ONNX inference results
+
+	// Emit metadata via signal (this is how results are returned)
+	metadataReady.emit(frame, metadata);
+	// metadata.set(controls::AeState, controls::AeStateConverged);
+
 
 	// TODO: Prepare input from stats and run algoEngine
 	// For now, just log
