@@ -143,7 +143,7 @@ public:
 
 private:
 	SoftISPCameraData *cameraData(Camera *camera) {
-		return static_cast<SoftISPCameraData *>(camera->d_func());
+		return static_cast<SoftISPCameraData *>(camera->_d());
 	}
 
 	bool isV4LCamera(std::shared_ptr<MediaDevice> media);
