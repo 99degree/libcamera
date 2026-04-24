@@ -49,7 +49,7 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	
 	// TODO: Properly unpack SBGGR10 packed format
 	uint8_t *byteData = static_cast<uint8_t*>(bayerData);
-	for (size_t i = 0; i < width * height; i++) {
+	for (int32_t i = 0; i < width * height; i++) {
 		// Normalize to [0, 1]
 		float pixel = static_cast<float>(byteData[i % bufferSize]) / 255.0f;
 		bayerFloat.push_back(pixel);
@@ -89,7 +89,7 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	// Write RGB output back to buffer
 	// TODO: Convert to appropriate format (RGB888, NV12, etc.)
 	size_t outputSize = std::min(rgbOutput.size(), width * height * 3);
-	for (size_t i = 0; i < outputSize; i++) {
+	for (size_t i = 0; i < outputSize for (size_t i = 0; i < outputSize; i++)for (size_t i = 0; i < outputSize; i++) i < bufferSize; i++) {
 		size_t byteIdx = i % bufferSize;
 		byteData[byteIdx] = static_cast<uint8_t>(rgbOutput[i] * 255.0f);
 	}
