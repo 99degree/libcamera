@@ -67,11 +67,9 @@ public:
     bool match(DeviceEnumerator *enumerator) override;
 
 private:
+    SoftISPCameraData *cameraData(Camera *camera);
     std::unique_ptr<SoftISPCameraData> virtualCameraData_;
     
-    SoftISPCameraData *cameraData([[maybe_unused]] Camera *camera) {
-        return virtualCameraData_.get();
-    }
 
             };
 
