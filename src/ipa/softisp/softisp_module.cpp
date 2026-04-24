@@ -20,7 +20,7 @@ extern "C" {
 
 const struct IPAModuleInfo ipaModuleInfo = {
 	IPA_MODULE_API_VERSION,
-	0,
+	1,
 	"SoftISP",
 	"SoftISP",
 };

@@ -1,0 +1,19 @@
+[73:17:11.245620709] [29545]  INFO IPAManager ipa_manager.cpp:147 libcamera is not installed. Adding '/data/data/com.termux/files/home/libcamera1/softisp_only/src/ipa' to the IPA search path
+[73:17:11.245919147] [29545]  INFO Camera camera_manager.cpp:343 libcamera v0.7.0+236-0a747121
+[73:17:11.246391022] [29546]  WARN DeviceEnumerator device_enumerator_sysfs.cpp:87 Device node /dev/media0 should exist but doesn't
+[73:17:11.246455501] [29546]  INFO SoftISPPipeline softisp.cpp:178 SoftISP pipeline handler created
+[73:17:11.246470397] [29546]  INFO SoftISPPipeline softisp.cpp:254 Creating SoftISP virtual camera
+[73:17:11.246484511] [29546]  INFO SoftISPPipeline softisp.cpp:224 createVirtualCamera() called
+[73:17:11.280324199] [29546]  INFO SoftIsp softisp.cpp:17 SoftIsp created
+[73:17:11.280409407] [29546]  INFO SoftISPPipeline softisp.cpp:76 SoftISP IPA module loaded
+[73:17:11.280434303] [29546]  INFO VirtualCamera virtual_camera.cpp:35 Virtual camera initialized: 1920x1080
+[73:17:11.280448574] [29546]  INFO SoftISPPipeline softisp.cpp:157 SoftISPCameraData::generateConfiguration called
+[73:17:11.280456022] [29546]  INFO SoftISPPipeline softisp.cpp:158 Roles size: 1, role[0]: 3
+[73:17:11.280484720] [29546]  INFO SoftISPPipeline softisp.cpp:167 Config created, size=1
+[73:17:11.280495241] [29546]  INFO SoftISPPipeline softisp.cpp:169 Validation result: 0
+[73:17:11.280501855] [29546]  INFO SoftISPPipeline softisp.cpp:171 Returning config with size=1
+[73:17:11.280548886] [29546]  INFO Camera camera_manager.cpp:226 Adding camera 'softisp_virtual' for pipeline handler SoftISP
+[73:17:11.280563939] [29546]  INFO SoftISPPipeline softisp.cpp:246 Virtual camera registered successfully
+[73:17:11.280577636] [29546]  INFO SoftISPPipeline softisp.cpp:178 SoftISP pipeline handler created
+Camera 0 not found
+Failed to create camera session

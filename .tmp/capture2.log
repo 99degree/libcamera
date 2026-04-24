@@ -1,0 +1,1 @@
+timeout: failed to run command ‘LD_LIBRARY_PATH=./softisp_only/src/libcamera’: No such file or directory
