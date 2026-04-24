@@ -5,12 +5,15 @@
  * Architecture: Async Processing with Callback Pattern (matches rkisp1/ipu3)
  * 
  * Key Points:
- * 1. CameraData owns the IPA instance
- * 2. Pipeline accesses IPA via cameraData()->ipa()
- * 3. Pipeline tracks pending requests in frameInfo_
- * 4. Pipeline calls IPA (async, non-blocking)
- * 5. IPA signals completion via metadataReady and frameDone callbacks
- * 6. Pipeline completes request when both callbacks received
+ * 1. Pipeline creates FrameBuffer with memfd (FD managed by FrameBuffer)
+ * 2. Pipeline tracks pending requests in frameInfo_ map
+ * 3. Pipeline calls IPA (async, non-blocking)
+ * 4. IPA signals completion via metadataReady callback
+ * 5. Pipeline merges metadata, marks metadataProcessed = true
+ * 6. Pipeline checks if all stages complete (tryCompleteRequest)
+ * 7. If complete: pipe()->completeRequest() → FrameBuffer destroyed → FD closed
+ * 
+ * No explicit mmap/munmap needed - memfd + SharedFD handles it!
  */
 #include "softisp.h"
 #include "virtual_camera.h"
@@ -40,10 +43,36 @@
 namespace libcamera {
 LOG_DEFINE_CATEGORY(SoftISPPipeline)
 
-// ============================================================================
-// SoftISPFrames Implementation
-// ============================================================================
+// Forward declaration
+class SoftISPCameraData;
 
+// FrameInfo to track pending requests (matches rkisp1/ipu3 pattern)
+struct SoftISPFrameInfo {
+	unsigned int frame;
+	Request *request;
+	FrameBuffer *buffer;
+	bool metadataProcessed;
+	
+	SoftISPFrameInfo(Request *req, FrameBuffer *buf, unsigned int id)
+		: frame(id), request(req), buffer(buf), metadataProcessed(false) {}
+};
+
+// FrameInfo manager (matches rkisp1/ipu3 pattern)
+class SoftISPFrames {
+public:
+	SoftISPFrames() = default;
+	
+	SoftISPFrameInfo *create(Request *request, FrameBuffer *buffer, unsigned int frameId);
+	SoftISPFrameInfo *find(unsigned int frame);
+	int destroy(unsigned int frame);
+	
+	bool tryCompleteRequest(SoftISPFrameInfo *info);
+	
+private:
+	std::map<unsigned int, std::unique_ptr<SoftISPFrameInfo>> frameInfo_;
+};
+
+// SoftISPFrames implementation
 SoftISPFrameInfo *SoftISPFrames::create(Request *request, FrameBuffer *buffer, unsigned int frameId)
 {
 	auto info = std::make_unique<SoftISPFrameInfo>(request, buffer, frameId);
@@ -71,18 +100,64 @@ int SoftISPFrames::destroy(unsigned int frame)
 
 bool SoftISPFrames::tryCompleteRequest(SoftISPFrameInfo *info)
 {
-	return info->metadataReceived && info->frameReceived;
+	// Check if all processing stages are complete
+	if (!info->metadataProcessed)
+		return false;
+	
+	// All stages complete, request can be completed
+	return true;
 }
 
-// ============================================================================
-// PipelineHandlerSoftISP Implementation
-// ============================================================================
+// PipelineHandlerSoftISP implementation
+class PipelineHandlerSoftISP : public PipelineHandler {
+public:
+	PipelineHandlerSoftISP();
+	~PipelineHandlerSoftISP() override;
 
-bool PipelineHandlerSoftISP::created_ = false;
-bool PipelineHandlerSoftISP::s_virtualCameraRegistered = false;
+	const char *name() const override { return "SoftISP"; }
 
-PipelineHandlerSoftISP::PipelineHandlerSoftISP(CameraManager *manager)
-	: PipelineHandler(manager)
+	int registerDevices() override;
+	int unregisterDevices() override;
+
+	int createCamera(Camera *camera) override;
+	void destroyCamera(Camera *camera) override;
+
+private:
+	std::unique_ptr<VirtualCamera> virtualCamera_;
+};
+
+// SoftISPCameraData implementation
+class SoftISPCameraData : public Camera::Private, public Thread {
+public:
+	SoftISPCameraData(PipelineHandlerSoftISP *pipe);
+	~SoftISPCameraData() override;
+
+	int init();
+	int loadIPA();
+	int exportFrameBuffers(Stream *stream,
+	                       std::vector<std::unique_ptr<FrameBuffer>> *buffers) override;
+	int queueRequestDevice(Request *request) override;
+	int stop() override;
+
+	// Callback (matches rkisp1/ipu3 pattern)
+	void metadataReady(unsigned int frame, const ControlList &metadata);
+
+private:
+	void run() override;
+	void tryCompleteRequest(SoftISPFrameInfo *info);
+
+	PipelineHandlerSoftISP *pipe() const {
+		return static_cast<PipelineHandlerSoftISP *>(Camera::Private::pipe());
+	}
+
+	std::unique_ptr<VirtualCamera> virtualCamera_;
+	ipa::soft::IPAProxySoftIsp ipa_;
+	SoftISPFrames frameInfo_;
+	std::atomic<bool> running_{ false };
+};
+
+// PipelineHandlerSoftISP implementation
+PipelineHandlerSoftISP::PipelineHandlerSoftISP()
 {
 }
 
@@ -92,9 +167,6 @@ PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
 
 int PipelineHandlerSoftISP::registerDevices()
 {
-	if (s_virtualCameraRegistered)
-		return 0;
-
 	virtualCamera_ = std::make_unique<VirtualCamera>();
 	int ret = virtualCamera_->init(1920, 1080);
 	if (ret) {
@@ -102,7 +174,6 @@ int PipelineHandlerSoftISP::registerDevices()
 		return ret;
 	}
 	
-	s_virtualCameraRegistered = true;
 	LOG(SoftISPPipeline, Info) << "Virtual camera registered: 1920x1080";
 	return 0;
 }
@@ -110,7 +181,6 @@ int PipelineHandlerSoftISP::registerDevices()
 int PipelineHandlerSoftISP::unregisterDevices()
 {
 	virtualCamera_.reset();
-	s_virtualCameraRegistered = false;
 	return 0;
 }
 
@@ -133,116 +203,13 @@ void PipelineHandlerSoftISP::destroyCamera(Camera *camera)
 	LOG(SoftISPPipeline, Info) << "Camera destroyed";
 }
 
-std::unique_ptr<CameraConfiguration> PipelineHandlerSoftISP::generateConfiguration(
-	Camera *camera, Span<const StreamRole> roles)
-{
-	SoftISPCameraData *data = cameraData(camera);
-	if (!data)
-		return nullptr;
-
-	return data->generateConfiguration(roles);
-}
-
-int PipelineHandlerSoftISP::configure(Camera *camera, CameraConfiguration *config)
-{
-	SoftISPCameraData *data = cameraData(camera);
-	if (!data)
-		return -EINVAL;
-
-	return data->configure(config);
-}
-
-int PipelineHandlerSoftISP::exportFrameBuffers(Camera *camera, Stream *stream,
-		std::vector<std::unique_ptr<FrameBuffer>> *buffers)
-{
-	SoftISPCameraData *data = cameraData(camera);
-	if (!data)
-		return -EINVAL;
-
-	return data->exportFrameBuffers(stream, buffers);
-}
-
-int PipelineHandlerSoftISP::start(Camera *camera, const ControlList *controls)
-{
-	SoftISPCameraData *data = cameraData(camera);
-	if (!data)
-		return -EINVAL;
-
-	return data->start(controls);
-}
-
-void PipelineHandlerSoftISP::stopDevice(Camera *camera)
-{
-	SoftISPCameraData *data = cameraData(camera);
-	if (!data)
-		return;
-
-	data->stop();
-}
-
-int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
-{
-	SoftISPCameraData *data = cameraData(camera);
-	if (!data)
-		return -EINVAL;
-
-	return data->queueRequest(request);
-}
-
-bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
-{
-	(void)enumerator;
-
-	// For now, just register the virtual camera
-	if (!created_) {
-		createVirtualCamera();
-		created_ = true;
-	}
-
-	return true;
-}
-
-SoftISPCameraData *PipelineHandlerSoftISP::cameraData(Camera *camera)
-{
-	return static_cast<SoftISPCameraData *>(camera->d_func());
-}
-
-bool PipelineHandlerSoftISP::isV4LCamera(std::shared_ptr<MediaDevice> media)
-{
-	(void)media;
-	return false; // For now, only support virtual camera
-}
-
-bool PipelineHandlerSoftISP::createRealCamera(std::shared_ptr<MediaDevice> media)
-{
-	(void)media;
-	return false; // Not implemented yet
-}
-
-bool PipelineHandlerSoftISP::createVirtualCamera()
-{
-	std::unique_ptr<SoftISPCameraData> data = std::make_unique<SoftISPCameraData>(this);
-	int ret = data->init();
-	if (ret)
-		return false;
-
-	// Create a camera instance
-	// Note: This is a simplified version, real implementation needs proper camera creation
-	LOG(SoftISPPipeline, Info) << "Virtual camera created";
-	return true;
-}
-
-// ============================================================================
-// SoftISPCameraData Implementation
-// ============================================================================
-
+// SoftISPCameraData implementation
 SoftISPCameraData::SoftISPCameraData(PipelineHandlerSoftISP *pipe)
 	: Camera::Private(pipe), Thread("SoftISPCamera")
 {
-	// Connect IPA callbacks
+	// Connect IPA callback (matches rkisp1/ipu3 pattern)
 	if (ipa_) {
 		ipa_->metadataReady.connect(this, &SoftISPCameraData::metadataReady);
-		ipa_->frameDone.connect(this, &SoftISPCameraData::frameDone);
 	}
 }
 
@@ -284,7 +251,7 @@ int SoftISPCameraData::loadIPA()
 }
 
 int SoftISPCameraData::exportFrameBuffers(Stream *stream,
-		std::vector<std::unique_ptr<FrameBuffer>> *buffers)
+                                          std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
 	if (!buffers) {
 		LOG(SoftISPPipeline, Error) << "Null buffers vector";
@@ -293,8 +260,8 @@ int SoftISPCameraData::exportFrameBuffers(Stream *stream,
 
 	// Get buffer count and size from virtual camera
 	unsigned int count = virtualCamera_->bufferCount();
-	unsigned int width = virtualCamera_->width();
-	unsigned int height = virtualCamera_->height();
+	unsigned int width = 1920;
+	unsigned int height = 1080;
 	
 	// Calculate buffer size for SBGGR10 (10 bits per pixel, packed)
 	size_t bufferSize = ((width * 10 + 7) / 8) * height;
@@ -332,7 +299,7 @@ int SoftISPCameraData::exportFrameBuffers(Stream *stream,
 	return 0;
 }
 
-int SoftISPCameraData::queueRequest(Request *request)
+int SoftISPCameraData::queueRequestDevice(Request *request)
 {
 	if (!ipa_) {
 		this->pipe()->completeRequest(request);
@@ -360,7 +327,7 @@ int SoftISPCameraData::queueRequest(Request *request)
 	LOG(SoftISPPipeline, Debug) << "Queue request: frame=" << frameId 
 	                           << " size=" << width << "x" << height;
 
-	// Create frame info to track this request
+	// Create frame info to track this request (matches rkisp1/ipu3 pattern)
 	SoftISPFrameInfo *info = frameInfo_.create(request, buffer, frameId);
 	if (!info) {
 		LOG(SoftISPPipeline, Error) << "Failed to create frame info";
@@ -372,76 +339,38 @@ int SoftISPCameraData::queueRequest(Request *request)
 	const FrameBuffer::Plane &plane = buffer->planes()[0];
 	SharedFD fd = plane.fd;
 
-	// Call IPA (async, non-blocking)
+	// ============================================
+	// CALL IPA (Async, Non-blocking)
 	// IPA will process in background and signal via callback
+	// ============================================
+
+	// Stage 1: Process Stats (async)
 	ipa_->processStats(frameId, 0, ControlList());
+	
+	// Stage 2: Process Frame (async)
+	// IPA receives FD, maps internally if needed, processes, signals completion
 	ipa_->processFrame(frameId, 0, fd, 0, width, height, ControlList());
 
 	// Return immediately (don't wait for completion)
-	// Completion will happen in metadataReady/frameDone callbacks
+	// Completion will happen in metadataReady callback
 	return 0;
 }
 
-int SoftISPCameraData::start(const ControlList *controls)
-{
-	(void)controls;
-	running_ = true;
-	Thread::start();
-	return 0;
-}
-
-void SoftISPCameraData::stop()
+int SoftISPCameraData::stop()
 {
 	running_ = false;
-	Thread::exit(false);
-	wait();
-}
-
-std::unique_ptr<CameraConfiguration> SoftISPCameraData::generateConfiguration(
-	Span<const StreamRole> roles)
-{
-	(void)roles;
-	
-	auto config = std::make_unique<SoftISPConfiguration>();
-	// TODO: Add stream configuration
-	return config;
-}
-
-int SoftISPCameraData::configure(CameraConfiguration *config)
-{
-	// TODO: Validate and apply configuration
-	return config->validate() == CameraConfiguration::Status::Valid ? 0 : -EINVAL;
-}
-
-FrameBuffer *SoftISPCameraData::getBufferFromId(uint32_t bufferId)
-{
-	Mutex::Lock lock(mutex_);
-	auto it = bufferMap_.find(bufferId);
-	if (it == bufferMap_.end())
-		return nullptr;
-	return it->second;
-}
-
-void SoftISPCameraData::storeBuffer(uint32_t bufferId, FrameBuffer *buffer)
-{
-	Mutex::Lock lock(mutex_);
-	bufferMap_[bufferId] = buffer;
+	return 0;
 }
 
 void SoftISPCameraData::run()
 {
+	running_ = true;
 	while (running_) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 }
 
-void SoftISPCameraData::processRequest(Request *request)
-{
-	// This method is not used in the async pattern
-	// Requests are processed in queueRequest()
-	(void)request;
-}
-
+// Callback: IPA signals stats processing complete (matches rkisp1/ipu3 pattern)
 void SoftISPCameraData::metadataReady(unsigned int frame, const ControlList &metadata)
 {
 	LOG(SoftISPPipeline, Debug) << "metadataReady: frame=" << frame;
@@ -454,24 +383,7 @@ void SoftISPCameraData::metadataReady(unsigned int frame, const ControlList &met
 
 	// Merge metadata into request
 	info->request->_d()->metadata().merge(metadata);
-	info->metadataReceived = true;
-
-	// Check if request can be completed
-	tryCompleteRequest(info);
-}
-
-void SoftISPCameraData::frameDone(unsigned int frame, unsigned int bufferId)
-{
-	(void)bufferId;
-	LOG(SoftISPPipeline, Debug) << "frameDone: frame=" << frame;
-
-	SoftISPFrameInfo *info = frameInfo_.find(frame);
-	if (!info) {
-		LOG(SoftISPPipeline, Warning) << "frameDone for unknown frame " << frame;
-		return;
-	}
-
-	info->frameReceived = true;
+	info->metadataProcessed = true;
 
 	// Check if request can be completed
 	tryCompleteRequest(info);
@@ -487,6 +399,7 @@ void SoftISPCameraData::tryCompleteRequest(SoftISPFrameInfo *info)
 	frameInfo_.destroy(info->frame);
 	this->pipe()->completeRequest(info->request);
 	
+	// FrameBuffer is now destroyed → FD closed → memfd memory freed automatically
 	LOG(SoftISPPipeline, Debug) << "Request completed: frame=" << info->frame;
 }
 

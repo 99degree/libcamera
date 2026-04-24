@@ -31,6 +31,15 @@ class PipelineHandlerSoftISP;
 class VirtualCamera;
 
 /*
+ * StreamConfig - Stream configuration structure.
+ * Must be defined before SoftISPCameraData since it's used as a member.
+ */
+struct StreamConfig {
+	Stream *stream = nullptr;
+	unsigned int seq = 0;
+};
+
+/*
  * FrameInfo - Tracks pending requests for async processing.
  * Matches rkisp1/ipu3 pattern: tracks metadata and frame completion separately.
  */
@@ -106,11 +115,6 @@ public:
 	std::shared_ptr<MediaDevice> mediaDevice_;
 	/* std::unique_ptr<V4L2VideoDevice> captureDevice_; */
 	bool isVirtualCamera = true;
-
-	struct StreamConfig {
-		Stream *stream = nullptr;
-		unsigned int seq = 0;
-	};
 };
 
 /*
@@ -139,7 +143,7 @@ public:
 
 private:
 	SoftISPCameraData *cameraData(Camera *camera) {
-		return static_cast<SoftISPCameraData *>(camera->_d());
+		return static_cast<SoftISPCameraData *>(camera->d_func());
 	}
 
 	bool isV4LCamera(std::shared_ptr<MediaDevice> media);

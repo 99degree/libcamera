@@ -8,6 +8,10 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wextra-semi"
 #pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <onnxruntime_cxx_api.h>
 #pragma GCC diagnostic pop
 
@@ -34,31 +38,28 @@ public:
 	int loadModel(const std::string &modelPath);
 	int runInference(const std::vector<float> &inputs, std::vector<float> &outputs);
 	
-	const std::vector<const char*> & getInputNames() const { return inputNames_; }
-	const std::vector<const char*> & getOutputNames() const { return outputNames_; }
+	const std::vector<const char*> &getInputNames() const { return inputNames_; }
+	const std::vector<const char*> &getOutputNames() const { return outputNames_; }
 	bool isLoaded() const { return session_ != nullptr; }
-	
+
 	struct TensorInfo {
 		std::vector<int64_t> shape;
 		ONNXTensorElementDataType type;
 		size_t elementCount;
 	};
-	
-	const std::unordered_map<std::string, TensorInfo> & getInputInfo() const { return inputInfo_; }
-	const std::unordered_map<std::string, TensorInfo> & getOutputInfo() const { return outputInfo_; }
+
+	const std::unordered_map<std::string, TensorInfo> &getInputInfo() const { return inputInfo_; }
+	const std::unordered_map<std::string, TensorInfo> &getOutputInfo() const { return outputInfo_; }
 
 private:
 	Ort::Env env_;
 	Ort::SessionOptions sessionOptions_;
 	Ort::Session *session_ = nullptr;
-	
 	std::vector<const char*> inputNames_;
 	std::vector<const char*> outputNames_;
 	std::unordered_map<std::string, TensorInfo> inputInfo_;
 	std::unordered_map<std::string, TensorInfo> outputInfo_;
-	
 	Ort::MemoryInfo memoryInfo_;
-	Ort::AllocatorWithDefaultOptions allocator_;
 };
 
 } /* namespace soft */
