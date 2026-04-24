@@ -114,10 +114,14 @@ void SoftISPCameraData::processRequest(Request *request) {
         return;
     }
 
-    storeBuffer(bufferId, buffer);
-
     const Stream *stream = buffers.begin()->first;
-    auto streamConfig = stream->configuration();
+	auto streamConfig = stream->configuration();
+	storeBuffer(bufferId, buffer);
+
+	// Generate Bayer pattern for virtual camera
+	if (isVirtualCamera && virtualCamera_) {
+		virtualCamera_->queueBuffer(buffer);
+	}
 
     ControlList statsResults;
     ipa_->processStats(frameId, bufferId, statsResults);
@@ -150,16 +154,21 @@ void SoftISPCameraData::storeBuffer(uint32_t bufferId, FrameBuffer *buffer) {
 
 std::unique_ptr<CameraConfiguration>
 SoftISPCameraData::generateConfiguration(Span<const StreamRole> roles) {
-    (void)roles;
+	LOG(SoftISPPipeline, Info) << "SoftISPCameraData::generateConfiguration called";
+    LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
     auto config = std::make_unique<SoftISPConfiguration>();
 
     StreamConfiguration streamConfig;
     streamConfig.size = Size(1920, 1080);
-    streamConfig.pixelFormat = formats::NV12;
+    streamConfig.pixelFormat = formats::SBGGR10; // Bayer RGGB 10-bit
     streamConfig.colorSpace = ColorSpace::Rec709;
     streamConfig.bufferCount = 4;
     config->addConfiguration(streamConfig);
+	LOG(SoftISPPipeline, Info) << "Config created, size=" << config->size();
+	auto validationResult = config->validate();
+	LOG(SoftISPPipeline, Info) << "Validation result: " << validationResult;
 
+	LOG(SoftISPPipeline, Info) << "Returning config with size=" << config->size();
     return config;
 }
 
@@ -170,7 +179,8 @@ PipelineHandlerSoftISP::PipelineHandlerSoftISP(CameraManager *manager)
 }
 
 PipelineHandlerSoftISP::~PipelineHandlerSoftISP() {
-    LOG(SoftISPPipeline, Info) << "SoftISP pipeline handler destroyed";
+	if (resetCreated_)
+		created_ = false;
 }
 
 bool PipelineHandlerSoftISP::isV4LCamera(std::shared_ptr<MediaDevice> media) {
@@ -238,14 +248,16 @@ bool PipelineHandlerSoftISP::createVirtualCamera() {
 }
 
 bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator) {
-    LOG(SoftISPPipeline, Info) << "SoftISP match() called, created_ = " << created_;
-    if (created_) {
-        LOG(SoftISPPipeline, Debug) << "SoftISP pipeline already created, skipping";
-        return false;
-    }
-    created_ = true;
-    LOG(SoftISPPipeline, Info) << "Creating SoftISP virtual camera";
-    return createVirtualCamera();
+	if (created_)
+		return false;
+	created_ = true;
+	LOG(SoftISPPipeline, Info) << "Creating SoftISP virtual camera";
+	if (!createVirtualCamera()) {
+		created_ = false;
+		return false;
+	}
+	resetCreated_ = true;
+	return true;
 }
 
 std::unique_ptr<CameraConfiguration>
@@ -254,13 +266,13 @@ PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
 {
     auto cameraDataPtr = cameraData(camera);
     (void)cameraDataPtr;
-    (void)roles;
+    LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
 
     auto config = std::make_unique<SoftISPConfiguration>();
 
     StreamConfiguration cfg;
     cfg.size = Size(1920, 1080);
-    cfg.pixelFormat = formats::NV12;
+    cfg.pixelFormat = formats::SBGGR10; // Bayer RGGB 10-bit
     cfg.bufferCount = 4;
     config->addConfiguration(cfg);
 
@@ -268,6 +280,7 @@ PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
                                 << cfg.size.toString() << " "
                                 << cfg.pixelFormat.toString();
 
+	LOG(SoftISPPipeline, Info) << "Returning config with size=" << config->size();
     return config;
 }
 

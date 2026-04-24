@@ -77,6 +77,9 @@ std::unique_ptr<CameraConfiguration> generateConfiguration(Span<const StreamRole
 class PipelineHandlerSoftISP : public PipelineHandler {
 public:
     static bool created_;
+	static bool s_virtualCameraRegistered;
+	bool resetCreated_ = false;
+	std::shared_ptr<Camera> virtualCamera_; // Keep reference to prevent handler destruction
 
     PipelineHandlerSoftISP(CameraManager *manager);
     ~PipelineHandlerSoftISP();
