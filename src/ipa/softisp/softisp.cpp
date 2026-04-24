@@ -12,24 +12,17 @@ namespace libcamera {
 LOG_DEFINE_CATEGORY(SoftIsp)
 
 namespace ipa::soft {
- */
-#include "softisp.h"
-#include <libcamera/base/log.h>
-#include <libcamera/base/utils.h>
-#include <cstdlib>
 
-namespace libcamera {
-
-namespace ipa::soft {
-
+// Constructor
 SoftIsp::SoftIsp() : impl_(std::make_unique<Impl>())
 {
 	LOG(SoftIsp, Info) << "SoftIsp created";
 }
 
+// Destructor
 SoftIsp::~SoftIsp() = default;
 
-// Include method implementations (prefixed with SoftIsp_)
+// Include method implementations (all share the same LOG category)
 #include "SoftIsp_init.cpp"
 #include "SoftIsp_start.cpp"
 #include "SoftIsp_stop.cpp"
