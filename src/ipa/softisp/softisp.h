@@ -1,14 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /**
  * SoftIsp - ONNX-based Image Processing Algorithm
- * 
- * Architecture: Async Processing with Dual Callbacks
- * 
- * Callbacks:
- * 1. metadataReady(frameId, metadata) - Stats processing complete (AWB/AE)
- * 2. frameDone(frameId, bufferId) - Frame processing complete (output written)
- * 
- * Both callbacks must be received before Pipeline completes the request.
  */
 #pragma once
 
@@ -24,16 +16,22 @@
 #include <onnxruntime_cxx_api.h>
 #pragma GCC diagnostic pop
 
-// libcamera headers (use relative paths that exist in build)
-#include "libcamera/ipa/ipa_interface.h"
-#include "libcamera/base/shared_fd.h"
-#include "libcamera/base/signal.h"
-#include "libcamera/control_list.h"
-#include "libcamera/geometry.h"
+// Forward declarations (actual types provided by IPA interface)
+namespace libcamera {
+class SharedFD;
+class ControlList;
+struct IPASettings;
+struct IPACameraSensorInfo;
+struct IPAConfigInfo;
+class ControlInfoMap;
+}
 
 namespace libcamera {
 namespace ipa {
 namespace soft {
+
+// Forward declare interface
+class IPASoftIspInterface;
 
 // ONNX Runtime wrapper
 class OnnxEngine {
@@ -69,33 +67,39 @@ private:
 };
 
 // SoftIsp class with dual callback pattern
-class SoftIsp : public IPAInterface<SoftIsp, IPASoftIspInterface> {
+class SoftIsp {
 public:
 	SoftIsp();
 	~SoftIsp();
 
-	// IPAInterface methods
+	// Signal for metadata completion
+	libcamera::Signal<uint32_t, const ControlList &> metadataReady;
+	
+	// Signal for frame completion  
+	libcamera::Signal<uint32_t, uint32_t> frameDone;
+
+	// Initialization
 	int32_t init(const IPASettings &settings,
 	             const SharedFD &fdStats,
 	             const SharedFD &fdParams,
 	             const IPACameraSensorInfo &sensorInfo,
 	             const ControlInfoMap &sensorControls,
 	             ControlInfoMap *ipaControls,
-	             bool *ccmEnabled) override;
+	             bool *ccmEnabled);
 
-	int32_t start() override;
-	void stop() override;
+	int32_t start();
+	void stop();
 
-	int32_t configure(const IPAConfigInfo &configInfo) override;
+	int32_t configure(const IPAConfigInfo &configInfo);
 
 	void queueRequest(const uint32_t frame,
-	                  const ControlList &sensorControls) override;
+	                  const ControlList &sensorControls);
 
-	void computeParams(const uint32_t frame) override;
+	void computeParams(const uint32_t frame);
 
 	void processStats(const uint32_t frame,
 	                  const uint32_t bufferId,
-	                  const ControlList &sensorControls) override;
+	                  const ControlList &sensorControls);
 
 	void processFrame(const uint32_t frame,
 	                  const uint32_t bufferId,
@@ -103,9 +107,9 @@ public:
 	                  const int32_t planeIndex,
 	                  const int32_t width,
 	                  const int32_t height,
-	                  const ControlList &results) override;
+	                  const ControlList &results);
 
-	std::string logPrefix() const override;
+	std::string logPrefix() const;
 
 private:
 	struct Impl {
