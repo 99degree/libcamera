@@ -154,23 +154,15 @@ void SoftISPCameraData::storeBuffer(uint32_t bufferId, FrameBuffer *buffer) {
 
 std::unique_ptr<CameraConfiguration>
 SoftISPCameraData::generateConfiguration(Span<const StreamRole> roles) {
-	LOG(SoftISPPipeline, Info) << "SoftISPCameraData::generateConfiguration called";
-    LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
-    auto config = std::make_unique<SoftISPConfiguration>();
-
-    StreamConfiguration streamConfig;
-    streamConfig.size = Size(1920, 1080);
-    streamConfig.pixelFormat = formats::SBGGR10; // Bayer RGGB 10-bit
-    streamConfig.colorSpace = ColorSpace::Rec709;
-    streamConfig.bufferCount = 4;
-    config->addConfiguration(streamConfig);
-	LOG(SoftISPPipeline, Info) << "Config created, size=" << config->size();
-	auto validationResult = config->validate();
-	LOG(SoftISPPipeline, Info) << "Validation result: " << validationResult;
-
-	LOG(SoftISPPipeline, Info) << "Returning config with size=" << config->size();
-    return config;
+	// Delegate to VirtualCamera which acts as a real camera object
+	// This follows the SimplePipeline pattern where CameraData delegates to its worker
+	if (!virtualCamera_) {
+		LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
+		return nullptr;
+	}
+	return virtualCamera_->generateConfiguration(roles);
 }
+
 
 PipelineHandlerSoftISP::PipelineHandlerSoftISP(CameraManager *manager)
     : PipelineHandler(manager)
@@ -262,16 +254,14 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator
 
 std::unique_ptr<CameraConfiguration> PipelineHandlerSoftISP::generateConfiguration(Camera *camera,
 	Span<const StreamRole> roles) {
-	// Division of Duty: PipelineHandler is the Dispatcher, SoftISPCameraData is the Worker
-	SoftISPCameraData *cameraDataPtr = cameraData(camera);
-	if (!cameraDataPtr) {
-		LOG(SoftISPPipeline, Error) << "Failed to get camera data for generateConfiguration";
+	// Follow SimplePipeline pattern: Get camera data and delegate
+	SoftISPCameraData *data = cameraData(camera);
+	if (!data) {
+		LOG(SoftISPPipeline, Error) << "Failed to get camera data";
 		return nullptr;
 	}
-	LOG(SoftISPPipeline, Info) << "PipelineHandlerSoftISP::generateConfiguration called (Dispatcher)";
-	LOG(SoftISPPipeline, Info) << "Roles size: " << roles.size() << ", role[0]: " << static_cast<int>(roles[0]);
-	// Delegate to the Camera Data (Worker) which holds the VirtualCamera state
-	return cameraDataPtr->generateConfiguration(roles);
+	// Delegate to VirtualCamera which acts as a real camera object
+	return data->virtualCamera()->generateConfiguration(roles);
 }
 
 

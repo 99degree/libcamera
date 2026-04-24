@@ -18,6 +18,8 @@
 #include <libcamera/base/mutex.h>
 
 #include "libcamera/internal/camera.h"
+#include <libcamera/camera.h>
+#include <libcamera/formats.h>
 #include "libcamera/internal/framebuffer.h"
 
 namespace libcamera {
@@ -39,11 +41,21 @@ public:
 	int start();
 	void stop();
 	void queueBuffer(FrameBuffer *buffer);
+
+	// Camera-like interface (abstracts VirtualCamera as a real camera object)
+	std::unique_ptr<CameraConfiguration> generateConfiguration(Span<const StreamRole> roles);
+
 	void setPattern(Pattern pattern);
 	void setBrightness(float brightness);
 	void setContrast(float contrast);
 
 	unsigned int sequence() const { return sequence_; }
+
+	// Configuration getters
+	unsigned int width() const { return width_; }
+	unsigned int height() const { return height_; }
+	PixelFormat pixelFormat() const { return libcamera::formats::SBGGR10; }
+	unsigned int bufferCount() const { return 4; }
 
 private:
 	void run() override;
@@ -60,6 +72,9 @@ private:
 	std::mutex queueMutex_;
 	std::queue<FrameBuffer*> bufferQueue_;
 	std::condition_variable bufferCV_;
+
+	// Frame buffer management (VirtualCamera owns its buffers)
+	std::vector<std::unique_ptr<FrameBuffer>> frameBuffers_;
 };
 
 } /* namespace libcamera */

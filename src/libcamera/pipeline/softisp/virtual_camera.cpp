@@ -1,3 +1,4 @@
+#include "softisp.h"
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
  * Copyright (C) 2024
@@ -167,5 +168,60 @@ void VirtualCamera::run() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(33));
 	}
 }
+
+
+// ============================================================================
+// Camera-like interface (VirtualCamera as a real camera object)
+// ============================================================================
+
+std::unique_ptr<CameraConfiguration> VirtualCamera::generateConfiguration(Span<const StreamRole> roles) {
+	LOG(VirtualCamera, Info) << "VirtualCamera::generateConfiguration called";
+	// Create configuration using SoftISPConfiguration
+	// Note: We return unique_ptr<CameraConfiguration> as required by the interface
+	auto config = std::make_unique<SoftISPConfiguration>();
+	
+	if (roles.empty()) {
+		return config;
+	}
+	
+	for (const auto& role : roles) {
+		switch (role) {
+			case StreamRole::StillCapture:
+			case StreamRole::VideoRecording:
+			case StreamRole::Viewfinder:
+				break;
+			case StreamRole::Raw:
+			default:
+				LOG(VirtualCamera, Error) << "Unsupported stream role: " << role;
+				return nullptr;
+		}
+		
+		// Create stream configuration
+		std::map<PixelFormat, std::vector<SizeRange>> streamFormats;
+		PixelFormat pixelFormat = formats::SBGGR10; // Bayer RGGB 10-bit
+		streamFormats[pixelFormat] = { SizeRange(Size(width_, height_), Size(width_, height_)) };
+		
+		StreamFormats formats(streamFormats);
+		auto cfg = StreamConfiguration(formats);
+		cfg.pixelFormat = pixelFormat;
+		cfg.size = Size(width_, height_);
+		cfg.bufferCount = bufferCount();
+		cfg.colorSpace = ColorSpace::Rec709;
+		
+		config->addConfiguration(cfg);
+	}
+	
+	auto status = config->validate();
+	if (status == CameraConfiguration::Invalid) {
+		LOG(VirtualCamera, Error) << "Invalid configuration";
+		return nullptr;
+	}
+	
+	LOG(VirtualCamera, Info) << "Generated config: " << width_ << "x" << height_;
+	return config;
+}
+
+
+
 
 } /* namespace libcamera */

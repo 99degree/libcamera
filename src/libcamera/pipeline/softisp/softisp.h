@@ -51,6 +51,9 @@ public:
     FrameBuffer* getBufferFromId(uint32_t bufferId);
     void storeBuffer(uint32_t bufferId, FrameBuffer *buffer);
 std::unique_ptr<CameraConfiguration> generateConfiguration(Span<const StreamRole> roles);
+	// Get VirtualCamera (acts as a real camera object)
+	VirtualCamera *virtualCamera() { return virtualCamera_.get(); }
+	const VirtualCamera *virtualCamera() const { return virtualCamera_.get(); }
 
     struct StreamConfig {
         Stream *stream = nullptr;
