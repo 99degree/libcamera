@@ -4,11 +4,11 @@
 #include <libcamera/base/utils.h>
 #include <cstdlib>
 
-LOG_DEFINE_CATEGORY(SoftIsp)
-
 namespace libcamera {
 namespace ipa {
 namespace soft {
+
+LOG_DEFINE_CATEGORY(SoftIsp)
 
 using libcamera::SharedFD;
 using libcamera::ControlList;

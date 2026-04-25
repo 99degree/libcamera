@@ -88,8 +88,6 @@ public:
     int exportFrameBuffers(const Stream* stream,
                           std::vector<std::unique_ptr<FrameBuffer>>* buffers);
     int start();
-    void stop();
-    int queueRequest(Request* request);
 
 	void processRequest(Request *request);
 	FrameBuffer* getBufferFromId(uint32_t bufferId);
