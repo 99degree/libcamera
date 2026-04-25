@@ -8,19 +8,16 @@ int SoftISPCameraData::init()
     LOG(SoftISPPipeline, Info) << "Initializing SoftISPCameraData";
 
     isVirtualCamera = true;
+    
+    // Create a new independent VirtualCamera instance (inherits from Thread)
     virtualCamera_ = std::make_unique<VirtualCamera>();
-    int ret = virtualCamera_->init(1920, 1080);
-    if (ret) {
-        LOG(SoftISPPipeline, Error) << "Failed to initialize VirtualCamera";
-        return ret;
+    
+    if (!virtualCamera_) {
+        LOG(SoftISPPipeline, Error) << "Failed to create VirtualCamera instance";
+        return -ENOMEM;
     }
 
-    // Set the frameDone callback to notify when a frame is processed
-    virtualCamera_->setFrameDoneCallback([this](unsigned int frame, uint32_t bufferId) {
-        this->frameDone(frame, bufferId);
-    });
-
-    LOG(SoftISPPipeline, Info) << "VirtualCamera initialized (waiting for start())";
+    LOG(SoftISPPipeline, Info) << "VirtualCamera instance created (Thread-based, independent)";
     return 0;
 }
 
