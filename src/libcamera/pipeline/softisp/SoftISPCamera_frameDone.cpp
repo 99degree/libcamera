@@ -24,7 +24,7 @@ void SoftISPCameraData::frameDone(unsigned int frameId, unsigned int bufferId)
     }
 
     // Create metadata (in a real implementation, this would come from IPA processing)
-    ControlList metadata(controls::controls);
+    ControlList metadata(0);
     metadata.add(controls::FrameDuration, 33333LL); // 30fps
     metadata.add(controls::AeState, controls::AeStateConverged);
     metadata.add(controls::AwbState, controls::AwbStateConverged);

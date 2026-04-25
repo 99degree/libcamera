@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include "softisp.h"
+#include <chrono>
+#include <libcamera/base/log.h>
 
 void SoftIsp::computeParams(const uint32_t frame)
 {
-	if (!impl_->initialized) {
-		return;
-	}
-
-	// TODO: Use algoEngine to compute parameters if needed
+    auto _cp_start = std::chrono::high_resolution_clock::now();
+    LOG(IPASoftISP, Info) << "computeParams: frame=" << frame;
+    auto _cp_end = std::chrono::high_resolution_clock::now();
+    auto _cp_us = std::chrono::duration_cast<std::chrono::microseconds>(_cp_end - _cp_start).count();
+    LOG(IPASoftISP, Info) << "computeParams completed in " << _cp_us << " μs";
 }

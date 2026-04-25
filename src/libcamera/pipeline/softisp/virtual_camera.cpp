@@ -13,7 +13,6 @@
 
 namespace libcamera {
 
-LOG_DEFINE_CATEGORY(VirtualCamera)
 
 VirtualCamera::VirtualCamera()
     : Thread("VirtualCamera")
@@ -166,9 +165,9 @@ void VirtualCamera::setIPAInterface(libcamera::ipa::soft::IPASoftInterface *ipa)
 {
     ipaInterface_ = ipa;
     if (ipa) {
-        LOG(VirtualCamera, Info) << "IPA interface set, frames will be processed";
+        LOG(VirtualCamera, Info) << "IPA interface set - frames will be processed through IPA";
     } else {
-        LOG(VirtualCamera, Info) << "No IPA interface, frames will be generated directly";
+        LOG(VirtualCamera, Info) << "No IPA interface - frames will be generated directly";
     }
 }
 
@@ -204,71 +203,6 @@ ControlList VirtualCamera::generateMetadata([[maybe_unused]] unsigned int frame)
     metadata.add(controls::SensorTemperature, 35.0f);
     metadata.add(controls::LensPosition, 1.0f);
     return metadata;
-}
-
-void VirtualCamera::processWithIPA(FrameBuffer *buffer, Request *request)
-{
-    if (!ipaInterface_) {
-        LOG(VirtualCamera, Warning) << "No IPA interface, skipping IPA processing";
-        processFrame(buffer, request);
-        return;
-    }
-
-    LOG(VirtualCamera, Debug) << "Processing frame through IPA";
-
-    // Get buffer data
-    const auto &plane = buffer->planes()[0];
-    void *mem = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE, 
-                     MAP_SHARED, plane.fd.get(), 0);
-    
-    if (mem == MAP_FAILED) {
-        LOG(VirtualCamera, Error) << "Failed to map buffer for IPA";
-        return;
-    }
-
-    const uint8_t *inputData = static_cast<const uint8_t*>(mem);
-    size_t inputSize = plane.length;
-
-    // Create a temporary buffer for IPA output
-    // In a real implementation, we'd use a double-buffered approach
-    uint8_t *outputData = static_cast<uint8_t*>(mem); // For now, process in-place
-
-    // Call IPA processFrame
-    ControlList controls = request->metadata();
-    int ret = ipaInterface_->processFrame(
-        inputData, inputSize,
-        outputData, inputSize,
-        controls
-    );
-
-    if (ret < 0) {
-        LOG(VirtualCamera, Warning) << "IPA processFrame failed, using raw data";
-    } else {
-        LOG(VirtualCamera, Debug) << "IPA processFrame completed successfully";
-    }
-
-    munmap(mem, plane.length);
-
-    // Generate metadata from IPA if needed
-    ControlList metadata = generateMetadata(sequence_);
-    
-    // Merge with request metadata
-    request->metadata().merge(metadata);
-
-    // Call frameDone callback
-    if (frameDoneCallback_) {
-        uint32_t bufferId = buffer->planes()[0].fd.get();
-        frameDoneCallback_(sequence_, bufferId);
-    }
-
-    // Mark buffer as free
-    std::lock_guard<std::mutex> lock(bufferUsageMutex_);
-    for (size_t i = 0; i < buffers_.size(); i++) {
-        if (buffers_[i] == buffer) {
-            bufferInUse_[i] = false;
-            break;
-        }
-    }
 }
 
 void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
@@ -398,12 +332,32 @@ void VirtualCamera::run()
         }
         
         if (buffer) {
-            // Route through IPA if available, otherwise process directly
+            // If IPA interface is available, call IPA methods
             if (ipaInterface_) {
-                processWithIPA(buffer, request);
-            } else {
-                processFrame(buffer, request);
+                LOG(VirtualCamera, Debug) << "Processing frame through IPA";
+                
+                // Call IPA computeParams (if available)
+                try {
+                    ipaInterface_->computeParams(sequence_);
+                } catch (...) {
+                    LOG(VirtualCamera, Warning) << "computeParams() failed";
+                }
+                
+                // Call IPA processStats (if available)
+                ControlList stats;
+                try {
+                    uint32_t bufferId = buffer->planes()[0].fd.get();
+                    ipaInterface_->processStats(sequence_, bufferId, stats);
+                    
+                    // Merge stats into request metadata
+                    request->metadata().merge(stats);
+                } catch (...) {
+                    LOG(VirtualCamera, Warning) << "processStats() failed";
+                }
             }
+            
+            // Generate the frame (Bayer pattern)
+            processFrame(buffer, request);
         }
         
         std::this_thread::sleep_for(std::chrono::milliseconds(33));

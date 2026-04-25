@@ -5,7 +5,6 @@
 #include <cstdlib>
 
 LOG_DEFINE_CATEGORY(SoftIsp)
-LOG_DEFINE_CATEGORY(IPASoftISP)
 
 namespace libcamera {
 namespace ipa {
@@ -28,7 +27,6 @@ SoftIsp::~SoftIsp() = default;
 #include "SoftIsp_queueRequest.cpp"
 #include "SoftIsp_computeParams.cpp"
 #include "SoftIsp_processStats.cpp"
-#include "SoftIsp_processFrame.cpp"
 #include "SoftIsp_logPrefix.cpp"
 
 } /* namespace soft */
