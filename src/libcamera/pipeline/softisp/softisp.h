@@ -108,6 +108,7 @@ public:
 	std::unique_ptr<ipa::soft::IPASoftIspInterface> ipa_;
 	std::unique_ptr<VirtualCamera> virtualCamera_;
     libcamera::ipa::soft::IPASoftInterface *ipaInterface_ = nullptr;
+    std::unique_ptr<IPAInterface> ipaInterfaceOwned_;
     // Track active requests: bufferId -> Request*
     std::map<unsigned int, Request*> activeRequests_;
     std::mutex requestsMutex_;
@@ -130,6 +131,7 @@ public:
 	bool resetCreated_ = false;
 	std::unique_ptr<VirtualCamera> virtualCamera_;
     libcamera::ipa::soft::IPASoftInterface *ipaInterface_ = nullptr;
+    std::unique_ptr<IPAInterface> ipaInterfaceOwned_;
     // Track active requests: bufferId -> Request*
     std::map<unsigned int, Request*> activeRequests_;
     std::mutex requestsMutex_;
