@@ -5,7 +5,7 @@ int SoftISPCameraData::configure(CameraConfiguration *config)
 {
     LOG(SoftISPPipeline, Info) << "Configuring camera with " << config->size() << " streams";
     
-    if (!virtualCamera("default")) {
+    if (!virtualCamera_) {
         LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
         return -EINVAL;
     }

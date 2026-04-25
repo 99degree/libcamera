@@ -2,12 +2,12 @@
 #include "softisp.h"
 #include <cstdlib>
 
-int32_t SoftIsp::init(const libcamera::ipa::IPASettings & /*settings*/,
+int32_t SoftIsp::init(const libcamera::ipa::soft::IPASettings & /*settings*/,
 		      const libcamera::SharedFD &fdStats,
 		      const libcamera::SharedFD &fdParams,
-		      const libcamera::ipa::IPACameraSensorInfo &sensorInfo,
+		      const libcamera::ipa::soft::IPACameraSensorInfo &sensorInfo,
 		      const libcamera::ControlInfoMap & /*sensorControls*/,
-		      ControlInfoMap * /*ipaControls*/,
+		      libcamera::ControlInfoMap * /*ipaControls*/,
 		      bool * /*ccmEnabled*/)
 {
 	impl_->imageWidth = sensorInfo.outputSize.width;

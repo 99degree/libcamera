@@ -17,8 +17,18 @@
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/dma_buf_allocator.h"
 #include <libcamera/ipa/softisp_ipa_proxy.h>
+#include "virtual_camera.h"
 
 namespace libcamera {
+// Forward declaration of the log category
+extern const LogCategory &SoftISPPipeline;
+
+// Define the log category for SoftISP pipeline
+
+// Forward declaration of the log category reference
+extern const LogCategory &SoftISPPipeline;
+
+// Define a static const reference to the category for easy use with LOG macro
 
 class SoftISPConfiguration : public libcamera::CameraConfiguration {
 public:
@@ -28,21 +38,12 @@ public:
 
 /* Forward declarations */
 class PipelineHandlerSoftISP;
-class VirtualCamera;
 
-/*
- * StreamConfig - Stream configuration structure.
- * Must be defined before SoftISPCameraData since it's used as a member.
- */
 struct StreamConfig {
 	Stream *stream = nullptr;
 	unsigned int seq = 0;
 };
 
-/*
- * FrameInfo - Tracks pending requests for async processing.
- * Matches rkisp1/ipu3 pattern: tracks metadata and frame completion separately.
- */
 struct SoftISPFrameInfo {
 	unsigned int frame;
 	Request *request;
@@ -55,53 +56,48 @@ struct SoftISPFrameInfo {
 		  metadataReceived(false), frameReceived(false) {}
 };
 
-/*
- * FrameInfo manager - Tracks pending requests (matches rkisp1/ipu3 pattern).
- */
 class SoftISPFrames {
 public:
 	SoftISPFrames() = default;
+	SoftISPFrames(const SoftISPFrames &) = delete;
+	SoftISPFrames &operator=(const SoftISPFrames &) = delete;
+	SoftISPFrames(SoftISPFrames &&) = delete;
+	SoftISPFrames &operator=(SoftISPFrames &&) = delete;
 
 	SoftISPFrameInfo *create(Request *request, FrameBuffer *buffer, unsigned int frameId);
 	SoftISPFrameInfo *find(unsigned int frame);
 	int destroy(unsigned int frame);
-
 	bool tryCompleteRequest(SoftISPFrameInfo *info);
 
 private:
 	std::map<unsigned int, std::unique_ptr<SoftISPFrameInfo>> frameInfo_;
 };
 
-/*
- * SoftISPCameraData - Camera data structure for SoftISP pipeline.
- * Supports both real V4L2 cameras and virtual test cameras.
- * 
- * OWNERSHIP:
- * - CameraData owns the IPA instance (ipa_)
- * - Pipeline accesses IPA through CameraData
- */
-class SoftISPCameraData : public Camera::Private, public Thread {
+class SoftISPCameraData : public Camera::Private {
 public:
 	SoftISPCameraData(PipelineHandlerSoftISP *pipe);
 	~SoftISPCameraData();
 
 	int init();
 	int loadIPA();
-	void run() override;
+	int configure(CameraConfiguration *config);
+	int start(const ControlList *controls = nullptr);
+	void stop();
+	
+	int queueRequest(Request *request);
 	void processRequest(Request *request);
+	
 	FrameBuffer* getBufferFromId(uint32_t bufferId);
 	void storeBuffer(uint32_t bufferId, FrameBuffer *buffer);
+	int exportFrameBuffers(Stream *stream, std::vector<std::unique_ptr<FrameBuffer>> *buffers);
 	std::unique_ptr<CameraConfiguration> generateConfiguration(Span<const StreamRole> roles);
 
-	// FrameInfo tracking (async pattern)
 	SoftISPFrames frameInfo_;
 
-	// Callbacks
 	void metadataReady(unsigned int frame, const ControlList &metadata);
 	void frameDone(unsigned int frame, unsigned int bufferId);
 	void tryCompleteRequest(SoftISPFrameInfo *info);
 
-	// IPA accessors (CameraData owns IPA, Pipeline accesses via getter)
 	ipa::soft::IPASoftIspInterface *ipa() const { return ipa_.get(); }
 
 	std::unique_ptr<ipa::soft::IPASoftIspInterface> ipa_;
@@ -111,22 +107,16 @@ public:
 	Mutex mutex_;
 	std::map<uint32_t, FrameBuffer*> bufferMap_;
 
-	// Real camera support
 	std::shared_ptr<MediaDevice> mediaDevice_;
-	/* std::unique_ptr<V4L2VideoDevice> captureDevice_; */
 	bool isVirtualCamera = true;
 };
 
-/*
- * Pipeline handler for SoftISP with both real and virtual cameras.
- * Prioritizes real V4L2 cameras, falls back to virtual camera if none found.
- */
 class PipelineHandlerSoftISP : public PipelineHandler {
 public:
 	static bool created_;
 	static bool s_virtualCameraRegistered;
 	bool resetCreated_ = false;
-	std::shared_ptr<Camera> virtualCamera_;
+	std::unique_ptr<VirtualCamera> virtualCamera_;
 
 	PipelineHandlerSoftISP(CameraManager *manager);
 	~PipelineHandlerSoftISP();

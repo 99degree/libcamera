@@ -11,8 +11,5 @@ PipelineHandlerSoftISP::PipelineHandlerSoftISP(CameraManager *manager)
 {
 }
 
-PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
-{
-}
 
 } /* namespace libcamera */

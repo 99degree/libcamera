@@ -10,7 +10,7 @@ void SoftISPCameraData::processRequest(Request *request)
         return;
     }
     
-    if (!virtualCamera("default")) {
+    if (!virtualCamera_) {
         LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
         return;
     }
@@ -37,7 +37,7 @@ void SoftISPCameraData::processRequest(Request *request)
     LOG(SoftISPPipeline, Debug) << "Processing buffer: " << buffer;
     
     // Queue the buffer to VirtualCamera for processing
-    virtualCamera("default")->queueBuffer(buffer);
+    virtualCamera_->queueBuffer(buffer);
     
     LOG(SoftISPPipeline, Debug) << "Processed frame queued to VirtualCamera";
     LOG(SoftISPPipeline, Info) << "Request processing complete (virtual mode)";

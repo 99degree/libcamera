@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+#include <libcamera/formats.h>
 namespace libcamera {
 
 std::unique_ptr<CameraConfiguration> SoftISPCameraData::generateConfiguration(Span<const StreamRole> roles)
 {
     LOG(SoftISPPipeline, Info) << "SoftISPCameraData::generateConfiguration called";
     
-    if (!virtualCamera("default")) {
+    if (!virtualCamera_) {
         LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
         return nullptr;
     }
@@ -33,9 +34,9 @@ std::unique_ptr<CameraConfiguration> SoftISPCameraData::generateConfiguration(Sp
     }
     
     // Use default configuration if no roles or after processing roles
-    unsigned int width = virtualCamera("default")->width();
-    unsigned int height = virtualCamera("default")->height();
-    unsigned int bufferCount = virtualCamera("default")->bufferCount();
+    unsigned int width = virtualCamera_->width();
+    unsigned int height = virtualCamera_->height();
+    unsigned int bufferCount = virtualCamera_->bufferCount();
     
     // Create a simple stream configuration
     std::vector<StreamConfiguration> streamConfigs;

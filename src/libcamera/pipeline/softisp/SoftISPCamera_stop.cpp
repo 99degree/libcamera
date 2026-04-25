@@ -3,13 +3,16 @@ namespace libcamera {
 
 void SoftISPCameraData::stop()
 {
-    LOG(SoftISPPipeline, Info) << "Stopping camera";
-    
-    // Stop all VirtualCamera instances
-    for (auto& [key, virtCam] : virtualCameras_) {
-        virtCam->stop();
-        LOG(SoftISPPipeline, Info) << "VirtualCamera stopped: " << key;
-    }
+	LOG(SoftISPPipeline, Info) << "Stopping camera";
+	
+	// Stop the VirtualCamera
+	if (virtualCamera_) {
+		virtualCamera_->stop();
+		LOG(SoftISPPipeline, Info) << "VirtualCamera stopped";
+	}
+	
+	running_ = false;
+	// Note: No Thread::exit() or wait() because SoftISPCameraData doesn't have its own thread
 }
 
 } /* namespace libcamera */

@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#include "softisp.h"
-
 namespace libcamera {
 
 SoftISPCameraData::~SoftISPCameraData()
 {
-	Thread::exit(false);
-	wait();
+	LOG(SoftISPPipeline, Info) << "Destroying SoftISPCameraData";
+	
+	// Stop the VirtualCamera if running
+	if (running_ && virtualCamera_) {
+		virtualCamera_->stop();
+	}
 }
 
 } /* namespace libcamera */
