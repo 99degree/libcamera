@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /**
-// * IMPORTANT: This interface definition must match include/libcamera/ipa/softisp.mojom exactly.
-// * Always refer to softisp.mojom when modifying method signatures.
  * SoftIsp - ONNX-based Image Processing Algorithm
+ *
+ * IMPORTANT: This interface definition must match include/libcamera/ipa/softisp.mojom exactly.
+ * Always refer to softisp.mojom when modifying method signatures.
  */
+
 #pragma once
 
 #include <memory>
@@ -30,7 +32,6 @@
 #include <libcamera/controls.h>
 #include <libcamera/geometry.h>
 #include <libcamera/base/log.h>
-#include <libcamera/base/log.h>
 
 namespace libcamera {
 namespace ipa {
@@ -47,7 +48,7 @@ public:
 
 	int loadModel(const std::string &modelPath);
 	int runInference(const std::vector<float> &inputs, std::vector<float> &outputs);
-	
+
 	const std::vector<const char*> &getInputNames() const { return inputNames_; }
 	const std::vector<const char*> &getOutputNames() const { return outputNames_; }
 	bool isLoaded() const { return session_ != nullptr; }
@@ -80,59 +81,55 @@ public:
 
 	// Signal for metadata completion
 	libcamera::Signal<uint32_t, const ControlList &> metadataReady;
-	
-	// Signal for frame completion  
+
+	// Signal for frame completion
 	libcamera::Signal<uint32_t, uint32_t> frameDone;
 
 	// Initialization
 	int32_t init(const IPASettings &settings,
-	             const SharedFD &fdStats,
-	             const SharedFD &fdParams,
-	             const IPACameraSensorInfo &sensorInfo,
-	             const ControlInfoMap &sensorControls,
-	             ControlInfoMap *ipaControls,
-	             bool *ccmEnabled);
-
+		     const SharedFD &fdStats,
+		     const SharedFD &fdParams,
+		     const IPACameraSensorInfo &sensorInfo,
+		     const ControlInfoMap &sensorControls,
+		     ControlInfoMap *ipaControls,
+		     bool *ccmEnabled);
 	int32_t start();
 	void stop();
-
 	int32_t configure(const IPAConfigInfo &configInfo);
-
-	void queueRequest(const uint32_t frame,
-	                  const ControlList &sensorControls);
-
+	void queueRequest(const uint32_t frame, const ControlList &sensorControls);
 	void computeParams(const uint32_t frame);
-
 	void processStats(uint32_t frame, uint32_t bufferId, const libcamera::ControlList &stats);
-
 	void processFrame(const uint32_t frame,
-	                  const uint32_t bufferId,
-	                  const SharedFD &bufferFd,
-	                  const int32_t planeIndex,
-	                  const int32_t width,
-	                  const int32_t height,
-	                  const ControlList &results);
+			  uint32_t bufferId,
+			  const SharedFD &bufferFd,
+			  const int32_t planeIndex,
+			  const int32_t width,
+			  const int32_t height,
+			  const ControlList &results);
 
 	std::string logPrefix() const;
 
 private:
 	struct Impl {
-		OnnxEngine algoEngine;    // For stats → AWB/AE
+		OnnxEngine algoEngine; // For stats → AWB/AE
 		OnnxEngine applierEngine; // For Bayer → RGB/YUV
 		uint32_t imageWidth = 0;
 		uint32_t imageHeight = 0;
 		bool initialized = false;
-		SharedFD fdStats_;        // Stats buffer FD
-		SharedFD fdParams_;       // Params buffer FD
+		SharedFD fdStats_; // Stats buffer FD
+		SharedFD fdParams_; // Params buffer FD
+
+		// Current AWB gains (updated by processStats, used by processFrame)
+		float currentRedGain = 1.0f;
+		float currentBlueGain = 1.0f;
 	};
 
 	std::unique_ptr<Impl> impl_;
 };
 
-
-
 // Log category for SoftISP IPA (defined in softisp.cpp)
 extern const LogCategory &IPASoftISP;
+
 } /* namespace soft */
 } /* namespace ipa */
 } /* namespace libcamera */
