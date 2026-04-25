@@ -12,14 +12,16 @@ int SoftIsp::processStats(const uint32_t *stats, size_t statsSize,
 {
     auto startTime = std::chrono::high_resolution_clock::now();
     
-    LOG(IPASoftISP, Debug) << "=== processStats() started ===";
+    // === ORIGINAL LOGIC STARTS HERE ===
+    // Placeholder implementation - no actual stats processing yet
+    // In a real implementation, this would extract AWB/AE parameters from stats
     
-    // Placeholder: Extract stats and calculate AWB/AE
-    // In a real implementation, process the stats data here
-    
-    // Add dummy metadata
+    // Add some dummy metadata for testing
     metadata.add(controls::AeState, controls::AeStateConverged);
     metadata.add(controls::AwbState, controls::AwbStateConverged);
+    metadata.add(controls::Brightness, 0.0f);
+    metadata.add(controls::Contrast, 1.0f);
+    // === ORIGINAL LOGIC ENDS HERE ===
     
     auto endTime = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
