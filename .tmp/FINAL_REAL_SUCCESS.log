@@ -1,0 +1,42 @@
+[92:39:09.428488906] [23063]  INFO IPAManager ipa_manager.cpp:147 libcamera is not installed. Adding '/data/data/com.termux/files/home/libcamera1/build/src/ipa' to the IPA search path
+[92:39:09.428921249] [23063]  INFO Camera camera_manager.cpp:343 libcamera v0.7.0+582-7e256370-dirty (2026-04-25T19:45:43HKT)
+[92:39:09.430811822] [23064]  WARN DeviceEnumerator device_enumerator_sysfs.cpp:87 Device node /dev/media0 should exist but doesn't
+DEBUG match() called
+DEBUG match(): creating camera data
+[92:39:09.430940885] [23064]  INFO SoftISPPipeline SoftISPCamera_constructor.cpp:7 SoftISPCameraData created
+DEBUG match(): data=0xb400006eb0c0a410
+[92:39:09.430973541] [23064]  INFO SoftISPPipeline SoftISPCamera_init.cpp:8 Initializing SoftISPCameraData
+[92:39:09.430994062] [23064]  INFO SoftISPPipeline SoftISPCamera_init.cpp:20 VirtualCamera instance created (Thread-based, independent)
+DEBUG match(): calling Camera::create() with 1 stream(s)
+DEBUG match(): stream address: 0xb400006e10bf9660
+DEBUG match(): camera=0xb400006f10c15990
+DEBUG match(): calling registerCamera()
+[92:39:09.431061926] [23064]  INFO Camera camera_manager.cpp:226 Adding camera 'softisp_virtual' for pipeline handler softisp
+DEBUG match(): returning true
+DEBUG match() called
+DEBUG match(): already created, returning false
+[92:39:09.431094114] [23064]  INFO SoftISPPipeline PipelineSoftISP_destructor.cpp:6 Destroying PipelineHandlerSoftISP
+DEBUG PipelineHandler::generateConfiguration called
+DEBUG camera=0xb400006f10c15990
+DEBUG data=0xb400006eb0c0a410
+DEBUG delegating to data->generateConfiguration()
+DEBUG generateConfiguration: roles.size()=1
+DEBUG generateConfiguration: initialStream_ address: 0xb400006e10bf9660
+DEBUG generateConfiguration: config created
+DEBUG generateConfiguration: role=3
+DEBUG generateConfiguration: 0x0, buffers=0
+DEBUG generateConfiguration: invalid dimensions
+DEBUG: config=null, config->size()=N/A, rolesIt.size()=1
+DEBUG PipelineHandler::generateConfiguration called
+DEBUG camera=0xb400006f10c15990
+DEBUG data=0xb400006eb0c0a410
+DEBUG delegating to data->generateConfiguration()
+DEBUG generateConfiguration: roles.size()=1
+DEBUG generateConfiguration: initialStream_ address: 0xb400006e10bf9660
+DEBUG generateConfiguration: config created
+DEBUG generateConfiguration: role=0
+DEBUG generateConfiguration: 0x0, buffers=0
+DEBUG generateConfiguration: invalid dimensions
+DEBUG: config=null, config->size()=N/A, rolesIt.size()=1
+Failed to get default stream configuration
+Failed to create camera session

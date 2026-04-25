@@ -3,35 +3,15 @@
 
 namespace libcamera {
 
-int SoftISPCameraData::configure([[maybe_unused]] Camera *camera, CameraConfiguration *config)
+int SoftISPCameraData::configure([[maybe_unused]] CameraConfiguration *config)
 {
-    LOG(SoftISPPipeline, Info) << "Configuring camera (delegating to VirtualCamera)";
-
-    if (!virtualCamera_) {
-        LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
-        return -EINVAL;
+    LOG(SoftISPPipeline, Info) << "Configuring camera";
+    
+    // Initialize the frame generator if needed
+    if (frameGenerator_) {
+        // Frame generator is already initialized
     }
-
-    // Extract resolution from config
-    const auto &streamConfig = config->at(0);
-    unsigned int width = streamConfig.size.width;
-    unsigned int height = streamConfig.size.height;
-
-    // Initialize VirtualCamera with the requested resolution
-    int ret = virtualCamera_->init(width, height);
-    if (ret) {
-        LOG(SoftISPPipeline, Error) << "Failed to initialize VirtualCamera";
-        return ret;
-    }
-
-    // Allocate buffers in VirtualCamera
-    ret = virtualCamera_->allocateBuffers(4);
-    if (ret) {
-        LOG(SoftISPPipeline, Error) << "Failed to allocate buffers";
-        return ret;
-    }
-
-    LOG(SoftISPPipeline, Info) << "Configuration complete (VirtualCamera manages buffers)";
+    
     return 0;
 }
 

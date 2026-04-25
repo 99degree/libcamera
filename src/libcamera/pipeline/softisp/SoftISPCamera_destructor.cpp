@@ -6,8 +6,8 @@ SoftISPCameraData::~SoftISPCameraData()
 	LOG(SoftISPPipeline, Info) << "Destroying SoftISPCameraData";
 	
 	// Stop the VirtualCamera if running
-	if (running_ && virtualCamera_) {
-		virtualCamera_->stop();
+	if (running_ && frameGenerator_) {
+		frameGenerator_->stop();
 	}
 }
 

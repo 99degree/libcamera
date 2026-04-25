@@ -35,13 +35,8 @@ static const LogCategory &SoftISPPipeline = _LOG_CATEGORY(SoftISPPipeline)();
 #include "SoftISPCamera_destructor.cpp"
 #include "SoftISPCamera_init.cpp"
 #include "SoftISPCamera_loadIPA.cpp"
-#include "SoftISPCamera_start.cpp"
-#include "SoftISPCamera_stop.cpp"
 #include "SoftISPCamera_queueRequest.cpp"
-#include "SoftISPCamera_exportFrameBuffers.cpp"
 #include "SoftISPCamera_generateConfiguration.cpp"
-#include "SoftISPCamera_configure.cpp"
-#include "SoftISPCamera_processRequest.cpp"
 #include "SoftISPCamera_getBufferFromId.cpp"
 #include "SoftISPCamera_storeBuffer.cpp"
 #include "SoftISPCamera_data.cpp"
@@ -56,3 +51,11 @@ namespace libcamera {
 static PipelineHandlerFactory<PipelineHandlerSoftISP> global_PipelineHandlerSoftISPFactory("softisp");
 } /* namespace libcamera */
 #include "SoftISPCamera_frameDone.cpp"
+
+// Additional Camera methods
+#include "SoftISPCamera_start.cpp"
+#include "SoftISPCamera_stop.cpp"
+#include "SoftISPCamera_exportFrameBuffers.cpp"
+#include "SoftISPCamera_configure.cpp"
+
+// Initialize static member

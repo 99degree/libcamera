@@ -9,10 +9,10 @@
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 #include <libcamera/controls.h>
-#include <libcamera/ipa/soft_ipa_interface.h>
 
 namespace libcamera {
 
+LOG_DEFINE_CATEGORY(VirtualCamera)
 
 VirtualCamera::VirtualCamera()
     : Thread("VirtualCamera")
@@ -86,8 +86,6 @@ int VirtualCamera::allocateBuffers(unsigned int count)
     bufferInUse_.resize(count, false);
     
     for (unsigned int i = 0; i < count; i++) {
-        auto buffer = new FrameBuffer();
-        
         int fd = memfd_create("virtual_camera_buffer", MFD_CLOEXEC);
         if (fd < 0) {
             LOG(VirtualCamera, Error) << "Failed to create buffer fd";
@@ -98,7 +96,6 @@ int VirtualCamera::allocateBuffers(unsigned int count)
         if (ftruncate(fd, bufferSize) < 0) {
             LOG(VirtualCamera, Error) << "Failed to set buffer size";
             close(fd);
-            delete buffer;
             releaseBuffers();
             return -errno;
         }
@@ -106,9 +103,12 @@ int VirtualCamera::allocateBuffers(unsigned int count)
         FrameBuffer::Plane plane;
         plane.fd = SharedFD(fd);
         plane.length = bufferSize;
-        // plane.memoryOffset = 0;
         
-        buffer->planes().push_back(std::move(plane));
+        std::vector<FrameBuffer::Plane> planes;
+        planes.push_back(std::move(plane));
+        
+        bufferFds_.push_back(fd);
+        auto buffer = new FrameBuffer(planes);
         buffers_.push_back(buffer);
     }
     
@@ -126,6 +126,7 @@ void VirtualCamera::releaseBuffers()
     }
     
     buffers_.clear();
+    bufferFds_.clear();
     bufferInUse_.clear();
 }
 
@@ -161,16 +162,6 @@ void VirtualCamera::queueRequest(Request *request)
     bufferCV_.notify_one();
 }
 
-void VirtualCamera::setIPAInterface(libcamera::ipa::soft::IPASoftInterface *ipa)
-{
-    ipaInterface_ = ipa;
-    if (ipa) {
-        LOG(VirtualCamera, Info) << "IPA interface set - frames will be processed through IPA";
-    } else {
-        LOG(VirtualCamera, Info) << "No IPA interface - frames will be generated directly";
-    }
-}
-
 void VirtualCamera::setFrameDoneCallback(
     std::function<void(unsigned int, unsigned int)> callback)
 {
@@ -199,9 +190,6 @@ bool VirtualCamera::hasAvailableBuffer()
 ControlList VirtualCamera::generateMetadata([[maybe_unused]] unsigned int frame)
 {
     ControlList metadata;
-    // metadata.add(controls::FrameDuration, 33333LL);
-    // metadata.add(controls::SensorTemperature, 35.0f);
-    // metadata.add(controls::LensPosition, 1.0f);
     return metadata;
 }
 
@@ -212,7 +200,6 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, [[maybe_unused]] Request *
         return;
     }
 
-    // Mark buffer as in use
     {
         std::lock_guard<std::mutex> lock(bufferUsageMutex_);
         for (size_t i = 0; i < buffers_.size(); i++) {
@@ -238,7 +225,6 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, [[maybe_unused]] Request *
 
     uint8_t *data = static_cast<uint8_t*>(mem);
 
-    // Generate Bayer pattern
     for (unsigned int y = 0; y < height_; y++) {
         for (unsigned int x = 0; x < width_; x++) {
             uint16_t pixelValue;
@@ -272,24 +258,20 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, [[maybe_unused]] Request *
 
     munmap(mem, plane.length);
 
-    // Generate metadata
     ControlList metadata = generateMetadata(sequence_);
-    
-    // Merge with request metadata
-    // Metadata merge skipped
 
-    // Call frameDone callback
     if (frameDoneCallback_) {
-        uint32_t bufferId = buffer->planes()[0].fd.get();
+        uint32_t bufferId = plane.fd.get();
         frameDoneCallback_(sequence_, bufferId);
     }
 
-    // Mark buffer as free
-    std::lock_guard<std::mutex> lock(bufferUsageMutex_);
-    for (size_t i = 0; i < buffers_.size(); i++) {
-        if (buffers_[i] == buffer) {
-            bufferInUse_[i] = false;
-            break;
+    {
+        std::lock_guard<std::mutex> lock(bufferUsageMutex_);
+        for (size_t i = 0; i < buffers_.size(); i++) {
+            if (buffers_[i] == buffer) {
+                bufferInUse_[i] = false;
+                break;
+            }
         }
     }
 }
@@ -322,7 +304,6 @@ void VirtualCamera::run()
             requestQueue_.pop();
         }
         
-        // Check if we have available buffers
         if (!hasAvailableBuffer()) {
             skippedFrames_++;
             LOG(VirtualCamera, Warning) << "All buffers in use, skipping frame " 
@@ -332,31 +313,6 @@ void VirtualCamera::run()
         }
         
         if (buffer) {
-            // If IPA interface is available, call IPA methods
-            if (ipaInterface_) {
-                LOG(VirtualCamera, Debug) << "Processing frame through IPA";
-                
-                // Call IPA computeParams (if available)
-                try {
-                    ipaInterface_->computeParams(sequence_);
-                } catch (...) {
-                    LOG(VirtualCamera, Warning) << "computeParams() failed";
-                }
-                
-                // Call IPA processStats (if available)
-                ControlList stats;
-                try {
-                    uint32_t bufferId = buffer->planes()[0].fd.get();
-                    ipaInterface_->processStats(sequence_, bufferId, stats);
-                    
-                    // Merge stats into request metadata
-                    // Metadata merge skipped
-                } catch (...) {
-                    LOG(VirtualCamera, Warning) << "processStats() failed";
-                }
-            }
-            
-            // Generate the frame (Bayer pattern)
             processFrame(buffer, request);
         }
         

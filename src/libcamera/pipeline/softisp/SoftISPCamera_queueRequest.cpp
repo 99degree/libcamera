@@ -5,7 +5,7 @@ namespace libcamera {
 
 int SoftISPCameraData::queueRequest(Request *request)
 {
-    if (!virtualCamera_) {
+    if (!frameGenerator_) {
         LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
         return -EINVAL;
     }
@@ -33,7 +33,7 @@ int SoftISPCameraData::queueRequest(Request *request)
     }
 
     // Queue the request to VirtualCamera
-    virtualCamera_->queueRequest(request);
+    frameGenerator_->queueRequest(request);
 
     LOG(SoftISPPipeline, Debug) << "Request queued, bufferId=" << bufferId;
     return 0;

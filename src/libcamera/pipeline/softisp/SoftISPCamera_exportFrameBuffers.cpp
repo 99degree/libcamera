@@ -6,22 +6,22 @@ namespace libcamera {
 int SoftISPCameraData::exportFrameBuffers([[maybe_unused]] const Stream *stream,
                                           std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
-    LOG(SoftISPPipeline, Info) << "Exporting frame buffers (delegating to VirtualCamera)";
+    LOG(SoftISPPipeline, Info) << "Exporting frame buffers";
 
-    if (!virtualCamera_) {
+    if (!frameGenerator_) {
         LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
         return -EINVAL;
     }
 
     // Get buffers from VirtualCamera
-    auto &vcBuffers = virtualCamera_->getBuffers();
+    auto &vcBuffers = frameGenerator_->getBuffers();
     
     if (vcBuffers.empty()) {
         LOG(SoftISPPipeline, Error) << "No buffers allocated";
         return -EINVAL;
     }
 
-    // Export the buffers to the caller
+    // Export the buffers
     for (auto *buffer : vcBuffers) {
         buffers->push_back(std::unique_ptr<FrameBuffer>(buffer));
     }

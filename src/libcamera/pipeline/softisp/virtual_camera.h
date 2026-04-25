@@ -32,7 +32,6 @@ class IPASoftInterface;
 
 namespace libcamera {
 
-LOG_DEFINE_CATEGORY(VirtualCamera)
 
 class VirtualCamera : public Thread
 {
@@ -58,7 +57,6 @@ public:
 
     
     // Set IPA interface for frame processing
-    void setIPAInterface(libcamera::ipa::soft::IPASoftInterface *ipa);
     
     void queueRequest(Request *request);
     void setFrameDoneCallback(std::function<void(unsigned int frameId, unsigned int bufferId)> callback);
@@ -102,6 +100,7 @@ private:
     unsigned int skippedFrames_ = 0;
     
     std::vector<FrameBuffer*> buffers_;
+    std::vector<int> bufferFds_;
     std::mutex bufferMutex_;
     
     // Track which buffers are currently in use
@@ -109,7 +108,6 @@ private:
     std::mutex bufferUsageMutex_;
     
     // IPA interface for frame processing
-    libcamera::ipa::soft::IPASoftInterface *ipaInterface_ = nullptr;
     
     std::function<void(unsigned int, unsigned int)> frameDoneCallback_;
 };

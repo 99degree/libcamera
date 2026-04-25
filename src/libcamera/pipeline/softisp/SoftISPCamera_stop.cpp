@@ -5,13 +5,12 @@ namespace libcamera {
 
 void SoftISPCameraData::stop()
 {
-    LOG(SoftISPPipeline, Info) << "Stopping camera (delegating to VirtualCamera)";
-
-    if (virtualCamera_) {
-        virtualCamera_->stop();
+    LOG(SoftISPPipeline, Info) << "Stopping camera";
+    
+    // Stop the frame generator if it exists
+    if (frameGenerator_) {
+        frameGenerator_->stop();
     }
-
-    LOG(SoftISPPipeline, Info) << "Camera stopped";
 }
 
 } /* namespace libcamera */

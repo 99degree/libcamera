@@ -10,9 +10,9 @@ int SoftISPCameraData::init()
     isVirtualCamera = true;
     
     // Create a new independent VirtualCamera instance (inherits from Thread)
-    virtualCamera_ = std::make_unique<VirtualCamera>();
+    frameGenerator_ = std::make_unique<VirtualCamera>();
     
-    if (!virtualCamera_) {
+    if (!frameGenerator_) {
         LOG(SoftISPPipeline, Error) << "Failed to create VirtualCamera instance";
         return -ENOMEM;
     }

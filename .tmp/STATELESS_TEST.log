@@ -1,0 +1,20 @@
+[92:47:49.095516624] [25012]  INFO IPAManager ipa_manager.cpp:147 libcamera is not installed. Adding '/data/data/com.termux/files/home/libcamera1/build/src/ipa' to the IPA search path
+[92:47:49.095879020] [25012]  INFO Camera camera_manager.cpp:343 libcamera v0.7.0+582-7e256370-dirty (2026-04-25T19:48:04HKT)
+[92:47:49.096365426] [25013]  WARN DeviceEnumerator device_enumerator_sysfs.cpp:87 Device node /dev/media0 should exist but doesn't
+DEBUG match() called
+DEBUG match(): creating camera data
+[92:47:49.096485478] [25013]  INFO SoftISPPipeline SoftISPCamera_constructor.cpp:7 SoftISPCameraData created
+DEBUG match(): data=0xb400006ffe0171b0
+[92:47:49.096506780] [25013]  INFO SoftISPPipeline SoftISPCamera_init.cpp:8 Initializing SoftISPCameraData
+[92:47:49.096519228] [25013]  INFO SoftISPPipeline SoftISPCamera_init.cpp:20 VirtualCamera instance created (Thread-based, independent)
+DEBUG match(): calling Camera::create() with 1 stream(s)
+DEBUG match(): stream address: 0xb400006f9e016630
+DEBUG match(): camera=0xb400006f7e02ef50
+DEBUG match(): calling registerCamera()
+[92:47:49.096570582] [25013]  INFO Camera camera_manager.cpp:226 Adding camera 'softisp_virtual' for pipeline handler softisp
+DEBUG match(): returning true
+DEBUG match() called
+DEBUG match(): already created, returning false
+[92:47:49.096592926] [25013]  INFO SoftISPPipeline PipelineSoftISP_destructor.cpp:8 Destroying PipelineHandlerSoftISP
+Camera 0 not found
+Failed to create camera session

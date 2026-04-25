@@ -7,8 +7,8 @@ std::unique_ptr<CameraConfiguration> SoftISPCameraData::generateConfiguration(Sp
 {
 	std::cerr << "DEBUG generateConfiguration: roles.size()=" << roles.size() << std::endl;
 	
-	if (!virtualCamera_) {
-		std::cerr << "DEBUG generateConfiguration: virtualCamera_ is NULL" << std::endl;
+	if (!frameGenerator_) {
+		std::cerr << "DEBUG generateConfiguration: frameGenerator_ is NULL" << std::endl;
 		return nullptr;
 	}
 	
@@ -36,9 +36,9 @@ std::unique_ptr<CameraConfiguration> SoftISPCameraData::generateConfiguration(Sp
 		}
 	}
 	
-	unsigned int width = virtualCamera_->width();
-	unsigned int height = virtualCamera_->height();
-	unsigned int bufferCount = virtualCamera_->bufferCount();
+	unsigned int width = frameGenerator_->width();
+	unsigned int height = frameGenerator_->height();
+	unsigned int bufferCount = frameGenerator_->bufferCount();
 	
 	std::cerr << "DEBUG generateConfiguration: " << width << "x" << height << ", buffers=" << bufferCount << std::endl;
 	

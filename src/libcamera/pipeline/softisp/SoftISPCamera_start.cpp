@@ -3,28 +3,15 @@
 
 namespace libcamera {
 
-int SoftISPCameraData::start()
+int SoftISPCameraData::start([[maybe_unused]] const ControlList *controls)
 {
     LOG(SoftISPPipeline, Info) << "Starting camera";
-
-    if (!virtualCamera_) {
-        LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
-        return -EINVAL;
+    
+    // Start the frame generator if it exists
+    if (frameGenerator_) {
+        return frameGenerator_->start();
     }
-
-    // Set up the frameDone callback
-    virtualCamera_->setFrameDoneCallback([this](unsigned int frameId, unsigned int bufferId) {
-        this->frameDone(frameId, bufferId);
-    });
-
-    // Start the VirtualCamera thread
-    int ret = virtualCamera_->start();
-    if (ret) {
-        LOG(SoftISPPipeline, Error) << "Failed to start VirtualCamera";
-        return ret;
-    }
-
-    LOG(SoftISPPipeline, Info) << "Camera started";
+    
     return 0;
 }
 

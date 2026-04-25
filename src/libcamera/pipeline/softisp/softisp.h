@@ -87,7 +87,7 @@ public:
     int start();
 	FrameBuffer* getBufferFromId(uint32_t bufferId);
 	void storeBuffer(uint32_t bufferId, FrameBuffer *buffer);
-	int exportFrameBuffers(Stream *stream,
+	int exportFrameBuffers(const Stream *stream,
 			       std::vector<std::unique_ptr<FrameBuffer>> *buffers);
 	std::unique_ptr<CameraConfiguration> generateConfiguration(Span<const StreamRole> roles);
 
@@ -99,7 +99,7 @@ public:
 	ipa::soft::IPASoftIspInterface *ipa() const { return ipa_.get(); }
 
 	std::unique_ptr<ipa::soft::IPASoftIspInterface> ipa_;
-	std::unique_ptr<VirtualCamera> virtualCamera_;
+	std::unique_ptr<VirtualCamera> frameGenerator_;
     libcamera::ipa::soft::IPASoftInterface *ipaInterface_ = nullptr;
     std::unique_ptr<IPAInterface> ipaInterfaceOwned_;
     // Track active requests: bufferId -> Request*
@@ -119,10 +119,9 @@ public:
 
 class PipelineHandlerSoftISP : public PipelineHandler {
 public:
-	static bool created_;
 	static bool s_virtualCameraRegistered;
 	bool resetCreated_ = false;
-	std::unique_ptr<VirtualCamera> virtualCamera_;
+	std::unique_ptr<VirtualCamera> frameGenerator_;
     libcamera::ipa::soft::IPASoftInterface *ipaInterface_ = nullptr;
     std::unique_ptr<IPAInterface> ipaInterfaceOwned_;
     // Track active requests: bufferId -> Request*
