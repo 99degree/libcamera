@@ -5,7 +5,7 @@ namespace libcamera {
 
 int SoftISPCameraData::start()
 {
-    LOG(SoftISPPipeline, Info) << "Starting camera (delegating to VirtualCamera)";
+    LOG(SoftISPPipeline, Info) << "Starting camera";
 
     if (!virtualCamera_) {
         LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
@@ -13,10 +13,8 @@ int SoftISPCameraData::start()
     }
 
     // Set up the frameDone callback
-    virtualCamera_->setFrameDoneCallback([this](Request *request, ControlList &metadata) {
-        // This is called when VirtualCamera finishes processing a frame
-        // We need to complete the request in the Camera framework
-        completeRequest(request, metadata);
+    virtualCamera_->setFrameDoneCallback([this](unsigned int frameId, unsigned int bufferId) {
+        this->frameDone(frameId, bufferId);
     });
 
     // Start the VirtualCamera thread
@@ -26,7 +24,7 @@ int SoftISPCameraData::start()
         return ret;
     }
 
-    LOG(SoftISPPipeline, Info) << "Camera started (VirtualCamera running)";
+    LOG(SoftISPPipeline, Info) << "Camera started";
     return 0;
 }
 

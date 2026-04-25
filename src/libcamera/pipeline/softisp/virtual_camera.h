@@ -51,7 +51,7 @@ public:
     std::vector<FrameBuffer*>& getBuffers();
 
     void queueRequest(Request *request);
-    void setFrameDoneCallback(std::function<void(Request *request, ControlList &metadata)> callback);
+    void setFrameDoneCallback(std::function<void(unsigned int frameId, unsigned int bufferId)> callback);
 
     void setPattern(Pattern pattern);
     void setBrightness(float brightness);
@@ -64,6 +64,7 @@ public:
     unsigned int bufferCount() const { return buffers_.size(); }
     bool isRunning() const { return running_; }
     unsigned int sequence() const { return sequence_; }
+    unsigned int skippedFrames() const { return skippedFrames_; }
 
 protected:
     void run() override;
@@ -71,6 +72,7 @@ protected:
 private:
     void processFrame(FrameBuffer *buffer, Request *request);
     ControlList generateMetadata(unsigned int frame);
+    bool hasAvailableBuffer();
 
     unsigned int width_ = 0;
     unsigned int height_ = 0;
@@ -87,11 +89,16 @@ private:
     std::queue<std::pair<Request*, unsigned int>> requestQueue_;
     
     unsigned int sequence_ = 0;
+    unsigned int skippedFrames_ = 0;
     
     std::vector<FrameBuffer*> buffers_;
     std::mutex bufferMutex_;
     
-    std::function<void(Request *request, ControlList &metadata)> frameDoneCallback_;
+    // Track which buffers are currently in use
+    std::vector<bool> bufferInUse_;
+    std::mutex bufferUsageMutex_;
+    
+    std::function<void(unsigned int, unsigned int)> frameDoneCallback_;
 };
 
 } /* namespace libcamera */

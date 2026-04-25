@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include "virtual_camera.h"
-#include <libcamera/controls.h>
-
 
 #include <algorithm>
 #include <cstring>
@@ -10,6 +8,7 @@
 
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
+#include <libcamera/controls.h>
 
 namespace libcamera {
 
@@ -48,7 +47,7 @@ int VirtualCamera::start()
     }
     
     running_ = true;
-    Thread::start();  // Call base class start
+    Thread::start();
     
     LOG(VirtualCamera, Info) << "Virtual camera started";
     
@@ -64,8 +63,8 @@ void VirtualCamera::stop()
     running_ = false;
     bufferCV_.notify_all();
     
-    Thread::exit();  // Signal thread to exit
-    wait();          // Wait for thread to finish
+    Thread::exit();
+    wait();
     
     LOG(VirtualCamera, Info) << "Virtual camera stopped";
 }
@@ -83,6 +82,8 @@ int VirtualCamera::allocateBuffers(unsigned int count)
     
     LOG(VirtualCamera, Info) << "Allocating " << count << " buffers of " 
                               << bufferSize << " bytes each";
+    
+    bufferInUse_.resize(count, false);
     
     for (unsigned int i = 0; i < count; i++) {
         auto buffer = new FrameBuffer();
@@ -125,6 +126,7 @@ void VirtualCamera::releaseBuffers()
     }
     
     buffers_.clear();
+    bufferInUse_.clear();
 }
 
 std::vector<FrameBuffer*>& VirtualCamera::getBuffers()
@@ -160,7 +162,7 @@ void VirtualCamera::queueRequest(Request *request)
 }
 
 void VirtualCamera::setFrameDoneCallback(
-    std::function<void(Request *request, ControlList &metadata)> callback)
+    std::function<void(unsigned int, unsigned int)> callback)
 {
     frameDoneCallback_ = callback;
 }
@@ -171,12 +173,25 @@ void VirtualCamera::setContrast(float contrast) { contrast_ = std::clamp(contras
 void VirtualCamera::setSaturation(float saturation) { saturation_ = std::clamp(saturation, 0.0f, 2.0f); }
 void VirtualCamera::setSharpness(float sharpness) { sharpness_ = std::clamp(sharpness, 0.0f, 2.0f); }
 
+bool VirtualCamera::hasAvailableBuffer()
+{
+    std::lock_guard<std::mutex> lock(bufferUsageMutex_);
+    
+    for (bool inUse : bufferInUse_) {
+        if (!inUse) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 ControlList VirtualCamera::generateMetadata([[maybe_unused]] unsigned int frame)
 {
     ControlList metadata(controls::controls);
-    metadata.add(libcamera::controls::FrameDuration, 33333LL);
-    metadata.add(libcamera::controls::SensorTemperature, 35.0f);
-    metadata.add(libcamera::controls::LensPosition, 1.0f);
+    metadata.add(controls::FrameDuration, 33333LL);
+    metadata.add(controls::SensorTemperature, 35.0f);
+    metadata.add(controls::LensPosition, 1.0f);
     return metadata;
 }
 
@@ -185,6 +200,17 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
     if (!buffer || buffer->planes().empty()) {
         LOG(VirtualCamera, Error) << "Invalid buffer";
         return;
+    }
+    
+    // Mark buffer as in use
+    {
+        std::lock_guard<std::mutex> lock(bufferUsageMutex_);
+        for (size_t i = 0; i < buffers_.size(); i++) {
+            if (buffers_[i] == buffer) {
+                bufferInUse_[i] = true;
+                break;
+            }
+        }
     }
     
     const auto &plane = buffer->planes()[0];
@@ -238,7 +264,18 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
     ControlList metadata = generateMetadata(sequence_);
     
     if (frameDoneCallback_) {
-        frameDoneCallback_(request, metadata);
+        // Get buffer ID
+        uint32_t bufferId = buffer->planes()[0].fd.get();
+        frameDoneCallback_(sequence_, bufferId);
+        
+        // Mark buffer as free after callback
+        std::lock_guard<std::mutex> lock(bufferUsageMutex_);
+        for (size_t i = 0; i < buffers_.size(); i++) {
+            if (buffers_[i] == buffer) {
+                bufferInUse_[i] = false;
+                break;
+            }
+        }
     }
 }
 
@@ -268,6 +305,15 @@ void VirtualCamera::run()
             }
             
             requestQueue_.pop();
+        }
+        
+        // Check if we have available buffers
+        if (!hasAvailableBuffer()) {
+            skippedFrames_++;
+            LOG(VirtualCamera, Warning) << "All buffers in use, skipping frame " 
+                                        << (sequence_ + 1) << " (skipped: " 
+                                        << skippedFrames_ << " total)";
+            continue;
         }
         
         if (buffer) {
