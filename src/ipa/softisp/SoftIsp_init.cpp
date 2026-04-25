@@ -2,42 +2,40 @@
 #include "softisp.h"
 #include <cstdlib>
 
-int32_t SoftIsp::init(const libcamera::ipa::soft::IPASettings & /*settings*/,
-		      const libcamera::SharedFD &fdStats,
-		      const libcamera::SharedFD &fdParams,
-		      const libcamera::ipa::soft::IPACameraSensorInfo &sensorInfo,
+int32_t SoftIsp::init(const IPASettings & /*settings*/,
+		      const libcamera::SharedFD & /*fdStats*/,
+		      const libcamera::SharedFD & /*fdParams*/,
+		      const IPACameraSensorInfo &sensorInfo,
 		      const libcamera::ControlInfoMap & /*sensorControls*/,
 		      libcamera::ControlInfoMap * /*ipaControls*/,
 		      bool * /*ccmEnabled*/)
 {
-	impl_->imageWidth = sensorInfo.outputSize.width;
-	impl_->imageHeight = sensorInfo.outputSize.height;
-
-	// Store FDs for later use in processStats/processFrame
-	// These are kept alive by SharedFD reference counting
-	// TODO: Store fdStats_ and fdParams_ in Impl struct
-	// For now, we'll access them via the IPA interface if needed
+	// Use activeArea instead of outputSize (which doesn't exist)
+	impl_->imageWidth = sensorInfo.activeArea.width;
+	impl_->imageHeight = sensorInfo.activeArea.height;
 
 	const char *modelDir = getenv("SOFTISP_MODEL_DIR");
 	if (!modelDir) {
+		LOG(IPASoftISP, Error) << "SOFTISP_MODEL_DIR not set";
 		return -EINVAL;
 	}
 
-	std::string algoPath = std::string(modelDir) + "/algo.onnx";
-	std::string applierPath = std::string(modelDir) + "/applier.onnx";
+	// Load ONNX models
+	std::string algoModel = std::string(modelDir) + "/algo.onnx";
+	std::string applierModel = std::string(modelDir) + "/applier.onnx";
 
-	int ret = impl_->algoEngine.loadModel(algoPath);
-	if (ret < 0) {
-		return ret;
+	if (impl_->algoEngine.loadModel(algoModel) < 0) {
+		LOG(IPASoftISP, Error) << "Failed to load algo model: " << algoModel;
+		return -EINVAL;
 	}
 
-	ret = impl_->applierEngine.loadModel(applierPath);
-	if (ret < 0) {
-		return ret;
+	if (impl_->applierEngine.loadModel(applierModel) < 0) {
+		LOG(IPASoftISP, Error) << "Failed to load applier model: " << applierModel;
+		return -EINVAL;
 	}
 
 	impl_->initialized = true;
-
+	LOG(IPASoftISP, Info) << "SoftISP initialized: " << impl_->imageWidth << "x" << impl_->imageHeight;
 
 	return 0;
 }

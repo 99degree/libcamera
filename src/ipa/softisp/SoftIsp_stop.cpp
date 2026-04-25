@@ -1,14 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include "softisp.h"
 
-namespace libcamera {
-namespace ipa {
-namespace soft {
-
 void SoftIsp::stop()
 {
+	// Nothing to do
 }
-
-} /* namespace soft */
-} /* namespace ipa */
-} /* namespace libcamera */

@@ -3,9 +3,8 @@
 
 int32_t SoftIsp::start()
 {
-	if (!impl_->initialized) {
+	if (!impl_->initialized)
 		return -ENODEV;
-	}
 
 	return 0;
 }

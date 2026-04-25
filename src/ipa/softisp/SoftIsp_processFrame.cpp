@@ -4,14 +4,11 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-namespace libcamera {
-namespace ipa {
-namespace soft {
-
 void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
-			   const SharedFD &bufferFd, const int32_t /*planeIndex*/,
+			   const libcamera::SharedFD &bufferFd,
+			   const int32_t /*planeIndex*/,
 			   const int32_t width, const int32_t height,
-			   const ControlList &results)
+			   const libcamera::ControlList &results)
 {
 	if (!impl_->initialized)
 		return;
@@ -21,7 +18,7 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 
 	// Map the buffer for reading/writing
 	void *bayerData = mmap(nullptr, bufferSize, PROT_READ | PROT_WRITE,
-	                       MAP_SHARED, bufferFd.get(), 0);
+			       MAP_SHARED, bufferFd.get(), 0);
 	if (bayerData == MAP_FAILED) {
 		frameDone.emit(frame, bufferId);
 		return;
@@ -30,13 +27,13 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	// TODO: Read AWB/AE parameters from 'results' ControlList
 	float redGain = 1.0f;
 	float blueGain = 1.0f;
-	
+
 	// Simplified: just use default gains for now
-	
+
 	// Convert SBGGR10 Bayer to float array for ONNX input
 	std::vector<float> bayerFloat;
 	bayerFloat.reserve(width * height);
-	
+
 	uint8_t *byteData = static_cast<uint8_t*>(bayerData);
 	for (int32_t i = 0; i < width * height; i++) {
 		float pixel = static_cast<float>(byteData[i % bufferSize]) / 255.0f;
@@ -47,10 +44,8 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	for (int32_t j = 0; j < width * height; j++) {
 		int32_t row = j / width;
 		int32_t col = j % width;
-		
 		bool evenRow = (row % 2 == 0);
 		bool evenCol = (col % 2 == 0);
-		
 		if (evenRow && !evenCol) {
 			// B pixel - apply blue gain
 			bayerFloat[j] *= blueGain;
@@ -78,10 +73,6 @@ void SoftIsp::processFrame(const uint32_t frame, const uint32_t bufferId,
 	// Unmap buffer
 	munmap(bayerData, bufferSize);
 
-	// Signal completion
+	// Emit frame done signal
 	frameDone.emit(frame, bufferId);
 }
-
-} /* namespace soft */
-} /* namespace ipa */
-} /* namespace libcamera */

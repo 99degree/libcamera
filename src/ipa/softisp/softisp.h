@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /**
+// * IMPORTANT: This interface definition must match include/libcamera/ipa/softisp.mojom exactly.
+// * Always refer to softisp.mojom when modifying method signatures.
  * SoftIsp - ONNX-based Image Processing Algorithm
  */
 #pragma once
@@ -27,6 +29,7 @@
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 #include <libcamera/geometry.h>
+#include <libcamera/base/log.h>
 
 namespace libcamera {
 namespace ipa {
@@ -69,7 +72,7 @@ private:
 };
 
 // SoftIsp class with dual callback pattern
-class SoftIsp {
+class SoftIsp : public IPASoftInterface {
 public:
 	SoftIsp();
 	~SoftIsp();
@@ -99,9 +102,7 @@ public:
 
 	void computeParams(const uint32_t frame);
 
-	void processStats(const uint32_t frame,
-	                  const uint32_t bufferId,
-	                  const ControlList &sensorControls);
+	void processStats(uint32_t frame, uint32_t bufferId, libcamera::ControlList &stats);
 
 	void processFrame(const uint32_t frame,
 	                  const uint32_t bufferId,
@@ -127,6 +128,10 @@ private:
 	std::unique_ptr<Impl> impl_;
 };
 
+
+
+// Log category for SoftISP IPA (defined in softisp.cpp)
+extern const LogCategory &IPASoftISP;
 } /* namespace soft */
 } /* namespace ipa */
 } /* namespace libcamera */

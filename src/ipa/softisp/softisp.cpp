@@ -5,13 +5,18 @@
 #include <cstdlib>
 
 namespace libcamera {
+namespace ipa {
+namespace soft {
+using libcamera::SharedFD;
+using libcamera::ControlList;
+using libcamera::ControlInfoMap;
+
+// Log category for SoftIsp class
 LOG_DEFINE_CATEGORY(SoftIsp)
 
-namespace ipa::soft {
-
-SoftIsp::SoftIsp() : impl_(std::make_unique<Impl>())
-{
-}
+// Log category for SoftISP IPA
+LOG_DEFINE_CATEGORY(IPASoftISP)
+const LogCategory &IPASoftISP = _LOG_CATEGORY(IPASoftISP)();
 
 SoftIsp::~SoftIsp() = default;
 
