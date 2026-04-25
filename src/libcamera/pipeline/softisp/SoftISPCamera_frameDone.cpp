@@ -23,21 +23,13 @@ void SoftISPCameraData::frameDone(unsigned int frameId, unsigned int bufferId)
         return;
     }
 
-    // Create metadata (in a real implementation, this would come from IPA processing)
-    ControlList metadata(0);
-    metadata.add(controls::FrameDuration, 33333LL); // 30fps
-    metadata.add(controls::AeState, controls::AeStateConverged);
-    metadata.add(controls::AwbState, controls::AwbStateConverged);
-
-    // Merge metadata into the request
-    request->metadata().merge(metadata);
-
-    // Note: The actual request completion is handled by the PipelineHandler
-    // through the Camera framework. In a full implementation, we would call
-    // camera_->completeRequest(request) here, but that requires access to
-    // the Camera::Private interface which is managed by the pipeline.
-    // For now, the request is marked as complete by merging metadata.
-    LOG(SoftISPPipeline, Info) << "Request completed for frame " << frameId;
+    // In a real implementation, we would:
+    // 1. Get metadata from IPA processing
+    // 2. Merge it into the request
+    // 3. Complete the request
+    
+    // For now, just log
+    LOG(SoftISPPipeline, Info) << "Frame " << frameId << " processing complete";
 }
 
 } /* namespace libcamera */

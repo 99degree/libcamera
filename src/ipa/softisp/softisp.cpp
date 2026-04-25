@@ -8,6 +8,7 @@ namespace libcamera {
 namespace ipa {
 namespace soft {
 
+// Log category for SoftIsp class
 LOG_DEFINE_CATEGORY(SoftIsp)
 
 using libcamera::SharedFD;

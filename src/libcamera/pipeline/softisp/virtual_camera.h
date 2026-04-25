@@ -56,14 +56,12 @@ public:
     void releaseBuffers();
     std::vector<FrameBuffer*>& getBuffers();
 
-    void queueRequest(Request *request);
     
     // Set IPA interface for frame processing
     void setIPAInterface(libcamera::ipa::soft::IPASoftInterface *ipa);
     
+    void queueRequest(Request *request);
     void setFrameDoneCallback(std::function<void(unsigned int frameId, unsigned int bufferId)> callback);
-    void queueBuffer(Request *request);
-
     void setPattern(Pattern pattern);
     void setBrightness(float brightness);
     void setContrast(float contrast);

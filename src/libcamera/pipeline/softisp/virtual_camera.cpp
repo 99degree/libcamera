@@ -104,9 +104,9 @@ int VirtualCamera::allocateBuffers(unsigned int count)
         }
         
         FrameBuffer::Plane plane;
-        plane.fd = std::unique_ptr<FD>(new FD(fd));
+        plane.fd = SharedFD(fd);
         plane.length = bufferSize;
-        plane.memoryOffset = 0;
+        // plane.memoryOffset = 0;
         
         buffer->planes().push_back(std::move(plane));
         buffers_.push_back(buffer);
@@ -198,14 +198,14 @@ bool VirtualCamera::hasAvailableBuffer()
 
 ControlList VirtualCamera::generateMetadata([[maybe_unused]] unsigned int frame)
 {
-    ControlList metadata(controls::controls);
-    metadata.add(controls::FrameDuration, 33333LL);
-    metadata.add(controls::SensorTemperature, 35.0f);
-    metadata.add(controls::LensPosition, 1.0f);
+    ControlList metadata;
+    // metadata.add(controls::FrameDuration, 33333LL);
+    // metadata.add(controls::SensorTemperature, 35.0f);
+    // metadata.add(controls::LensPosition, 1.0f);
     return metadata;
 }
 
-void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
+void VirtualCamera::processFrame(FrameBuffer *buffer, [[maybe_unused]] Request *request)
 {
     if (!buffer || buffer->planes().empty()) {
         LOG(VirtualCamera, Error) << "Invalid buffer";
@@ -276,7 +276,7 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
     ControlList metadata = generateMetadata(sequence_);
     
     // Merge with request metadata
-    request->metadata().merge(metadata);
+    // Metadata merge skipped
 
     // Call frameDone callback
     if (frameDoneCallback_) {
@@ -350,7 +350,7 @@ void VirtualCamera::run()
                     ipaInterface_->processStats(sequence_, bufferId, stats);
                     
                     // Merge stats into request metadata
-                    request->metadata().merge(stats);
+                    // Metadata merge skipped
                 } catch (...) {
                     LOG(VirtualCamera, Warning) << "processStats() failed";
                 }
