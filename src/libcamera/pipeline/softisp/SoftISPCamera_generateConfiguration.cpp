@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 std::unique_ptr<CameraConfiguration> SoftISPCameraData::generateConfiguration(Span<const StreamRole> roles)
 {
     LOG(SoftISPPipeline, Info) << "SoftISPCameraData::generateConfiguration called";
@@ -58,3 +61,5 @@ std::unique_ptr<CameraConfiguration> SoftISPCameraData::generateConfiguration(Sp
     LOG(SoftISPPipeline, Info) << "Configuration generated successfully";
     return config;
 }
+
+} /* namespace libcamera */

@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 int SoftISPCameraData::queueRequest(Request *request)
 {
     LOG(SoftISPPipeline, Info) << "Queueing request";
@@ -12,3 +15,5 @@ int SoftISPCameraData::queueRequest(Request *request)
     
     return 0;
 }
+
+} /* namespace libcamera */

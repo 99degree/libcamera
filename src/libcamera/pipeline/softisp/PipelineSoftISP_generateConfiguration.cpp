@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 std::unique_ptr<CameraConfiguration> PipelineHandlerSoftISP::generateConfiguration(
     Camera *camera, Span<const StreamRole> roles)
 {
@@ -9,3 +12,5 @@ std::unique_ptr<CameraConfiguration> PipelineHandlerSoftISP::generateConfigurati
     
     return data->generateConfiguration(roles);
 }
+
+} /* namespace libcamera */

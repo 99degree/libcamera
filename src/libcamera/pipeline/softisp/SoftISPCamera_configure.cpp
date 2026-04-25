@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 int SoftISPCameraData::configure(CameraConfiguration *config)
 {
     LOG(SoftISPPipeline, Info) << "Configuring camera with " << config->size() << " streams";
@@ -36,3 +39,5 @@ int SoftISPCameraData::configure(CameraConfiguration *config)
     LOG(SoftISPPipeline, Info) << "Camera configuration applied successfully";
     return 0;
 }
+
+} /* namespace libcamera */

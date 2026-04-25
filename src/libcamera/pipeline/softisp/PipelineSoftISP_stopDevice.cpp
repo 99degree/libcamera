@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 void PipelineHandlerSoftISP::stopDevice(Camera *camera)
 {
     SoftISPCameraData *data = cameraData(camera);
@@ -8,3 +11,5 @@ void PipelineHandlerSoftISP::stopDevice(Camera *camera)
     
     data->stop();
 }
+
+} /* namespace libcamera */

@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator)
 {
     LOG(SoftISPPipeline, Info) << "PipelineHandlerSoftISP::match() called";
@@ -33,3 +36,5 @@ bool PipelineHandlerSoftISP::match([[maybe_unused]] DeviceEnumerator *enumerator
     
     return false;
 }
+
+} /* namespace libcamera */

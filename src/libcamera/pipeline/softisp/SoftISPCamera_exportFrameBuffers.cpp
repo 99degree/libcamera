@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -84,3 +87,5 @@ int SoftISPCameraData::exportFrameBuffers([[maybe_unused]] Stream *stream,
     LOG(SoftISPPipeline, Info) << "Successfully exported " << buffers->size() << " frame buffers";
     return 0;
 }
+
+} /* namespace libcamera */

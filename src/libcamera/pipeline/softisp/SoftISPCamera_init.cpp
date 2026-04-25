@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 int SoftISPCameraData::init()
 {
     LOG(SoftISPPipeline, Info) << "Initializing SoftISPCameraData";
@@ -19,3 +22,5 @@ int SoftISPCameraData::init()
     
     return 0;
 }
+
+} /* namespace libcamera */

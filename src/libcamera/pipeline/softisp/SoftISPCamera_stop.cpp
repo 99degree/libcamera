@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 void SoftISPCameraData::stop()
 {
     LOG(SoftISPPipeline, Info) << "Stopping camera";
@@ -8,3 +11,5 @@ void SoftISPCameraData::stop()
         LOG(SoftISPPipeline, Info) << "VirtualCamera stopped: " << key;
     }
 }
+
+} /* namespace libcamera */

@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 int PipelineHandlerSoftISP::configure(Camera *camera, CameraConfiguration *config)
 {
     SoftISPCameraData *data = cameraData(camera);
@@ -8,3 +11,5 @@ int PipelineHandlerSoftISP::configure(Camera *camera, CameraConfiguration *confi
     
     return data->configure(config);
 }
+
+} /* namespace libcamera */

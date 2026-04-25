@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
 {
     SoftISPCameraData *data = cameraData(camera);
@@ -8,3 +11,5 @@ int PipelineHandlerSoftISP::queueRequestDevice(Camera *camera, Request *request)
     
     return data->queueRequest(request);
 }
+
+} /* namespace libcamera */

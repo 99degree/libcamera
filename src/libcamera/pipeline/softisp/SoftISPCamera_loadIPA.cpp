@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 int SoftISPCameraData::loadIPA()
 {
     LOG(SoftISPPipeline, Info) << "Loading IPA module";
@@ -22,3 +25,5 @@ int SoftISPCameraData::loadIPA()
     LOG(SoftISPPipeline, Info) << "IPA loading skipped (virtual camera mode)";
     return 0;
 }
+
+} /* namespace libcamera */

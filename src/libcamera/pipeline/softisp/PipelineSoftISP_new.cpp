@@ -6,18 +6,18 @@ namespace libcamera {
 
 bool PipelineHandlerSoftISP::createVirtualCamera()
 {
-	LOG(SoftISPPipeline, LogInfo) << "Creating SoftISP virtual camera";
+	LOG(SoftISPPipeline, Info) << "Creating SoftISP virtual camera";
 	
 	if (!virtualCamera_) {
 		virtualCamera_ = std::make_unique<VirtualCamera>();
 		int ret = virtualCamera_->init(1920, 1080);
 		if (ret) {
-			LOG(SoftISPPipeline, LogError) << "Failed to initialize virtual camera";
+			LOG(SoftISPPipeline, Error) << "Failed to initialize virtual camera";
 			return false;
 		}
 	}
 	
-	LOG(SoftISPPipeline, LogInfo) << "SoftISP virtual camera initialized: 1920x1080";
+	LOG(SoftISPPipeline, Info) << "SoftISP virtual camera initialized: 1920x1080";
 	return true;
 }
 

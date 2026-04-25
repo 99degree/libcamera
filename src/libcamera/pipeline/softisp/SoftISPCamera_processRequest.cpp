@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 void SoftISPCameraData::processRequest(Request *request)
 {
     LOG(SoftISPPipeline, Info) << "Processing request";
@@ -39,3 +42,5 @@ void SoftISPCameraData::processRequest(Request *request)
     LOG(SoftISPPipeline, Debug) << "Processed frame queued to VirtualCamera";
     LOG(SoftISPPipeline, Info) << "Request processing complete (virtual mode)";
 }
+
+} /* namespace libcamera */

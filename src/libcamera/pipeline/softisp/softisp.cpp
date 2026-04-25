@@ -3,33 +3,22 @@
  * SoftISP Pipeline Handler - Skeleton Implementation
  */
 
-// Step 1: Include the real libcamera log header FIRST
+// Step 1: Include the real libcamera log header
 #include <libcamera/base/log.h>
 
 // Step 2: Define the log category for SoftISP pipeline
 namespace libcamera {
 LOG_DEFINE_CATEGORY(SoftISPPipeline)
+
+// Step 3: Define a static const reference to the category for easy use with LOG macro
+static const LogCategory &SoftISPPipeline = _LOG_CATEGORY(SoftISPPipeline)();
 }
 
-// Step 3: Override LOG macro to always use SoftISPPipeline category
-// This will be used by all included method files
-#undef LOG
-#define LOG(category, level, ...) \
-    ::libcamera::LOG(SoftISPPipeline, level, __VA_ARGS__)
+// Step 4: Include softisp.h to get all class definitions
+#include "softisp.h"
 
-// Step 4: Include all method implementation files
-#include "SoftISPCamera_init.cpp"
-#include "SoftISPCamera_loadIPA.cpp"
-#include "SoftISPCamera_start.cpp"
-#include "SoftISPCamera_stop.cpp"
-#include "SoftISPCamera_queueRequest.cpp"
-#include "SoftISPCamera_processRequest.cpp"
-#include "SoftISPCamera_data.cpp"
-#include "SoftISPCamera_configure.cpp"
-#include "SoftISPCamera_exportFrameBuffers.cpp"
-#include "SoftISPCamera_generateConfiguration.cpp"
-#include "SoftISPCamera_getBufferFromId.cpp"
-#include "SoftISPCamera_storeBuffer.cpp"
+// Step 5: Include all method implementation files
+// PipelineHandlerSoftISP methods
 #include "PipelineSoftISP_constructor.cpp"
 #include "PipelineSoftISP_destructor.cpp"
 #include "PipelineSoftISP_match.cpp"
@@ -41,6 +30,26 @@ LOG_DEFINE_CATEGORY(SoftISPPipeline)
 #include "PipelineSoftISP_generateConfiguration.cpp"
 #include "PipelineSoftISP_new.cpp"
 
-// Include the header last (after LOG is defined)
-#include "softisp.h"
+// SoftISPCameraData methods
+#include "SoftISPCamera_constructor.cpp"
+#include "SoftISPCamera_destructor.cpp"
+#include "SoftISPCamera_init.cpp"
+#include "SoftISPCamera_loadIPA.cpp"
+#include "SoftISPCamera_start.cpp"
+#include "SoftISPCamera_stop.cpp"
+#include "SoftISPCamera_queueRequest.cpp"
+#include "SoftISPCamera_exportFrameBuffers.cpp"
+#include "SoftISPCamera_generateConfiguration.cpp"
+#include "SoftISPCamera_configure.cpp"
+#include "SoftISPCamera_processRequest.cpp"
+#include "SoftISPCamera_getBufferFromId.cpp"
+#include "SoftISPCamera_storeBuffer.cpp"
+#include "SoftISPCamera_data.cpp"
+
+// SoftISPConfiguration methods
+#include "SoftISPConfig_constructor.cpp"
+#include "SoftISPConfig_validate.cpp"
+
+// VirtualCamera
+#include "virtual_camera.cpp"
 

@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+namespace libcamera {
+
 int SoftISPCameraData::start([[maybe_unused]] const ControlList *controls)
 {
     LOG(SoftISPPipeline, Info) << "Starting camera";
@@ -14,3 +17,5 @@ int SoftISPCameraData::start([[maybe_unused]] const ControlList *controls)
     
     return 0;
 }
+
+} /* namespace libcamera */
