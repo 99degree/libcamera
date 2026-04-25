@@ -1,4 +1,3 @@
-#include <thread>
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
  * Copyright (C) 2024
@@ -11,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <thread>
 #include <vector>
 #include <libcamera/base/thread.h>
 #include <libcamera/base/mutex.h>
@@ -19,7 +19,7 @@
 
 namespace libcamera {
 
-class VirtualCamera {
+class VirtualCamera : public Thread {
 public:
 	enum class Pattern {
 		SolidColor,
@@ -35,7 +35,7 @@ public:
 	int init(unsigned int width, unsigned int height);
 	int start();
 	void stop();
-	void queueBuffer(FrameBuffer *buffer, unsigned int frame);
+	void queueBuffer(FrameBuffer *buffer);
 	void setPattern(Pattern pattern);
 	void setBrightness(float brightness);
 	void setContrast(float contrast);
@@ -46,10 +46,9 @@ public:
 	unsigned int width() const { return width_; }
 	unsigned int height() const { return height_; }
 	unsigned int bufferCount() const { return 4; }
-    void setFrameDoneCallback(std::function<void(unsigned int, unsigned int)> callback) { frameDoneCallback_ = callback; }
 
 private:
-	void run();
+	void run() override;
 
 	unsigned int width_ = 0;
 	unsigned int height_ = 0;
@@ -58,9 +57,6 @@ private:
 	float contrast_ = 1.0f;
 	bool running_ = false;
 	unsigned int sequence_ = 0;
-    std::function<void(unsigned int, unsigned int)> frameDoneCallback_;
-    std::thread thread_;
-    unsigned int currentFrame_ = 0;
 	std::mutex queueMutex_;
 	std::condition_variable bufferCV_;
 	std::queue<FrameBuffer*> bufferQueue_;

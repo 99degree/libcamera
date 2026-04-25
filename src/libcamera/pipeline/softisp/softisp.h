@@ -83,6 +83,8 @@ public:
 	int start(const ControlList *controls = nullptr);
 	void stop();
 	int queueRequest(Request *request);
+    void frameDone(unsigned int frameId, unsigned int bufferId);
+
 	void processRequest(Request *request);
 	FrameBuffer* getBufferFromId(uint32_t bufferId);
 	void storeBuffer(uint32_t bufferId, FrameBuffer *buffer);
@@ -93,7 +95,6 @@ public:
 	SoftISPFrames frameInfo_;
 
 	void metadataReady(unsigned int frame, const ControlList &metadata);
-	void frameDone(unsigned int frame, unsigned int bufferId);
 	void tryCompleteRequest(SoftISPFrameInfo *info);
 
 	ipa::soft::IPASoftIspInterface *ipa() const { return ipa_.get(); }

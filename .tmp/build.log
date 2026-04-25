@@ -1,0 +1,12 @@
+ninja: Entering directory `build'
+[1/11] Generating src/libcamera/version.cpp with a custom command
+[2/11] Compiling C++ object src/libcamera/libcamera.so.p/meson-generated_.._version.cpp.o
+[3/11] Linking target src/libcamera/libcamera.so
+[4/11] Generating symbol file src/libcamera/libcamera.so.p/libcamera.so.symbols
+[5/11] Linking target src/libcamera/proxy/worker/softisp_ipa_proxy
+[6/11] Linking target src/libcamera/proxy/worker/soft_ipa_proxy
+[7/11] Linking target src/ipa/softisp/ipa_softisp.so
+[8/11] Linking target src/apps/lc-compliance/lc-compliance
+[9/11] Linking target src/tools/softisp-test
+[10/11] Linking target src/apps/cam/cam
+[11/11] Linking target src/v4l2/v4l2-compat.so

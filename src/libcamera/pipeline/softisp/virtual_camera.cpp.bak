@@ -13,6 +13,8 @@
 #include <libcamera/base/log.h>
 #include <sys/mman.h>
 
+LOG_DEFINE_CATEGORY(VirtualCamera)
+
 namespace libcamera {
 
 LOG_DEFINE_CATEGORY(VirtualCamera)
@@ -49,6 +51,7 @@ int VirtualCamera::start()
 }
 
 
+
 void VirtualCamera::stop()
 {
     if (!running_)
@@ -61,18 +64,19 @@ void VirtualCamera::stop()
 }
 
 
-void VirtualCamera::queueBuffer(FrameBuffer *buffer, unsigned int frame)
-{
-    if (!running_ || !buffer)
-        return;
-    {
-        std::lock_guard<std::mutex> lock(queueMutex_);
-        currentFrame_ = frame;
-        bufferQueue_.push(buffer);
-    }
-    bufferCV_.notify_one();
-}
 
+void VirtualCamera::queueBuffer(FrameBuffer *buffer)
+{
+	if (!running_ || !buffer)
+		return;
+
+	{
+		std::lock_guard<std::mutex> lock(queueMutex_);
+		bufferQueue_.push(buffer);
+	}
+
+	bufferCV_.notify_one();
+}
 
 void VirtualCamera::setPattern(Pattern pattern)
 {
@@ -159,13 +163,6 @@ void VirtualCamera::run() {
 		}
 
 		munmap(mem, plane.length);
-
-        /* Call frameDone callback */
-        if (frameDoneCallback_) {
-            uint32_t bufferId = buffer->planes()[0].fd.get();
-            frameDoneCallback_(currentFrame_, bufferId);
-        }
-
 
 		/* Simulate 30fps */
 		std::this_thread::sleep_for(std::chrono::milliseconds(33));

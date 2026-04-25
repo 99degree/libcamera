@@ -55,3 +55,4 @@ static const LogCategory &SoftISPPipeline = _LOG_CATEGORY(SoftISPPipeline)();
 namespace libcamera {
 static PipelineHandlerFactory<PipelineHandlerSoftISP> global_PipelineHandlerSoftISPFactory("softisp");
 } /* namespace libcamera */
+#include "SoftISPCamera_frameDone.cpp"

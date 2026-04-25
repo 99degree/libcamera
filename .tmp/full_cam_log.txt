@@ -1,0 +1,20 @@
+[87:08:42.038419230] [31218]  INFO IPAManager ipa_manager.cpp:147 libcamera is not installed. Adding '/data/data/com.termux/files/home/libcamera1/build/src/ipa' to the IPA search path
+[87:08:42.038836886] [31218]  INFO Camera camera_manager.cpp:343 libcamera v0.7.0+567-b29af768-dirty (2026-04-25T12:44:25HKT)
+[87:08:42.039584178] [31220]  WARN DeviceEnumerator device_enumerator_sysfs.cpp:87 Device node /dev/media0 should exist but doesn't
+[87:08:42.039700636] [31220]  INFO SoftISPPipeline PipelineSoftISP_match.cpp:13 match() called
+[87:08:42.039722146] [31220]  INFO SoftISPPipeline PipelineSoftISP_match.cpp:22 No real cameras found, registering SoftISP virtual camera
+[87:08:42.039752198] [31220]  INFO SoftISPPipeline SoftISPCamera_constructor.cpp:7 SoftISPCameraData created
+[87:08:42.039764803] [31220]  INFO SoftISPPipeline SoftISPCamera_init.cpp:6 Initializing SoftISPCameraData
+[87:08:42.039774594] [31220]  INFO SoftISPPipeline SoftISPCamera_loadIPA.cpp:6 Loading IPA module
+[87:08:42.039784438] [31220]  INFO SoftISPPipeline SoftISPCamera_loadIPA.cpp:25 IPA loading skipped (virtual camera mode)
+[87:08:42.039800375] [31220]  INFO VirtualCamera virtual_camera.cpp:35 Virtual camera initialized: 1920x1080
+[87:08:42.039812407] [31220]  INFO SoftISPPipeline SoftISPCamera_init.cpp:22 VirtualCamera initialized (waiting for start())
+[87:08:42.039847823] [31220]  INFO Camera camera_manager.cpp:226 Adding camera 'softisp_virtual' for pipeline handler softisp
+[87:08:42.039865844] [31220]  INFO SoftISPPipeline PipelineSoftISP_match.cpp:41 Virtual camera registered: softisp_virtual
+[87:08:42.039878292] [31220]  INFO SoftISPPipeline PipelineSoftISP_match.cpp:13 match() called
+[87:08:42.039887771] [31220]  INFO SoftISPPipeline PipelineSoftISP_match.cpp:17 Virtual camera already registered, skipping
+[87:08:42.039913605] [31220]  INFO SoftISPPipeline PipelineSoftISP_destructor.cpp:6 Destroying PipelineHandlerSoftISP
+Camera 0 not found
+Failed to create camera session
+[87:08:42.040117042] [31220]  INFO SoftISPPipeline SoftISPCamera_destructor.cpp:6 Destroying SoftISPCameraData
+[87:08:42.040181834] [31220]  INFO SoftISPPipeline PipelineSoftISP_destructor.cpp:6 Destroying PipelineHandlerSoftISP

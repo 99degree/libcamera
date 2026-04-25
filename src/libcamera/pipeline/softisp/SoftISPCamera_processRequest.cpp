@@ -37,7 +37,7 @@ void SoftISPCameraData::processRequest(Request *request)
     LOG(SoftISPPipeline, Debug) << "Processing buffer: " << buffer;
     
     // Queue the buffer to VirtualCamera for processing
-    virtualCamera_->queueBuffer(buffer);
+    virtualCamera_->queueBuffer(buffer, request->sequence());
     
     LOG(SoftISPPipeline, Debug) << "Processed frame queued to VirtualCamera";
     LOG(SoftISPPipeline, Info) << "Request processing complete (virtual mode)";
