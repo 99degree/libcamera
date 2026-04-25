@@ -4,6 +4,9 @@
 #include <libcamera/base/utils.h>
 #include <cstdlib>
 
+LOG_DEFINE_CATEGORY(SoftIsp)
+LOG_DEFINE_CATEGORY(IPASoftISP)
+
 namespace libcamera {
 namespace ipa {
 namespace soft {
@@ -12,7 +15,6 @@ using libcamera::ControlList;
 using libcamera::ControlInfoMap;
 
 // Log category for SoftIsp class
-LOG_DEFINE_CATEGORY(SoftIsp)
 
 // Log category for SoftISP IPA
 const LogCategory &IPASoftISP = _LOG_CATEGORY(IPASoftISP)();
