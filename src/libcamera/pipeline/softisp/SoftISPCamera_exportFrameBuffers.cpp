@@ -3,7 +3,7 @@
 
 namespace libcamera {
 
-int SoftISPCameraData::exportFrameBuffers(const Stream *stream,
+int SoftISPCameraData::exportFrameBuffers([[maybe_unused]] const Stream *stream,
                                           std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
     LOG(SoftISPPipeline, Info) << "Exporting frame buffers (delegating to VirtualCamera)";

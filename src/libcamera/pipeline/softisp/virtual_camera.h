@@ -62,6 +62,7 @@ public:
     void setIPAInterface(libcamera::ipa::soft::IPASoftInterface *ipa);
     
     void setFrameDoneCallback(std::function<void(unsigned int frameId, unsigned int bufferId)> callback);
+    void queueBuffer(Request *request);
 
     void setPattern(Pattern pattern);
     void setBrightness(float brightness);

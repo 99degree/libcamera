@@ -9,14 +9,10 @@ LOG_DEFINE_CATEGORY(SoftIsp)
 namespace libcamera {
 namespace ipa {
 namespace soft {
+
 using libcamera::SharedFD;
 using libcamera::ControlList;
 using libcamera::ControlInfoMap;
-
-// Log category for SoftIsp class
-
-// Log category for SoftISP IPA
-const LogCategory &IPASoftISP = _LOG_CATEGORY(IPASoftISP)();
 
 SoftIsp::~SoftIsp() = default;
 

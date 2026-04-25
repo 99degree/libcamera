@@ -16,7 +16,7 @@ int32_t SoftIsp::init(const IPASettings & /*settings*/,
 
 	const char *modelDir = getenv("SOFTISP_MODEL_DIR");
 	if (!modelDir) {
-		LOG(IPASoftISP, Error) << "SOFTISP_MODEL_DIR not set";
+		LOG(SoftIsp, Error) << "SOFTISP_MODEL_DIR not set";
 		return -EINVAL;
 	}
 
@@ -25,17 +25,17 @@ int32_t SoftIsp::init(const IPASettings & /*settings*/,
 	std::string applierModel = std::string(modelDir) + "/applier.onnx";
 
 	if (impl_->algoEngine.loadModel(algoModel) < 0) {
-		LOG(IPASoftISP, Error) << "Failed to load algo model: " << algoModel;
+		LOG(SoftIsp, Error) << "Failed to load algo model: " << algoModel;
 		return -EINVAL;
 	}
 
 	if (impl_->applierEngine.loadModel(applierModel) < 0) {
-		LOG(IPASoftISP, Error) << "Failed to load applier model: " << applierModel;
+		LOG(SoftIsp, Error) << "Failed to load applier model: " << applierModel;
 		return -EINVAL;
 	}
 
 	impl_->initialized = true;
-	LOG(IPASoftISP, Info) << "SoftISP initialized: " << impl_->imageWidth << "x" << impl_->imageHeight;
+	LOG(SoftIsp, Info) << "SoftISP initialized: " << impl_->imageWidth << "x" << impl_->imageHeight;
 
 	return 0;
 }

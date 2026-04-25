@@ -3,7 +3,7 @@
 
 namespace libcamera {
 
-int SoftISPCameraData::configure(Camera *camera, CameraConfiguration *config)
+int SoftISPCameraData::configure([[maybe_unused]] Camera *camera, CameraConfiguration *config)
 {
     LOG(SoftISPPipeline, Info) << "Configuring camera (delegating to VirtualCamera)";
 
