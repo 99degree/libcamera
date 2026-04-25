@@ -9,6 +9,7 @@
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 #include <libcamera/controls.h>
+#include <libcamera/ipa/soft_ipa_interface.h>
 
 namespace libcamera {
 
@@ -161,6 +162,16 @@ void VirtualCamera::queueRequest(Request *request)
     bufferCV_.notify_one();
 }
 
+void VirtualCamera::setIPAInterface(libcamera::ipa::soft::IPASoftInterface *ipa)
+{
+    ipaInterface_ = ipa;
+    if (ipa) {
+        LOG(VirtualCamera, Info) << "IPA interface set, frames will be processed";
+    } else {
+        LOG(VirtualCamera, Info) << "No IPA interface, frames will be generated directly";
+    }
+}
+
 void VirtualCamera::setFrameDoneCallback(
     std::function<void(unsigned int, unsigned int)> callback)
 {
@@ -195,13 +206,78 @@ ControlList VirtualCamera::generateMetadata([[maybe_unused]] unsigned int frame)
     return metadata;
 }
 
+void VirtualCamera::processWithIPA(FrameBuffer *buffer, Request *request)
+{
+    if (!ipaInterface_) {
+        LOG(VirtualCamera, Warning) << "No IPA interface, skipping IPA processing";
+        processFrame(buffer, request);
+        return;
+    }
+
+    LOG(VirtualCamera, Debug) << "Processing frame through IPA";
+
+    // Get buffer data
+    const auto &plane = buffer->planes()[0];
+    void *mem = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE, 
+                     MAP_SHARED, plane.fd.get(), 0);
+    
+    if (mem == MAP_FAILED) {
+        LOG(VirtualCamera, Error) << "Failed to map buffer for IPA";
+        return;
+    }
+
+    const uint8_t *inputData = static_cast<const uint8_t*>(mem);
+    size_t inputSize = plane.length;
+
+    // Create a temporary buffer for IPA output
+    // In a real implementation, we'd use a double-buffered approach
+    uint8_t *outputData = static_cast<uint8_t*>(mem); // For now, process in-place
+
+    // Call IPA processFrame
+    ControlList controls = request->metadata();
+    int ret = ipaInterface_->processFrame(
+        inputData, inputSize,
+        outputData, inputSize,
+        controls
+    );
+
+    if (ret < 0) {
+        LOG(VirtualCamera, Warning) << "IPA processFrame failed, using raw data";
+    } else {
+        LOG(VirtualCamera, Debug) << "IPA processFrame completed successfully";
+    }
+
+    munmap(mem, plane.length);
+
+    // Generate metadata from IPA if needed
+    ControlList metadata = generateMetadata(sequence_);
+    
+    // Merge with request metadata
+    request->metadata().merge(metadata);
+
+    // Call frameDone callback
+    if (frameDoneCallback_) {
+        uint32_t bufferId = buffer->planes()[0].fd.get();
+        frameDoneCallback_(sequence_, bufferId);
+    }
+
+    // Mark buffer as free
+    std::lock_guard<std::mutex> lock(bufferUsageMutex_);
+    for (size_t i = 0; i < buffers_.size(); i++) {
+        if (buffers_[i] == buffer) {
+            bufferInUse_[i] = false;
+            break;
+        }
+    }
+}
+
 void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
 {
     if (!buffer || buffer->planes().empty()) {
         LOG(VirtualCamera, Error) << "Invalid buffer";
         return;
     }
-    
+
     // Mark buffer as in use
     {
         std::lock_guard<std::mutex> lock(bufferUsageMutex_);
@@ -212,7 +288,7 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
             }
         }
     }
-    
+
     const auto &plane = buffer->planes()[0];
     void *mem = mmap(nullptr, plane.length, PROT_READ | PROT_WRITE, 
                      MAP_SHARED, plane.fd.get(), 0);
@@ -221,13 +297,14 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
         LOG(VirtualCamera, Error) << "Failed to map buffer";
         return;
     }
-    
+
     sequence_++;
     LOG(VirtualCamera, Info) << "Processing frame " << sequence_ 
                               << " (Bayer10 RGGB " << width_ << "x" << height_ << ")";
-    
+
     uint8_t *data = static_cast<uint8_t*>(mem);
-    
+
+    // Generate Bayer pattern
     for (unsigned int y = 0; y < height_; y++) {
         for (unsigned int x = 0; x < width_; x++) {
             uint16_t pixelValue;
@@ -241,15 +318,15 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
             } else {
                 pixelValue = 0x400 + ((x * 3) % 256);
             }
-            
+
             unsigned int bitOffset = (y * width_ + x) * 10;
             unsigned int byteOffset = bitOffset / 8;
             unsigned int bitInByte = bitOffset % 8;
-            
+
             if (byteOffset + 1 < plane.length) {
                 data[byteOffset] &= ~(0x3 << bitInByte);
                 data[byteOffset] |= (pixelValue & 0x3F) << bitInByte;
-                
+
                 if (bitInByte > 6) {
                     data[byteOffset + 1] &= ~(0x3F >> (8 - bitInByte));
                     data[byteOffset + 1] |= (pixelValue >> (8 - bitInByte)) & 
@@ -258,23 +335,27 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, Request *request)
             }
         }
     }
-    
+
     munmap(mem, plane.length);
-    
+
+    // Generate metadata
     ControlList metadata = generateMetadata(sequence_);
     
+    // Merge with request metadata
+    request->metadata().merge(metadata);
+
+    // Call frameDone callback
     if (frameDoneCallback_) {
-        // Get buffer ID
         uint32_t bufferId = buffer->planes()[0].fd.get();
         frameDoneCallback_(sequence_, bufferId);
-        
-        // Mark buffer as free after callback
-        std::lock_guard<std::mutex> lock(bufferUsageMutex_);
-        for (size_t i = 0; i < buffers_.size(); i++) {
-            if (buffers_[i] == buffer) {
-                bufferInUse_[i] = false;
-                break;
-            }
+    }
+
+    // Mark buffer as free
+    std::lock_guard<std::mutex> lock(bufferUsageMutex_);
+    for (size_t i = 0; i < buffers_.size(); i++) {
+        if (buffers_[i] == buffer) {
+            bufferInUse_[i] = false;
+            break;
         }
     }
 }
@@ -317,7 +398,12 @@ void VirtualCamera::run()
         }
         
         if (buffer) {
-            processFrame(buffer, request);
+            // Route through IPA if available, otherwise process directly
+            if (ipaInterface_) {
+                processWithIPA(buffer, request);
+            } else {
+                processFrame(buffer, request);
+            }
         }
         
         std::this_thread::sleep_for(std::chrono::milliseconds(33));

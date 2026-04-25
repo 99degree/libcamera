@@ -3,10 +3,7 @@
  * Copyright (C) 2023, SoftISP Project
  *
  * VirtualCamera - Standalone virtual camera implementation
- * Inherits from libcamera::Thread for standardized threading.
- * 
- * Each instance is fully independent with its own state,
- * allowing multiple virtual cameras to run simultaneously.
+ * Can optionally route frames through IPA for processing.
  */
 
 #pragma once
@@ -23,6 +20,15 @@
 #include <libcamera/base/thread.h>
 #include <libcamera/framebuffer.h>
 #include <libcamera/request.h>
+
+// Forward declare IPA interface
+namespace libcamera {
+namespace ipa {
+namespace soft {
+class IPASoftInterface;
+}
+}
+}
 
 namespace libcamera {
 
@@ -51,6 +57,10 @@ public:
     std::vector<FrameBuffer*>& getBuffers();
 
     void queueRequest(Request *request);
+    
+    // Set IPA interface for frame processing
+    void setIPAInterface(libcamera::ipa::soft::IPASoftInterface *ipa);
+    
     void setFrameDoneCallback(std::function<void(unsigned int frameId, unsigned int bufferId)> callback);
 
     void setPattern(Pattern pattern);
@@ -71,6 +81,7 @@ protected:
 
 private:
     void processFrame(FrameBuffer *buffer, Request *request);
+    void processWithIPA(FrameBuffer *buffer, Request *request);
     ControlList generateMetadata(unsigned int frame);
     bool hasAvailableBuffer();
 
@@ -97,6 +108,9 @@ private:
     // Track which buffers are currently in use
     std::vector<bool> bufferInUse_;
     std::mutex bufferUsageMutex_;
+    
+    // IPA interface for frame processing
+    libcamera::ipa::soft::IPASoftInterface *ipaInterface_ = nullptr;
     
     std::function<void(unsigned int, unsigned int)> frameDoneCallback_;
 };
