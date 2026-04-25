@@ -13,16 +13,17 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wextra-semi"
 #pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <onnxruntime_cxx_api.h>
 #pragma GCC diagnostic pop
 
-// libcamera headers - use paths available through ipa_includes
-// Based on what simple pipeline uses
 #include <libcamera/ipa/ipa_interface.h>
 #include <libcamera/ipa/soft_ipa_interface.h>
 #include <libcamera/base/shared_fd.h>
 #include <libcamera/base/signal.h>
-#include <libcamera/base/log.h>
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 #include <libcamera/geometry.h>

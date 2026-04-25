@@ -4,14 +4,12 @@
 #include <sys/mman.h>
 
 void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
-			   const ControlList & /*sensorControls*/)
+			   const libcamera::ControlList & /*sensorControls*/)
 {
 	if (!impl_->initialized) {
-		LOG(SoftIsp, Warning) << "Not initialized";
 		return;
 	}
 
-	LOG(SoftIsp, Debug) << "processStats: frame=" << frame << ", buffer=" << bufferId;
 
 	// TODO: Read stats from SharedFD (fdStats from init)
 	// For now, create dummy stats data
@@ -29,13 +27,11 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
 	std::vector<float> awbAeOutput;
 	int ret = impl_->algoEngine.runInference(statsInput, awbAeOutput);
 	if (ret < 0) {
-		LOG(SoftIsp, Error) << "algo.onnx inference failed";
 		ControlList metadata(controls::controls);
 		metadataReady.emit(frame, metadata);
 		return;
 	}
 
-	LOG(SoftIsp, Debug) << "algo.onnx output size: " << awbAeOutput.size();
 
 	// Extract AWB/AE parameters
 	ControlList metadata(controls::controls);
@@ -45,7 +41,6 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
 		float greenGain = awbAeOutput[1];
 		float blueGain = awbAeOutput[2];
 		
-		LOG(SoftIsp, Debug) << "AWB gains: R=" << redGain << " G=" << greenGain << " B=" << blueGain;
 		// metadata.set(controls::AwbGain, {redGain, blueGain});
 	}
 	
@@ -54,11 +49,9 @@ void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
 		float analogGain = awbAeOutput[4];
 		float digitalGain = awbAeOutput[5];
 		
-		LOG(SoftIsp, Debug) << "AE: exp=" << exposure << " analog=" << analogGain << " digital=" << digitalGain;
 	}
 
 	// Signal completion
 	metadataReady.emit(frame, metadata);
 
-	LOG(SoftIsp, Debug) << "processStats complete for frame " << frame;
 }

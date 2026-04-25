@@ -2,11 +2,11 @@
 #include "softisp.h"
 #include <cstdlib>
 
-int32_t SoftIsp::init(const IPASettings & /*settings*/,
-		      const SharedFD &fdStats,
-		      const SharedFD &fdParams,
-		      const IPACameraSensorInfo &sensorInfo,
-		      const ControlInfoMap & /*sensorControls*/,
+int32_t SoftIsp::init(const libcamera::ipa::IPASettings & /*settings*/,
+		      const libcamera::SharedFD &fdStats,
+		      const libcamera::SharedFD &fdParams,
+		      const libcamera::ipa::IPACameraSensorInfo &sensorInfo,
+		      const libcamera::ControlInfoMap & /*sensorControls*/,
 		      ControlInfoMap * /*ipaControls*/,
 		      bool * /*ccmEnabled*/)
 {
@@ -20,7 +20,6 @@ int32_t SoftIsp::init(const IPASettings & /*settings*/,
 
 	const char *modelDir = getenv("SOFTISP_MODEL_DIR");
 	if (!modelDir) {
-		LOG(SoftIsp, Error) << "SOFTISP_MODEL_DIR environment variable not set";
 		return -EINVAL;
 	}
 
@@ -29,23 +28,16 @@ int32_t SoftIsp::init(const IPASettings & /*settings*/,
 
 	int ret = impl_->algoEngine.loadModel(algoPath);
 	if (ret < 0) {
-		LOG(SoftIsp, Error) << "Failed to load algo model: " << algoPath;
 		return ret;
 	}
 
 	ret = impl_->applierEngine.loadModel(applierPath);
 	if (ret < 0) {
-		LOG(SoftIsp, Error) << "Failed to load applier model: " << applierPath;
 		return ret;
 	}
 
 	impl_->initialized = true;
 
-	LOG(SoftIsp, Info) << "SoftISP initialized for "
-			   << impl_->imageWidth << "x" << impl_->imageHeight;
-	LOG(SoftIsp, Info) << "Models loaded from: " << modelDir;
-	LOG(SoftIsp, Info) << "  - algo.onnx: AWB/AE computation";
-	LOG(SoftIsp, Info) << "  - applier.onnx: Bayer → RGB/YUV";
 
 	return 0;
 }

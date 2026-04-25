@@ -4,10 +4,8 @@
 int32_t SoftIsp::start()
 {
 	if (!impl_->initialized) {
-		LOG(SoftIsp, Error) << "Not initialized";
 		return -ENODEV;
 	}
 
-	LOG(SoftIsp, Info) << "SoftISP started";
 	return 0;
 }

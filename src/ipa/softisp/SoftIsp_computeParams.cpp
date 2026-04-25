@@ -4,10 +4,8 @@
 void SoftIsp::computeParams(const uint32_t frame)
 {
 	if (!impl_->initialized) {
-		LOG(SoftIsp, Warning) << "Not initialized";
 		return;
 	}
 
-	LOG(SoftIsp, Debug) << "computeParams: frame=" << frame;
 	// TODO: Use algoEngine to compute parameters if needed
 }

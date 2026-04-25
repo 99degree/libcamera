@@ -31,7 +31,6 @@ OnnxEngine::~OnnxEngine()
 int OnnxEngine::loadModel(const std::string &modelPath)
 {
     if (!modelPath.empty() && access(modelPath.c_str(), R_OK) != 0) {
-        LOG(OnnxEngine, Error) << "Model file not found: " << modelPath;
         return -ENOENT;
     }
 
@@ -85,18 +84,12 @@ int OnnxEngine::loadModel(const std::string &modelPath)
             outputInfo_[outputName.get()] = info;
         }
 
-        LOG(OnnxEngine, Info) << "Model loaded: " << modelPath;
-        LOG(OnnxEngine, Info) << "  Inputs: " << numInputs;
         for (const auto &name : inputNames_)
-            LOG(OnnxEngine, Debug) << "    - " << name;
-        LOG(OnnxEngine, Info) << "  Outputs: " << numOutputs;
         for (const auto &name : outputNames_)
-            LOG(OnnxEngine, Debug) << "    - " << name;
 
         return 0;
 
     } catch (const Ort::Exception &e) {
-        LOG(OnnxEngine, Error) << "Failed to load model: " << e.what();
         if (session_) {
             delete session_;
             session_ = nullptr;
@@ -109,12 +102,10 @@ int OnnxEngine::runInference(const std::vector<float> &inputs,
                              std::vector<float> &outputs)
 {
     if (!session_) {
-        LOG(OnnxEngine, Error) << "Session not initialized";
         return -ENODEV;
     }
 
     if (inputs.empty()) {
-        LOG(OnnxEngine, Error) << "Empty input data";
         return -EINVAL;
     }
 
@@ -123,7 +114,6 @@ int OnnxEngine::runInference(const std::vector<float> &inputs,
         size_t inputSize = info.elementCount;
 
         if (inputs.size() != inputSize) {
-            LOG(OnnxEngine, Error) << "Input size mismatch";
             return -EINVAL;
         }
 
@@ -152,7 +142,6 @@ int OnnxEngine::runInference(const std::vector<float> &inputs,
         return 0;
 
     } catch (const Ort::Exception &e) {
-        LOG(OnnxEngine, Error) << "Inference failed: " << e.what();
         return -EIO;
     }
 }
