@@ -12,13 +12,14 @@ LOG_DEFINE_CATEGORY(SoftISPPipeline)
 
 // Step 3: Define a static const reference to the category for easy use with LOG macro
 static const LogCategory &SoftISPPipeline = _LOG_CATEGORY(SoftISPPipeline)();
-}
+
+} /* namespace libcamera */
 
 // Step 4: Include softisp.h to get all class definitions
 #include "softisp.h"
 
 // Step 5: Include all method implementation files
-// PipelineHandlerSoftISP methods
+// Each included file has its own namespace libcamera { } block
 #include "PipelineSoftISP_constructor.cpp"
 #include "PipelineSoftISP_destructor.cpp"
 #include "PipelineSoftISP_match.cpp"
@@ -30,7 +31,6 @@ static const LogCategory &SoftISPPipeline = _LOG_CATEGORY(SoftISPPipeline)();
 #include "PipelineSoftISP_generateConfiguration.cpp"
 #include "PipelineSoftISP_new.cpp"
 
-// SoftISPCameraData methods
 #include "SoftISPCamera_constructor.cpp"
 #include "SoftISPCamera_destructor.cpp"
 #include "SoftISPCamera_init.cpp"
@@ -46,10 +46,12 @@ static const LogCategory &SoftISPPipeline = _LOG_CATEGORY(SoftISPPipeline)();
 #include "SoftISPCamera_storeBuffer.cpp"
 #include "SoftISPCamera_data.cpp"
 
-// SoftISPConfiguration methods
 #include "SoftISPConfig_constructor.cpp"
 #include "SoftISPConfig_validate.cpp"
 
-// VirtualCamera
 #include "virtual_camera.cpp"
 
+// Register the pipeline handler manually
+namespace libcamera {
+static PipelineHandlerFactory<PipelineHandlerSoftISP> global_PipelineHandlerSoftISPFactory("softisp");
+} /* namespace libcamera */

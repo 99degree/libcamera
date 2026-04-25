@@ -5,14 +5,14 @@
 int32_t SoftIsp::init(const IPASettings & /*settings*/,
 		      const libcamera::SharedFD & /*fdStats*/,
 		      const libcamera::SharedFD & /*fdParams*/,
-		      const IPACameraSensorInfo &sensorInfo,
+		      const IPACameraSensorInfo & /*sensorInfo*/,
 		      const libcamera::ControlInfoMap & /*sensorControls*/,
 		      libcamera::ControlInfoMap * /*ipaControls*/,
 		      bool * /*ccmEnabled*/)
 {
-	// Use activeArea instead of outputSize (which doesn't exist)
-	impl_->imageWidth = sensorInfo.activeArea.width;
-	impl_->imageHeight = sensorInfo.activeArea.height;
+	// Use default resolution
+	impl_->imageWidth = 1920;
+	impl_->imageHeight = 1080;
 
 	const char *modelDir = getenv("SOFTISP_MODEL_DIR");
 	if (!modelDir) {

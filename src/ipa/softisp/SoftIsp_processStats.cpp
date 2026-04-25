@@ -3,7 +3,7 @@
 #include <cstring>
 
 void SoftIsp::processStats(const uint32_t frame, const uint32_t bufferId,
-			   libcamera::ControlList &stats)
+			   const libcamera::ControlList &stats)
 {
 	if (!impl_->initialized)
 		return;

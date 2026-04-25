@@ -30,6 +30,7 @@
 #include <libcamera/controls.h>
 #include <libcamera/geometry.h>
 #include <libcamera/base/log.h>
+#include <libcamera/base/log.h>
 
 namespace libcamera {
 namespace ipa {
@@ -102,7 +103,7 @@ public:
 
 	void computeParams(const uint32_t frame);
 
-	void processStats(uint32_t frame, uint32_t bufferId, libcamera::ControlList &stats);
+	void processStats(uint32_t frame, uint32_t bufferId, const libcamera::ControlList &stats);
 
 	void processFrame(const uint32_t frame,
 	                  const uint32_t bufferId,
