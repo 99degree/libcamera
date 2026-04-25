@@ -1,0 +1,69 @@
+[89:45:18.899724030] [6644]  INFO IPAManager ipa_manager.cpp:147 libcamera is not installed. Adding '/data/data/com.termux/files/home/libcamera1/build/src/ipa' to the IPA search path
+[89:45:18.900217833] [6644]  INFO Camera camera_manager.cpp:343 libcamera v0.7.0+570-7adc16ce-dirty (2026-04-25T15:26:32HKT)
+[89:45:18.901531322] [6645]  WARN DeviceEnumerator device_enumerator_sysfs.cpp:87 Device node /dev/media0 should exist but doesn't
+DEBUG match() called
+DEBUG match(): creating camera data
+[89:45:18.901872103] [6645]  INFO SoftISPPipeline SoftISPCamera_constructor.cpp:7 SoftISPCameraData created
+DEBUG match(): data=0xb40000779ec4b130
+[89:45:18.901966166] [6645]  INFO SoftISPPipeline SoftISPCamera_init.cpp:8 Initializing SoftISPCameraData
+[89:45:18.902015958] [6645]  INFO VirtualCamera virtual_camera.cpp:35 Virtual camera initialized: 1920x1080
+[89:45:18.902092051] [6645]  INFO SoftISPPipeline SoftISPCamera_init.cpp:23 VirtualCamera initialized (waiting for start())
+DEBUG match(): calling Camera::create() with 1 stream(s)
+DEBUG match(): stream address: 0xb40000774ec44cc0
+DEBUG match(): camera=0xb40000783ec5bb50
+DEBUG match(): calling registerCamera()
+[89:45:18.902396739] [6645]  INFO Camera camera_manager.cpp:226 Adding camera 'softisp_virtual' for pipeline handler softisp
+DEBUG match(): returning true
+DEBUG match() called
+DEBUG match(): already created, returning false
+[89:45:18.902536114] [6645]  INFO SoftISPPipeline PipelineSoftISP_destructor.cpp:6 Destroying PipelineHandlerSoftISP
+DEBUG PipelineHandler::generateConfiguration called
+DEBUG camera=0xb40000783ec5bb50
+DEBUG data=0xb40000779ec4b130
+DEBUG delegating to data->generateConfiguration()
+DEBUG generateConfiguration: roles.size()=1
+DEBUG generateConfiguration: initialStream_ address: 0xb40000774ec44cc0
+DEBUG generateConfiguration: config created
+DEBUG generateConfiguration: role=3
+DEBUG generateConfiguration: 1920x1080, buffers=4
+DEBUG generateConfiguration: cfg.stream()=0xb40000774ec44cc0
+DEBUG generateConfiguration: added stream, config->size()=1
+DEBUG generateConfiguration: validate() returned 0
+DEBUG generateConfiguration: SUCCESS, returning config with size=1
+DEBUG: config=not null, config->size()=1, rolesIt.size()=1
+Using camera softisp_virtual as cam0
+[89:45:18.903224343] [6644]  INFO Camera camera.cpp:1216 configuring streams: (0) 1920x1080-SBGGR10/Rec709
+[89:45:18.903264291] [6645]  INFO SoftISPPipeline SoftISPCamera_configure.cpp:8 === configure() called ===
+[89:45:18.903291114] [6645]  INFO SoftISPPipeline SoftISPCamera_configure.cpp:9 Configuring camera with 1 streams
+[89:45:18.903300593] [6645]  INFO SoftISPPipeline SoftISPCamera_configure.cpp:27 Configuration validated
+[89:45:18.903307155] [6645]  INFO SoftISPPipeline SoftISPCamera_configure.cpp:33 Stream 0 initialStream_ address: 0xb40000774ec44cc0
+[89:45:18.903321166] [6645]  INFO SoftISPPipeline SoftISPCamera_configure.cpp:38 Stream 0 cfg.stream() address: 0xb40000774ec44cc0
+[89:45:18.903328666] [6645]  INFO SoftISPPipeline SoftISPCamera_configure.cpp:45 Stream 0: 1920x1080 SBGGR10
+[89:45:18.903341062] [6645]  INFO SoftISPPipeline SoftISPCamera_configure.cpp:48 Camera configuration applied successfully
+[89:45:18.903405489] [6645]  INFO SoftISPPipeline SoftISPCamera_exportFrameBuffers.cpp:11 === exportFrameBuffers() called ===
+[89:45:18.903425905] [6645]  INFO SoftISPPipeline SoftISPCamera_exportFrameBuffers.cpp:12 Stream pointer: 0xb40000774ec44cc0
+[89:45:18.903433353] [6645]  INFO SoftISPPipeline SoftISPCamera_exportFrameBuffers.cpp:13 Buffers pointer: 0xb4000078bec4f718
+[89:45:18.903439655] [6645]  INFO SoftISPPipeline SoftISPCamera_exportFrameBuffers.cpp:14 virtualCamera_ pointer: 0xb4000077dec40610
+[89:45:18.903446322] [6645]  INFO SoftISPPipeline SoftISPCamera_exportFrameBuffers.cpp:26 Checks passed, proceeding with buffer creation
+[89:45:18.903457780] [6645]  INFO SoftISPPipeline SoftISPCamera_exportFrameBuffers.cpp:36 Creating 4 buffers of size 2592000 for 1920x1080
+[89:45:18.903576478] [6645]  INFO SoftISPPipeline SoftISPCamera_exportFrameBuffers.cpp:83 Successfully exported 4 frame buffers
+[89:45:18.903670124] [6645]  INFO SoftISPPipeline SoftISPCamera_start.cpp:6 Starting camera
+[89:45:18.903776530] [6645]  INFO VirtualCamera virtual_camera.cpp:47 Virtual camera started
+[89:45:18.903794708] [6645]  INFO SoftISPPipeline SoftISPCamera_start.cpp:15 VirtualCamera started
+cam0: Capture 30 frames
+[89:45:18.903897885] [6645]  INFO SoftISPPipeline SoftISPCamera_queueRequest.cpp:8 Queueing request
+[89:45:18.903939239] [6645]  INFO SoftISPPipeline SoftISPCamera_queueRequest.cpp:8 Queueing request
+[89:45:18.903959291] [6645]  INFO SoftISPPipeline SoftISPCamera_queueRequest.cpp:8 Queueing request
+[89:45:18.903980020] [6646]  INFO VirtualCamera virtual_camera.cpp:119 Generated frame 1 (Bayer10 RGGB 1920x1080)
+[89:45:18.904070905] [6645]  INFO SoftISPPipeline SoftISPCamera_queueRequest.cpp:8 Queueing request
+[89:45:18.938086739] [6646]  INFO SoftISPPipeline SoftISPCamera_frameDone.cpp:8 Frame done: frameId=3, bufferId=10
+[89:45:18.938161478] [6646]  WARN SoftISPPipeline SoftISPCamera_frameDone.cpp:13 Buffer not found for ID 10
+[89:45:18.971689499] [6646]  INFO VirtualCamera virtual_camera.cpp:119 Generated frame 2 (Bayer10 RGGB 1920x1080)
+[89:45:19.009904343] [6646]  INFO SoftISPPipeline SoftISPCamera_frameDone.cpp:8 Frame done: frameId=3, bufferId=12
+[89:45:19.009977624] [6646]  WARN SoftISPPipeline SoftISPCamera_frameDone.cpp:13 Buffer not found for ID 12
+[89:45:19.043497832] [6646]  INFO VirtualCamera virtual_camera.cpp:119 Generated frame 3 (Bayer10 RGGB 1920x1080)
+[89:45:19.081981218] [6646]  INFO SoftISPPipeline SoftISPCamera_frameDone.cpp:8 Frame done: frameId=3, bufferId=14
+[89:45:19.082083301] [6646]  WARN SoftISPPipeline SoftISPCamera_frameDone.cpp:13 Buffer not found for ID 14
+[89:45:19.115538041] [6646]  INFO VirtualCamera virtual_camera.cpp:119 Generated frame 4 (Bayer10 RGGB 1920x1080)
+[89:45:19.153373353] [6646]  INFO SoftISPPipeline SoftISPCamera_frameDone.cpp:8 Frame done: frameId=3, bufferId=16
+[89:45:19.153439030] [6646]  WARN SoftISPPipeline SoftISPCamera_frameDone.cpp:13 Buffer not found for ID 16

@@ -1,0 +1,4 @@
+[89:46:20.341377601] [6905]  INFO VirtualCamera virtual_camera.cpp:119 Generated frame 1 (Bayer10 RGGB 1920x1080)
+[89:46:20.412230257] [6905]  INFO VirtualCamera virtual_camera.cpp:119 Generated frame 2 (Bayer10 RGGB 1920x1080)
+[89:46:20.488202601] [6905]  INFO VirtualCamera virtual_camera.cpp:119 Generated frame 3 (Bayer10 RGGB 1920x1080)
+[89:46:20.565338903] [6905]  INFO VirtualCamera virtual_camera.cpp:119 Generated frame 4 (Bayer10 RGGB 1920x1080)

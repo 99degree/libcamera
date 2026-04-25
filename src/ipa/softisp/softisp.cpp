@@ -15,7 +15,6 @@ using libcamera::ControlInfoMap;
 LOG_DEFINE_CATEGORY(SoftIsp)
 
 // Log category for SoftISP IPA
-LOG_DEFINE_CATEGORY(IPASoftISP)
 const LogCategory &IPASoftISP = _LOG_CATEGORY(IPASoftISP)();
 
 SoftIsp::~SoftIsp() = default;
