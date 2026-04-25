@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include "softisp.h"
+#include "placeholder_stream.h"
+#include <libcamera/formats.h>
 #include "libcamera/internal/device_enumerator.h"
 #include <algorithm>
 #include <set>
 
 namespace libcamera {
 
-// Static storage for the virtual camera to persist across pipeline handler destruction
 static std::shared_ptr<Camera> s_virtualCamera;
 static bool s_cameraRegistered = false;
 
@@ -14,55 +15,49 @@ bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
 {
 	(void)enumerator;
 
-	LOG(SoftISPPipeline, Info) << "=== match() called ===";
-	LOG(SoftISPPipeline, Info) << "  created_=" << created_ << ", s_cameraRegistered=" << s_cameraRegistered;
+	std::cerr << "DEBUG match() called" << std::endl;
 	
-	// If we've already created the virtual camera, don't match again
 	if (created_) {
-		LOG(SoftISPPipeline, Info) << "  Virtual camera already registered, returning false";
+		std::cerr << "DEBUG match(): already created, returning false" << std::endl;
 		return false;
 	}
 	
 	created_ = true;
-	LOG(SoftISPPipeline, Info) << "  Creating new virtual camera...";
+	std::cerr << "DEBUG match(): creating camera data" << std::endl;
 	
-	// Create camera data
 	auto data = std::make_unique<SoftISPCameraData>(this);
-	LOG(SoftISPPipeline, Info) << "  SoftISPCameraData created at " << data.get();
+	std::cerr << "DEBUG match(): data=" << data.get() << std::endl;
 	
 	if (data->init() < 0) {
-		LOG(SoftISPPipeline, Error) << "  Failed to initialize camera data";
+		std::cerr << "DEBUG match(): init failed" << std::endl;
 		return false;
 	}
 	
-	LOG(SoftISPPipeline, Info) << "  Camera data initialized";
+	// Create a placeholder stream and store it in camera data
+	data->initialStream_ = new PlaceholderStream();
 	
-	// Create a basic stream configuration
 	std::set<Stream *> streams;
+	streams.insert(data->initialStream_);
 	
-	// Create the camera
-	LOG(SoftISPPipeline, Info) << "  Calling Camera::create()...";
+	std::cerr << "DEBUG match(): calling Camera::create() with " << streams.size() << " stream(s)" << std::endl;
+	std::cerr << "DEBUG match(): stream address: " << data->initialStream_ << std::endl;
+	
 	auto camera = Camera::create(std::move(data), "softisp_virtual", streams);
 	
 	if (!camera) {
-		LOG(SoftISPPipeline, Error) << "  Camera::create() returned nullptr!";
+		std::cerr << "DEBUG match(): Camera::create() returned nullptr" << std::endl;
 		return false;
 	}
 	
-	LOG(SoftISPPipeline, Info) << "  Camera created at " << camera.get();
+	std::cerr << "DEBUG match(): camera=" << camera.get() << std::endl;
 	
-	// Store a static reference to prevent the camera from being destroyed
 	s_virtualCamera = camera;
 	s_cameraRegistered = true;
-	LOG(SoftISPPipeline, Info) << "  Static reference stored, s_virtualCamera=" << s_virtualCamera.get();
 	
-	// Register the camera
-	LOG(SoftISPPipeline, Info) << "  Calling registerCamera()...";
+	std::cerr << "DEBUG match(): calling registerCamera()" << std::endl;
 	registerCamera(std::move(camera));
-	LOG(SoftISPPipeline, Info) << "  registerCamera() completed";
 	
-	LOG(SoftISPPipeline, Info) << "  s_virtualCamera after register: " << s_virtualCamera.get();
-	LOG(SoftISPPipeline, Info) << "=== match() returning true ===";
+	std::cerr << "DEBUG match(): returning true" << std::endl;
 	return true;
 }
 

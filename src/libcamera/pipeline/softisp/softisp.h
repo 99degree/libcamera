@@ -4,31 +4,30 @@
  *
  * Pipeline handler for SoftISP (virtual and real cameras)
  */
+
 #pragma once
+
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
+
 #include <libcamera/base/object.h>
 #include <libcamera/base/thread.h>
 #include <libcamera/base/mutex.h>
 #include <libcamera/camera.h>
+
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/dma_buf_allocator.h"
 #include <libcamera/ipa/softisp_ipa_proxy.h>
 #include "virtual_camera.h"
+#include "placeholder_stream.h"
 
 namespace libcamera {
+
 // Forward declaration of the log category
 extern const LogCategory &SoftISPPipeline;
-
-// Define the log category for SoftISP pipeline
-
-// Forward declaration of the log category reference
-extern const LogCategory &SoftISPPipeline;
-
-// Define a static const reference to the category for easy use with LOG macro
 
 class SoftISPConfiguration : public libcamera::CameraConfiguration {
 public:
@@ -83,13 +82,12 @@ public:
 	int configure(CameraConfiguration *config);
 	int start(const ControlList *controls = nullptr);
 	void stop();
-	
 	int queueRequest(Request *request);
 	void processRequest(Request *request);
-	
 	FrameBuffer* getBufferFromId(uint32_t bufferId);
 	void storeBuffer(uint32_t bufferId, FrameBuffer *buffer);
-	int exportFrameBuffers(Stream *stream, std::vector<std::unique_ptr<FrameBuffer>> *buffers);
+	int exportFrameBuffers(Stream *stream,
+			       std::vector<std::unique_ptr<FrameBuffer>> *buffers);
 	std::unique_ptr<CameraConfiguration> generateConfiguration(Span<const StreamRole> roles);
 
 	SoftISPFrames frameInfo_;
@@ -106,9 +104,12 @@ public:
 	bool running_ = false;
 	Mutex mutex_;
 	std::map<uint32_t, FrameBuffer*> bufferMap_;
-
 	std::shared_ptr<MediaDevice> mediaDevice_;
 	bool isVirtualCamera = true;
+
+	// Store placeholder streams (like SimplePipeline)
+	std::vector<PlaceholderStream> placeholderStreams_;
+	PlaceholderStream *initialStream_ = nullptr;
 };
 
 class PipelineHandlerSoftISP : public PipelineHandler {
@@ -125,14 +126,15 @@ public:
 		Camera *camera, Span<const StreamRole> roles) override;
 	int configure(Camera *camera, CameraConfiguration *config) override;
 	int exportFrameBuffers(Camera *camera, Stream *stream,
-	                       std::vector<std::unique_ptr<FrameBuffer>> *buffers) override;
+			       std::vector<std::unique_ptr<FrameBuffer>> *buffers) override;
 	int start(Camera *camera, const ControlList *controls) override;
 	void stopDevice(Camera *camera) override;
 	int queueRequestDevice(Camera *camera, Request *request) override;
 	bool match(DeviceEnumerator *enumerator) override;
 
 private:
-	SoftISPCameraData *cameraData(Camera *camera) {
+	SoftISPCameraData *cameraData(Camera *camera)
+	{
 		return static_cast<SoftISPCameraData *>(camera->_d());
 	}
 
