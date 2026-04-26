@@ -9,6 +9,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <libcamera/ipa/softisp_ipa_interface.h>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -25,7 +26,6 @@
 namespace libcamera {
 namespace ipa {
 namespace soft {
-class IPASoftInterface;
 }
 }
 }
@@ -57,6 +57,7 @@ public:
 
     
     // Set IPA interface for frame processing
+    void setIpaInterface(ipa::soft::IPASoftIspInterface *ipaInterface) { ipaInterface_ = ipaInterface; }
     
     void queueRequest(Request *request);
     void setFrameDoneCallback(std::function<void(unsigned int frameId, unsigned int bufferId)> callback);
@@ -108,6 +109,7 @@ private:
     std::mutex bufferUsageMutex_;
     
     // IPA interface for frame processing
+    ipa::soft::IPASoftIspInterface *ipaInterface_ = nullptr;
     
     std::function<void(unsigned int, unsigned int)> frameDoneCallback_;
 };

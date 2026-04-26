@@ -10,6 +10,7 @@
 #include <libcamera/base/utils.h>
 #include <libcamera/controls.h>
 
+namespace libcamera {
 
 LOG_DEFINE_CATEGORY(VirtualCamera)
 
@@ -267,12 +268,6 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, [[maybe_unused]] Request *
     {
         std::lock_guard<std::mutex> lock(bufferUsageMutex_);
         for (size_t i = 0; i < buffers_.size(); i++) {
-
-    // Call IPA processing if available
-    if (ipaInterface_) {
-        processWithIPA(buffer, request);
-    }
-
             if (buffers_[i] == buffer) {
                 bufferInUse_[i] = false;
                 break;
@@ -324,36 +319,7 @@ void VirtualCamera::run()
         std::this_thread::sleep_for(std::chrono::milliseconds(33));
     }
     
-    LOG(VirtualCamera, Info) << "processWithIPA called - IPA interface available: " << (ipaInterface_ ? "yes" : "no");
     LOG(VirtualCamera, Info) << "VirtualCamera::run() thread exiting";
 }
 
-void VirtualCamera::processWithIPA(FrameBuffer *buffer, [[maybe_unused]] Request *request)
-{
-    if (!ipaInterface_ || !buffer || buffer->planes().empty()) {
-        LOG(VirtualCamera, Warning) << "IPA processing skipped - no interface or invalid buffer";
-        return;
-    }
-
-    LOG(VirtualCamera, Info) << "Processing frame with IPA";
-
-    const auto &plane = buffer->planes()[0];
-    uint32_t bufferId = plane.fd.get();
-    uint32_t frameId = sequence_;
-    
-    // Create control list for sensor controls (empty for now)
-    ControlList sensorControls;
-    
-    // Call IPA processFrame method
-    ipaInterface_->processFrame(
-        frameId,           // frame
-        bufferId,          // bufferId
-        plane.fd,           // bufferFd
-        0,                 // planeIndex
-        width_,            // width
-        height_,          // height
-        sensorControls    // results
-    );
-    
-    LOG(VirtualCamera, Info) << "IPA processFrame called for frame " << frameId << ", bufferId " << bufferId;
-}
+} /* namespace libcamera */

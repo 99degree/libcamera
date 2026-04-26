@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include "softisp.h"
 
-SoftISPConfiguration::SoftISPConfiguration() : CameraConfiguration()
+SoftIsp::SoftIsp()
 {
+	LOG(SoftIsp, Info) << "SoftIsp constructor";
 }

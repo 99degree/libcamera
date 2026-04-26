@@ -98,7 +98,7 @@ public:
 	int32_t configure(const IPAConfigInfo &configInfo);
 	void queueRequest(const uint32_t frame, const ControlList &sensorControls);
 	void computeParams(const uint32_t frame);
-	void processStats(uint32_t frame, uint32_t bufferId, const libcamera::ControlList &stats);
+	void processStats(uint32_t frame, uint32_t bufferId, libcamera::ControlList &stats);
 	void processFrame(const uint32_t frame,
 			  uint32_t bufferId,
 			  const SharedFD &bufferFd,

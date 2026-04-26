@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include "softisp.h"
 
-namespace libcamera {
-
 int SoftISPCameraData::start([[maybe_unused]] const ControlList *controls)
 {
-    LOG(SoftISPPipeline, Info) << "Starting camera";
-    
-    // Start the frame generator if it exists
-    if (frameGenerator_) {
-        return frameGenerator_->start();
-    }
-    
-    return 0;
+	LOG(SoftISPPipeline, Info) << "Starting camera";
+	if (!frameGenerator_) {
+		LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
+		return -EINVAL;
+	}
+	
+	// Load IPA and connect it to virtual camera
+	loadIPA();
+	
+	running_ = true;
+	return frameGenerator_->start();
 }
-
-} /* namespace libcamera */

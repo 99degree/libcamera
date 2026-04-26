@@ -9,17 +9,15 @@
 // Step 2: Define the log category for SoftISP pipeline
 namespace libcamera {
 LOG_DEFINE_CATEGORY(SoftISPPipeline)
-
-// Step 3: Define a static const reference to the category for easy use with LOG macro
-static const LogCategory &SoftISPPipeline = _LOG_CATEGORY(SoftISPPipeline)();
-
 } /* namespace libcamera */
 
-// Step 4: Include softisp.h to get all class definitions
+// Step 3: Include softisp.h to get all class definitions
 #include "softisp.h"
 
+// Step 4: Open namespace for all method implementations
+namespace libcamera {
+
 // Step 5: Include all method implementation files
-// Each included file has its own namespace libcamera { } block
 #include "PipelineSoftISP_constructor.cpp"
 #include "PipelineSoftISP_destructor.cpp"
 #include "PipelineSoftISP_match.cpp"
@@ -30,7 +28,6 @@ static const LogCategory &SoftISPPipeline = _LOG_CATEGORY(SoftISPPipeline)();
 #include "PipelineSoftISP_exportFrameBuffers.cpp"
 #include "PipelineSoftISP_generateConfiguration.cpp"
 #include "PipelineSoftISP_new.cpp"
-
 #include "SoftISPCamera_constructor.cpp"
 #include "SoftISPCamera_destructor.cpp"
 #include "SoftISPCamera_init.cpp"
@@ -40,22 +37,23 @@ static const LogCategory &SoftISPPipeline = _LOG_CATEGORY(SoftISPPipeline)();
 #include "SoftISPCamera_getBufferFromId.cpp"
 #include "SoftISPCamera_storeBuffer.cpp"
 #include "SoftISPCamera_data.cpp"
-
 #include "SoftISPConfig_constructor.cpp"
 #include "SoftISPConfig_validate.cpp"
-
 #include "virtual_camera.cpp"
 
 // Register the pipeline handler manually
-namespace libcamera {
-static PipelineHandlerFactory<PipelineHandlerSoftISP> global_PipelineHandlerSoftISPFactory("softisp");
-} /* namespace libcamera */
-#include "SoftISPCamera_frameDone.cpp"
+static PipelineHandlerFactory<PipelineHandlerSoftISP>
+	global_PipelineHandlerSoftISPFactory("softisp");
 
 // Additional Camera methods
+#include "SoftISPCamera_frameDone.cpp"
+#include "SoftISPCamera_metadataReady.cpp"
+#include "SoftISPCamera_tryCompleteRequest.cpp"
+#include "SoftISPFrames_destroy.cpp"
+#include "SoftISPFrames_find.cpp"
 #include "SoftISPCamera_start.cpp"
 #include "SoftISPCamera_stop.cpp"
 #include "SoftISPCamera_exportFrameBuffers.cpp"
 #include "SoftISPCamera_configure.cpp"
 
-// Initialize static member
+} /* namespace libcamera */

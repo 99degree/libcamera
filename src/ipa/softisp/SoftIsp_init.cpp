@@ -3,11 +3,11 @@
 #include <cstdlib>
 
 int32_t SoftIsp::init(const IPASettings & /*settings*/,
-		      const libcamera::SharedFD & /*fdStats*/,
-		      const libcamera::SharedFD & /*fdParams*/,
+		      const SharedFD & /*fdStats*/,
+		      const SharedFD & /*fdParams*/,
 		      const IPACameraSensorInfo & /*sensorInfo*/,
-		      const libcamera::ControlInfoMap & /*sensorControls*/,
-		      libcamera::ControlInfoMap * /*ipaControls*/,
+		      const ControlInfoMap & /*sensorControls*/,
+		      ControlInfoMap * /*ipaControls*/,
 		      bool * /*ccmEnabled*/)
 {
 	// Use default resolution

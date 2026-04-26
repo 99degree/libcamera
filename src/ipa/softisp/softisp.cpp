@@ -17,6 +17,7 @@ using libcamera::ControlInfoMap;
 
 SoftIsp::~SoftIsp() = default;
 
+#include "SoftIsp_constructor.cpp"
 #include "SoftIsp_init.cpp"
 #include "SoftIsp_start.cpp"
 #include "SoftIsp_stop.cpp"
