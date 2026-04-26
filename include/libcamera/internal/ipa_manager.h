@@ -45,18 +45,27 @@ public:
 
 		const GlobalConfiguration &configuration = cm->_d()->configuration();
 
+		LOG(IPAManager, Info) << "[IPA_MGR] createIPA: found module, creating proxy...";
 		auto proxy = [&]() -> std::unique_ptr<T> {
-			if (self->isSignatureValid(m))
+			char *noIso = utils::secure_getenv("LIBCAMERA_IPA_NO_ISOLATION");
+			bool forceNoIsolation = noIso && noIso[0] != '\0';
+
+			if (forceNoIsolation || self->isSignatureValid(m)) {
+				LOG(IPAManager, Info) << "[IPA_MGR] createIPA: using Threaded";
 				return std::make_unique<typename T::Threaded>(m, configuration);
-			else
+			} else {
+				LOG(IPAManager, Info) << "[IPA_MGR] createIPA: using Isolated";
 				return std::make_unique<typename T::Isolated>(m, configuration);
+			}
 		}();
 
+		LOG(IPAManager, Info) << "[IPA_MGR] createIPA: proxy created, checking valid...";
 		if (!proxy->isValid()) {
-			LOG(IPAManager, Error) << "Failed to load proxy";
+			LOG(IPAManager, Error) << "[IPA_MGR] createIPA: proxy not valid";
 			return nullptr;
 		}
 
+		LOG(IPAManager, Info) << "[IPA_MGR] createIPA: proxy valid, returning";
 		return proxy;
 	}
 

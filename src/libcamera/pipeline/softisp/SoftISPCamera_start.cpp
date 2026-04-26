@@ -10,6 +10,12 @@ int SoftISPCameraData::start([[maybe_unused]] const ControlList *controls)
 	}
 	
 	loadIPA();
+
+	if (ipa_ && ipa_->isValid()) {
+		LOG(SoftISPPipeline, Info) << "Connecting IPA to VirtualCamera";
+		frameGenerator_->setIpaInterface(ipa());
+	}
+
 	running_ = true;
 	return frameGenerator_->start();
 }
