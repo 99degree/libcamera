@@ -4,8 +4,9 @@
 SoftIsp::SoftIsp()
 {
 	LOG(SoftIsp, Info) << "[IPA] SoftIsp::SoftIsp() - begin";
-	LOG(SoftIsp, Info) << "[IPA] Creating Impl (which constructs OnnxEngine x2)...";
 	impl_ = std::make_unique<Impl>();
-	LOG(SoftIsp, Info) << "[IPA] Impl created";
-	LOG(SoftIsp, Info) << "[IPA] SoftIsp::SoftIsp() - end (constructor)";
+	impl_->algoEngine = std::make_unique<OnnxEngineImpl>();
+	impl_->applierEngine = std::make_unique<OnnxEngineImpl>();
+	LOG(SoftIsp, Info) << "[IPA] Impl created with 2 engines";
+	LOG(SoftIsp, Info) << "[IPA] SoftIsp::SoftIsp() - end";
 }

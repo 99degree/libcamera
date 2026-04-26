@@ -1,10 +1,38 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-/**
- * OnnxEngine - Wrapper around ONNX Runtime for model inference.
- */
 #pragma once
 
-// Suppress warnings from ONNX Runtime headers
+#include <cstdint>
+#include <string>
+#include <vector>
+#include <unordered_map>
+
+namespace libcamera {
+namespace ipa {
+namespace soft {
+
+struct TensorInfo {
+	std::vector<int64_t> shape;
+	int type;
+	size_t elementCount;
+};
+
+class OnnxEngine {
+public:
+	virtual ~OnnxEngine() = default;
+
+	virtual int loadModel(const std::string &modelPath) = 0;
+	virtual int runInference(const std::vector<float> &inputs, std::vector<float> &outputs) = 0;
+
+	virtual const std::vector<const char *> &getInputNames() const = 0;
+	virtual const std::vector<const char *> &getOutputNames() const = 0;
+	virtual bool isLoaded() const = 0;
+	virtual const std::unordered_map<std::string, TensorInfo> &getInputInfo() const = 0;
+	virtual const std::unordered_map<std::string, TensorInfo> &getOutputInfo() const = 0;
+};
+
+/* ---- Picked by meson.build via onnx_backend option ---- */
+#ifdef USE_ONNX_ORT
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wextra-semi"
 #pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
@@ -15,54 +43,64 @@
 #include <onnxruntime_cxx_api.h>
 #pragma GCC diagnostic pop
 
-#include <string>
-#include <vector>
-#include <memory>
-#include <unordered_map>
-#include <libcamera/base/shared_fd.h>
-#include <libcamera/geometry.h>
-
-namespace libcamera {
-namespace ipa {
-namespace soft {
-
-/**
- * OnnxEngine - ONNX Runtime wrapper
- * Manages ONNX sessions and performs inference.
- */
-class OnnxEngine {
+class OnnxEngineOrt : public OnnxEngine {
 public:
-	OnnxEngine();
-	~OnnxEngine();
+	OnnxEngineOrt();
+	~OnnxEngineOrt();
+	int loadModel(const std::string &modelPath) override;
+	int runInference(const std::vector<float> &inputs, std::vector<float> &outputs) override;
 
-	int loadModel(const std::string &modelPath);
-	int runInference(const std::vector<float> &inputs, std::vector<float> &outputs);
-	
-	const std::vector<const char*> &getInputNames() const { return inputNames_; }
-	const std::vector<const char*> &getOutputNames() const { return outputNames_; }
-	bool isLoaded() const { return session_ != nullptr; }
-
-	struct TensorInfo {
-		std::vector<int64_t> shape;
-		ONNXTensorElementDataType type;
-		size_t elementCount;
-	};
-
-	const std::unordered_map<std::string, TensorInfo> &getInputInfo() const { return inputInfo_; }
-	const std::unordered_map<std::string, TensorInfo> &getOutputInfo() const { return outputInfo_; }
+	const std::vector<const char *> &getInputNames() const override { return inputNames_; }
+	const std::vector<const char *> &getOutputNames() const override { return outputNames_; }
+	bool isLoaded() const override { return session_ != nullptr; }
+	const std::unordered_map<std::string, TensorInfo> &getInputInfo() const override { return inputInfo_; }
+	const std::unordered_map<std::string, TensorInfo> &getOutputInfo() const override { return outputInfo_; }
 
 private:
-	// Lazy-init pointers for isolated IPA process safety
-	Ort::Env *env_ = nullptr;
+	Ort::Env env_{ORT_LOGGING_LEVEL_WARNING, "SoftIsp"};
+	Ort::MemoryInfo memoryInfo_{Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)};
 	Ort::SessionOptions sessionOptions_;
 	Ort::Session *session_ = nullptr;
-	std::vector<const char*> inputNames_;
-	std::vector<const char*> outputNames_;
+	std::vector<const char *> inputNames_;
+	std::vector<const char *> outputNames_;
 	std::unordered_map<std::string, TensorInfo> inputInfo_;
 	std::unordered_map<std::string, TensorInfo> outputInfo_;
-	Ort::MemoryInfo *memoryInfo_ = nullptr;
 };
 
-} /* namespace soft */
-} /* namespace ipa */
-} /* namespace libcamera */
+using OnnxEngineImpl = OnnxEngineOrt;
+
+#else /* dlopen */
+
+class OnnxEngineDlopen : public OnnxEngine {
+public:
+	OnnxEngineDlopen();
+	~OnnxEngineDlopen();
+	int loadModel(const std::string &modelPath) override;
+	int runInference(const std::vector<float> &inputs, std::vector<float> &outputs) override;
+
+	const std::vector<const char *> &getInputNames() const override { return inputNames_; }
+	const std::vector<const char *> &getOutputNames() const override { return outputNames_; }
+	bool isLoaded() const override { return session_ != nullptr; }
+	const std::unordered_map<std::string, TensorInfo> &getInputInfo() const override { return inputInfo_; }
+	const std::unordered_map<std::string, TensorInfo> &getOutputInfo() const override { return outputInfo_; }
+
+private:
+	bool initOrt();
+	void *ortLib_ = nullptr;
+	void *env_ = nullptr;
+	void *options_ = nullptr;
+	void *session_ = nullptr;
+	void *memoryInfo_ = nullptr;
+	std::vector<const char *> inputNames_;
+	std::vector<const char *> outputNames_;
+	std::unordered_map<std::string, TensorInfo> inputInfo_;
+	std::unordered_map<std::string, TensorInfo> outputInfo_;
+};
+
+using OnnxEngineImpl = OnnxEngineDlopen;
+
+#endif
+
+} // namespace soft
+} // namespace ipa
+} // namespace libcamera

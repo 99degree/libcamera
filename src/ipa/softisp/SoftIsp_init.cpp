@@ -23,10 +23,6 @@ int32_t SoftIsp::init(const IPASettings & /*settings*/,
 void SoftIsp::ensureModelsLoaded()
 {
 	LOG(SoftIsp, Info) << "[IPA] ensureModelsLoaded - begin";
-	if (impl_->algoEngine.isLoaded()) {
-		LOG(SoftIsp, Info) << "[IPA] ensureModelsLoaded - already loaded";
-		return;
-	}
 
 	const char *modelDir = getenv("SOFTISP_MODEL_DIR");
 	if (!modelDir) {
@@ -34,11 +30,17 @@ void SoftIsp::ensureModelsLoaded()
 		return;
 	}
 
-	std::string algoModel = std::string(modelDir) + "/algo.onnx";
-	std::string applierModel = std::string(modelDir) + "/applier.onnx";
-	LOG(SoftIsp, Info) << "[IPA] ensureModelsLoaded - loading: " << algoModel;
-	impl_->algoEngine.loadModel(algoModel);
-	LOG(SoftIsp, Info) << "[IPA] ensureModelsLoaded - loading: " << applierModel;
-	impl_->applierEngine.loadModel(applierModel);
+	if (!impl_->algoEngine->isLoaded()) {
+		std::string path = std::string(modelDir) + "/algo.onnx";
+		LOG(SoftIsp, Info) << "[IPA] Loading algo model: " << path;
+		impl_->algoEngine->loadModel(path);
+	}
+
+	if (!impl_->applierEngine->isLoaded()) {
+		std::string path = std::string(modelDir) + "/applier.onnx";
+		LOG(SoftIsp, Info) << "[IPA] Loading applier model: " << path;
+		impl_->applierEngine->loadModel(path);
+	}
+
 	LOG(SoftIsp, Info) << "[IPA] ensureModelsLoaded - done";
 }

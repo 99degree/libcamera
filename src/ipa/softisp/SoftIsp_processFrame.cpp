@@ -5,10 +5,10 @@
 
 void SoftIsp::processFrame(const uint32_t frame,
 			   uint32_t bufferId,
-			   const SharedFD &bufferFd,
-			   const int32_t planeIndex,
-			   const int32_t width,
-			   const int32_t height,
+			   [[maybe_unused]] const SharedFD &bufferFd,
+			   [[maybe_unused]] const int32_t planeIndex,
+			   [[maybe_unused]] const int32_t width,
+			   [[maybe_unused]] const int32_t height,
 			   [[maybe_unused]] const ControlList &results)
 {
 	auto _pf_start = std::chrono::high_resolution_clock::now();

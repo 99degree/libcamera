@@ -1,28 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-/**
- * SoftIsp - ONNX-based Image Processing Algorithm
- *
- * IMPORTANT: This interface definition must match include/libcamera/ipa/softisp.mojom exactly.
- * Always refer to softisp.mojom when modifying method signatures.
- */
-
 #pragma once
-
-#include <memory>
-#include <string>
-#include <vector>
-#include <unordered_map>
-
-// ONNX Runtime headers
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wextra-semi"
-#pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
-#pragma GCC diagnostic ignored "-Wshadow"
-#pragma GCC diagnostic ignored "-Wconversion"
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include <onnxruntime_cxx_api.h>
-#pragma GCC diagnostic pop
 
 #include <libcamera/ipa/ipa_interface.h>
 #include <libcamera/ipa/soft_ipa_interface.h>
@@ -33,59 +10,30 @@
 #include <libcamera/geometry.h>
 #include <libcamera/base/log.h>
 
+#include "onnx_engine.h"
+
+#include <memory>
+#include <string>
+#include <vector>
+
+using ::libcamera::ControlList;
+using ::libcamera::SharedFD;
+using ::libcamera::ControlInfoMap;
+
 namespace libcamera {
 namespace ipa {
 namespace soft {
 
-// Forward declare interface
 class IPASoftIspInterface;
 
-// ONNX Runtime wrapper
-class OnnxEngine {
-public:
-	OnnxEngine();
-	~OnnxEngine();
-
-	int loadModel(const std::string &modelPath);
-	int runInference(const std::vector<float> &inputs, std::vector<float> &outputs);
-
-	const std::vector<const char*> &getInputNames() const { return inputNames_; }
-	const std::vector<const char*> &getOutputNames() const { return outputNames_; }
-	bool isLoaded() const { return session_ != nullptr; }
-
-	struct TensorInfo {
-		std::vector<int64_t> shape;
-		ONNXTensorElementDataType type;
-		size_t elementCount;
-	};
-
-	const std::unordered_map<std::string, TensorInfo> &getInputInfo() const { return inputInfo_; }
-	const std::unordered_map<std::string, TensorInfo> &getOutputInfo() const { return outputInfo_; }
-
-private:
-	Ort::Env env_;
-	Ort::SessionOptions sessionOptions_;
-	Ort::Session *session_ = nullptr;
-	std::vector<const char*> inputNames_;
-	std::vector<const char*> outputNames_;
-	std::unordered_map<std::string, TensorInfo> inputInfo_;
-	std::unordered_map<std::string, TensorInfo> outputInfo_;
-	Ort::MemoryInfo memoryInfo_;
-};
-
-// SoftIsp class with dual callback pattern
 class SoftIsp : public IPASoftInterface {
 public:
 	SoftIsp();
 	~SoftIsp();
 
-	// Signal for metadata completion
-	libcamera::Signal<uint32_t, const ControlList &> metadataReady;
+	::libcamera::Signal<uint32_t, const ControlList &> metadataReady;
+	::libcamera::Signal<uint32_t, uint32_t> frameDone;
 
-	// Signal for frame completion
-	libcamera::Signal<uint32_t, uint32_t> frameDone;
-
-	// Initialization
 	int32_t init(const IPASettings &settings,
 		     const SharedFD &fdStats,
 		     const SharedFD &fdParams,
@@ -108,31 +56,25 @@ public:
 			  const ControlList &results);
 
 	std::string logPrefix() const;
-
 	void ensureModelsLoaded();
 
 private:
 	struct Impl {
-		OnnxEngine algoEngine; // For stats → AWB/AE
-		OnnxEngine applierEngine; // For Bayer → RGB/YUV
+		std::unique_ptr<OnnxEngine> algoEngine;
+		std::unique_ptr<OnnxEngine> applierEngine;
 		uint32_t imageWidth = 0;
 		uint32_t imageHeight = 0;
 		bool initialized = false;
-		SharedFD fdStats_; // Stats buffer FD
-		SharedFD fdParams_; // Params buffer FD
-
-		// Current AWB gains (updated by processStats, used by processFrame)
+		SharedFD fdStats_;
+		SharedFD fdParams_;
 		float currentRedGain = 1.0f;
 		float currentBlueGain = 1.0f;
-
-		// Cached statistics - always returned by processStats
 		ControlList cachedStats;
 	};
 
 	std::unique_ptr<Impl> impl_;
 };
 
-// Log category for SoftISP IPA (defined in softisp.cpp)
 extern const LogCategory &IPASoftISP;
 
 } /* namespace soft */
