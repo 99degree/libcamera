@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-/**
- * OnnxEngine - Implementation of ONNX Runtime wrapper.
- */
 #include "onnx_engine.h"
 #include <libcamera/base/log.h>
 #include <algorithm>
@@ -13,138 +10,200 @@ LOG_DEFINE_CATEGORY(OnnxEngine)
 namespace ipa::soft {
 
 OnnxEngine::OnnxEngine()
-    : env_(ORT_LOGGING_LEVEL_WARNING, "SoftIsp"),
-      memoryInfo_(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault))
+    : env_(nullptr),
+      memoryInfo_(nullptr)
 {
-    sessionOptions_.SetIntraOpNumThreads(2);
-    sessionOptions_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+	LOG(OnnxEngine, Info) << "[ONNX] Constructor: begin";
+	sessionOptions_.SetIntraOpNumThreads(2);
+	sessionOptions_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+	LOG(OnnxEngine, Info) << "[ONNX] Constructor: end";
 }
 
 OnnxEngine::~OnnxEngine()
 {
-    if (session_) {
-        delete session_;
-        session_ = nullptr;
-    }
+	LOG(OnnxEngine, Info) << "[ONNX] Destructor: begin";
+	if (session_) {
+		delete session_;
+		session_ = nullptr;
+	}
+	if (memoryInfo_) {
+		delete static_cast<Ort::MemoryInfo *>(memoryInfo_);
+		memoryInfo_ = nullptr;
+	}
+	if (env_) {
+		delete static_cast<Ort::Env *>(env_);
+		env_ = nullptr;
+	}
+	LOG(OnnxEngine, Info) << "[ONNX] Destructor: end";
+}
+
+static bool initOrt(Ort::Env *&env, Ort::MemoryInfo *&memInfo)
+{
+	if (env)
+		return true;
+
+	LOG(OnnxEngine, Info) << "[ONNX] initOrt: creating Env...";
+	try {
+		env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "SoftIsp");
+		LOG(OnnxEngine, Info) << "[ONNX] initOrt: Env created, creating MemoryInfo...";
+		memInfo = new Ort::MemoryInfo(
+			Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
+		LOG(OnnxEngine, Info) << "[ONNX] initOrt: MemoryInfo created";
+		return true;
+	} catch (const std::exception &e) {
+		LOG(OnnxEngine, Error) << "[ONNX] initOrt: exception: " << e.what();
+		return false;
+	}
 }
 
 int OnnxEngine::loadModel(const std::string &modelPath)
 {
-    if (!modelPath.empty() && access(modelPath.c_str(), R_OK) != 0) {
-        return -ENOENT;
-    }
+	LOG(OnnxEngine, Info) << "[ONNX] loadModel: " << modelPath;
 
-    try {
-        session_ = new Ort::Session(env_, modelPath.c_str(), sessionOptions_);
+	if (!initOrt(env_, memoryInfo_)) {
+		LOG(OnnxEngine, Error) << "[ONNX] loadModel: initOrt failed";
+		return -EINVAL;
+	}
 
-        size_t numInputs = session_->GetInputCount();
-        inputNames_.reserve(numInputs);
-        inputInfo_.clear();
+	if (access(modelPath.c_str(), R_OK) != 0) {
+		LOG(OnnxEngine, Warning) << "[ONNX] loadModel: file not found: " << modelPath;
+		return -ENOENT;
+	}
 
-        Ort::AllocatorWithDefaultOptions allocator;
-        for (size_t i = 0; i < numInputs; i++) {
-            auto inputName = session_->GetInputNameAllocated(i, allocator);
-            inputNames_.push_back(strdup(inputName.get()));
+	try {
+		LOG(OnnxEngine, Info) << "[ONNX] loadModel: creating session...";
+		if (session_) {
+			delete session_;
+			session_ = nullptr;
+		}
 
-            auto typeInfo = session_->GetInputTypeInfo(i);
-            auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
-            auto shape = tensorInfo.GetShape();
-            auto elementType = tensorInfo.GetElementType();
+		auto *s = new Ort::Session(*env_, modelPath.c_str(), sessionOptions_);
+		session_ = s;
+		LOG(OnnxEngine, Info) << "[ONNX] loadModel: session created";
 
-            TensorInfo info;
-            info.shape = shape;
-            info.type = elementType;
-            info.elementCount = 1;
-            for (auto dim : shape)
-                info.elementCount *= dim;
+		Ort::AllocatorWithDefaultOptions allocator;
+		size_t numInputs = session_->GetInputCount();
 
-            inputInfo_[inputName.get()] = info;
-        }
+		for (size_t i = 0; i < numInputs; i++) {
+			auto inputName = session_->GetInputNameAllocated(i, allocator);
+			inputNames_.push_back(strdup(inputName.get()));
 
-        size_t numOutputs = session_->GetOutputCount();
-        outputNames_.reserve(numOutputs);
-        outputInfo_.clear();
+			auto typeInfo = session_->GetInputTypeInfo(i);
+			auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+			auto shape = tensorInfo.GetShape();
+			auto elementType = tensorInfo.GetElementType();
 
-        for (size_t i = 0; i < numOutputs; i++) {
-            auto outputName = session_->GetOutputNameAllocated(i, allocator);
-            outputNames_.push_back(strdup(outputName.get()));
+			TensorInfo info;
+			info.shape = shape;
+			info.type = elementType;
+			info.elementCount = 1;
+			for (auto dim : shape)
+				info.elementCount *= dim;
 
-            auto typeInfo = session_->GetOutputTypeInfo(i);
-            auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
-            auto shape = tensorInfo.GetShape();
-            auto elementType = tensorInfo.GetElementType();
+			inputInfo_[inputName.get()] = info;
+		}
 
-            TensorInfo info;
-            info.shape = shape;
-            info.type = elementType;
-            info.elementCount = 1;
-            for (auto dim : shape)
-                info.elementCount *= dim;
+		size_t numOutputs = session_->GetOutputCount();
+		for (size_t i = 0; i < numOutputs; i++) {
+			auto outputName = session_->GetOutputNameAllocated(i, allocator);
+			outputNames_.push_back(strdup(outputName.get()));
 
-            outputInfo_[outputName.get()] = info;
-        }
+			auto typeInfo = session_->GetOutputTypeInfo(i);
+			auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+			auto shape = tensorInfo.GetShape();
+			auto elementType = tensorInfo.GetElementType();
 
-        for (const auto &name : inputNames_)
-        for (const auto &name : outputNames_)
+			TensorInfo info;
+			info.shape = shape;
+			info.type = elementType;
+			info.elementCount = 1;
+			for (auto dim : shape)
+				info.elementCount *= dim;
 
-        return 0;
+			outputInfo_[outputName.get()] = info;
+		}
 
-    } catch (const Ort::Exception &e) {
-        if (session_) {
-            delete session_;
-            session_ = nullptr;
-        }
-        return -EINVAL;
-    }
+		LOG(OnnxEngine, Info) << "[ONNX] loadModel: done: " << numInputs << " inputs, " << numOutputs << " outputs";
+		return 0;
+	} catch (const std::exception &e) {
+		LOG(OnnxEngine, Error) << "[ONNX] loadModel: exception: " << e.what();
+		return -EINVAL;
+	}
 }
 
 int OnnxEngine::runInference(const std::vector<float> &inputs,
                              std::vector<float> &outputs)
 {
-    if (!session_) {
-        return -ENODEV;
-    }
+	LOG(OnnxEngine, Info) << "[ONNX] runInference: begin";
 
-    if (inputs.empty()) {
-        return -EINVAL;
-    }
+	if (!env_ || !session_ || !memoryInfo_) {
+		LOG(OnnxEngine, Error) << "[ONNX] runInference: not initialized";
+		return -EINVAL;
+	}
 
-    try {
-        const auto &info = inputInfo_.begin()->second;
-        size_t inputSize = info.elementCount;
+	try {
+		Ort::AllocatorWithDefaultOptions allocator;
 
-        if (inputs.size() != inputSize) {
-            return -EINVAL;
-        }
+		std::vector<Ort::Value> inputTensors;
+		std::vector<int64_t> inputShape;
+		std::vector<const char*> inputNames;
+		size_t inputOffset = 0;
 
-        Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(
-            OrtArenaAllocator, OrtMemTypeDefault);
+		for (auto &[name, info] : inputInfo_) {
+			std::vector<float> inputData;
 
-        Ort::Value inputTensor = Ort::Value::CreateTensor<float>(
-            memoryInfo, const_cast<float*>(inputs.data()),
-            inputSize, info.shape.data(), info.shape.size());
+			if (inputs.empty()) {
+				inputData.resize(info.elementCount, 0.0f);
+			} else if (inputOffset + info.elementCount <= inputs.size()) {
+				inputData.insert(inputData.end(),
+						 inputs.begin() + inputOffset,
+						 inputs.begin() + inputOffset + info.elementCount);
+				inputOffset += info.elementCount;
+			} else {
+				LOG(OnnxEngine, Warning) << "[ONNX] runInference: not enough input data";
+				return -EINVAL;
+			}
 
-        std::vector<const char*> inputNamesPtr = inputNames_;
-        std::vector<const char*> outputNamesPtr = outputNames_;
+			inputShape = info.shape;
+			inputNames.push_back(name.c_str());
 
-        auto outputs_ort = session_->Run(
-            Ort::RunOptions{nullptr},
-            inputNamesPtr.data(), &inputTensor, 1,
-            outputNamesPtr.data(), outputNames_.size());
+			inputTensors.push_back(Ort::Value::CreateTensor<float>(
+				*memoryInfo_, inputData.data(), inputData.size(),
+				inputShape.data(), inputShape.size()));
+		}
 
-        // Get output data from first output tensor
-        size_t outputSize = outputInfo_.begin()->second.elementCount;
-        outputs.resize(outputSize);
+		if (inputTensors.empty()) {
+			LOG(OnnxEngine, Warning) << "[ONNX] runInference: no input tensors";
+			return -EINVAL;
+		}
 
-        const float *outputData = outputs_ort[0].GetTensorData<float>();
-        std::copy(outputData, outputData + outputSize, outputs.begin());
+		LOG(OnnxEngine, Info) << "[ONNX] runInference: running...";
+		std::vector<const char*> outputNames;
+		for (auto &name : outputNames_)
+			outputNames.push_back(name);
 
-        return 0;
+		auto outputTensors = session_->Run(Ort::RunOptions{nullptr},
+						   inputNames.data(),
+						   inputTensors.data(),
+						   inputTensors.size(),
+						   outputNames.data(),
+						   outputNames.size());
 
-    } catch (const Ort::Exception &e) {
-        return -EIO;
-    }
+		outputs.clear();
+		for (size_t i = 0; i < outputTensors.size(); i++) {
+			float *outputData = outputTensors[i].GetTensorMutableData<float>();
+			auto tensorInfo = outputTensors[i].GetTensorTypeAndShapeInfo();
+			size_t elementCount = tensorInfo.GetElementCount();
+			outputs.insert(outputs.end(), outputData, outputData + elementCount);
+		}
+
+		LOG(OnnxEngine, Info) << "[ONNX] runInference: done";
+		return 0;
+	} catch (const std::exception &e) {
+		LOG(OnnxEngine, Error) << "[ONNX] runInference: exception: " << e.what();
+		return -EINVAL;
+	}
 }
 
-} /* namespace ipa */
+} /* namespace ipa::soft */
 } /* namespace libcamera */

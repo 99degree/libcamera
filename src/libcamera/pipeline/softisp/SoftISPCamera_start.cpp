@@ -9,9 +9,7 @@ int SoftISPCameraData::start([[maybe_unused]] const ControlList *controls)
 		return -EINVAL;
 	}
 	
-	// Load IPA and connect it to virtual camera
 	loadIPA();
-	
 	running_ = true;
 	return frameGenerator_->start();
 }

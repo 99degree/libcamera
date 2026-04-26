@@ -52,14 +52,15 @@ public:
 	const std::unordered_map<std::string, TensorInfo> &getOutputInfo() const { return outputInfo_; }
 
 private:
-	Ort::Env env_;
+	// Lazy-init pointers for isolated IPA process safety
+	Ort::Env *env_ = nullptr;
 	Ort::SessionOptions sessionOptions_;
 	Ort::Session *session_ = nullptr;
 	std::vector<const char*> inputNames_;
 	std::vector<const char*> outputNames_;
 	std::unordered_map<std::string, TensorInfo> inputInfo_;
 	std::unordered_map<std::string, TensorInfo> outputInfo_;
-	Ort::MemoryInfo memoryInfo_;
+	Ort::MemoryInfo *memoryInfo_ = nullptr;
 };
 
 } /* namespace soft */

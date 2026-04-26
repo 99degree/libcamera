@@ -12,14 +12,15 @@ void SoftIsp::processFrame(const uint32_t frame,
 {
 	LOG(SoftIsp, Info) << "processFrame: frame=" << frame
 			   << ", bufferId=" << bufferId
-			   << ", fd=" << bufferFd.get()
-			   << ", plane=" << planeIndex
 			   << ", size=" << width << "x" << height;
 
 	if (!impl_->initialized) {
 		LOG(SoftIsp, Warning) << "processFrame called before init";
 		return;
 	}
+
+	/* Lazy-load ONNX models on first frame */
+	ensureModelsLoaded();
 
 	/* 
 	 * ISP processing complete.
