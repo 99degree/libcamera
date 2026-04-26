@@ -5,8 +5,7 @@ SoftIsp::SoftIsp()
 {
 	LOG(SoftIsp, Info) << "[IPA] SoftIsp::SoftIsp() - begin";
 	impl_ = std::make_unique<Impl>();
-	impl_->algoEngine = std::make_unique<OnnxEngineImpl>();
-	impl_->applierEngine = std::make_unique<OnnxEngineImpl>();
+	// engines are stack members of Impl, constructed automatically
 	LOG(SoftIsp, Info) << "[IPA] Impl created with 2 engines";
 	LOG(SoftIsp, Info) << "[IPA] SoftIsp::SoftIsp() - end";
 }

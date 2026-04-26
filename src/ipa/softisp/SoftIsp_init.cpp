@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include "softisp.h"
 #include <cstdlib>
+#include <unistd.h>
 
 int32_t SoftIsp::init(const IPASettings & /*settings*/,
 		      const SharedFD & /*fdStats*/,
@@ -26,20 +27,31 @@ void SoftIsp::ensureModelsLoaded()
 
 	const char *modelDir = getenv("SOFTISP_MODEL_DIR");
 	if (!modelDir) {
-		LOG(SoftIsp, Info) << "[IPA] ensureModelsLoaded - no SOFTISP_MODEL_DIR";
+		LOG(SoftIsp, Info) << "[IPA] SOFTISP_MODEL_DIR not set, skipping ONNX";
 		return;
 	}
 
-	if (!impl_->algoEngine->isLoaded()) {
+	/* Log model directory and file existence for debugging */
+	LOG(SoftIsp, Info) << "[IPA] Model dir: " << modelDir;
+
+	if (!impl_->algoEngine.isLoaded()) {
 		std::string path = std::string(modelDir) + "/algo.onnx";
-		LOG(SoftIsp, Info) << "[IPA] Loading algo model: " << path;
-		impl_->algoEngine->loadModel(path);
+		if (access(path.c_str(), R_OK) == 0) {
+			LOG(SoftIsp, Info) << "[IPA] Found: " << path;
+			impl_->algoEngine.loadModel(path);
+		} else {
+			LOG(SoftIsp, Warning) << "[IPA] Not found: " << path;
+		}
 	}
 
-	if (!impl_->applierEngine->isLoaded()) {
+	if (!impl_->applierEngine.isLoaded()) {
 		std::string path = std::string(modelDir) + "/applier.onnx";
-		LOG(SoftIsp, Info) << "[IPA] Loading applier model: " << path;
-		impl_->applierEngine->loadModel(path);
+		if (access(path.c_str(), R_OK) == 0) {
+			LOG(SoftIsp, Info) << "[IPA] Found: " << path;
+			impl_->applierEngine.loadModel(path);
+		} else {
+			LOG(SoftIsp, Warning) << "[IPA] Not found: " << path;
+		}
 	}
 
 	LOG(SoftIsp, Info) << "[IPA] ensureModelsLoaded - done";

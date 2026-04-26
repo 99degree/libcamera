@@ -60,8 +60,8 @@ public:
 
 private:
 	struct Impl {
-		std::unique_ptr<OnnxEngine> algoEngine;
-		std::unique_ptr<OnnxEngine> applierEngine;
+		OnnxEngineImpl algoEngine;
+		OnnxEngineImpl applierEngine;
 		uint32_t imageWidth = 0;
 		uint32_t imageHeight = 0;
 		bool initialized = false;

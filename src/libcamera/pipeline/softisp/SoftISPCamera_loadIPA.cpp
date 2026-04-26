@@ -7,19 +7,22 @@ int SoftISPCameraData::loadIPA()
 {
 	LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA() started";
 
-	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(pipe(), 0, 0);
-	LOG(SoftISPPipeline, Info) << "[PIPE] createIPA returned: " << (ipa_ ? "ok" : "null");
-
-	if (!ipa_) {
-		LOG(SoftISPPipeline, Warning) << "Failed to create IPA, running without IPA";
+	try {
+		ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(pipe(), 0, 0);
+	} catch (const std::exception &e) {
+		LOG(SoftISPPipeline, Warning) << "IPA creation failed: " << e.what();
+		return 0;
+	} catch (...) {
+		LOG(SoftISPPipeline, Warning) << "IPA creation crashed, running without IPA";
 		return 0;
 	}
 
-	LOG(SoftISPPipeline, Info) << "[PIPE] connecting signals...";
+	LOG(SoftISPPipeline, Info) << "[PIPE] createIPA returned: " << (ipa_ ? "ok" : "null");
+	if (!ipa_) return 0;
+
 	ipa_->metadataReady.connect(this, &SoftISPCameraData::metadataReady);
 	ipa_->frameDone.connect(this, &SoftISPCameraData::frameDone);
 
-	LOG(SoftISPPipeline, Info) << "[PIPE] Calling init()...";
 	IPASettings settings;
 	ControlInfoMap ctrlInfoMap;
 	ControlInfoMap *ipaCtrls = &ctrlInfoMap;
@@ -29,21 +32,10 @@ int SoftISPCameraData::loadIPA()
 
 	int ret = ipa_->init(settings, statsFd, paramsFd,
 			    sensorInfo, ctrlInfoMap, ipaCtrls, &ccmEnabled);
-	LOG(SoftISPPipeline, Info) << "[PIPE] init() returned: " << ret;
+	if (ret < 0) { ipa_.reset(); return 0; }
 
-	if (ret < 0) {
-		ipa_.reset();
-		return 0;
-	}
-
-	LOG(SoftISPPipeline, Info) << "[PIPE] Calling start()...";
 	ret = ipa_->start();
-	LOG(SoftISPPipeline, Info) << "[PIPE] start() returned: " << ret;
-
-	if (ret < 0) {
-		ipa_.reset();
-		return 0;
-	}
+	if (ret < 0) { ipa_.reset(); return 0; }
 
 	LOG(SoftISPPipeline, Info) << "[PIPE] IPA loaded and ready";
 	return 0;
