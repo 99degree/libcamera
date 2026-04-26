@@ -9,8 +9,7 @@ int SoftISPCameraData::start([[maybe_unused]] const ControlList *controls)
 		return -EINVAL;
 	}
 	
-	loadIPA();
-
+	// IPA is loaded once in init(), here we just connect it on each start
 	if (ipa_ && ipa_->isValid()) {
 		LOG(SoftISPPipeline, Info) << "Connecting IPA to VirtualCamera";
 		frameGenerator_->setIpaInterface(ipa());
