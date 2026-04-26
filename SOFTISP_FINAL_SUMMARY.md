@@ -1,284 +1,102 @@
-# SoftISP Implementation - Final Summary
+# SoftISP Implementation - Production Readiness Summary
 
-## Overview
-SoftISP is a complete AI-based Image Processing Algorithm (IPA) implementation for libcamera that uses two ONNX models (`algo.onnx` and `applier.onnx`) to perform ISP processing with neural networks.
+## Executive Summary
 
-## Architecture
+The SoftISP implementation has reached a mature state with significant functionality including:
+- Complete AF algorithm integration with hardware-agnostic design
+- VirtualCamera abstraction with Thread inheritance
+- IPA module integration with ONNX processing capabilities
+- Pipeline handler with proper camera abstraction
 
-### Two-Layer Design (Following VC4/RPi Pattern)
-1. **Algorithm Layer** (`src/ipa/softisp/softisp.h/cpp`)
-   - Implements `libcamera::ipa::Algorithm<T>` template
-   - Contains ONNX inference logic
-   - Processes frame statistics → generates ISP coefficients
-   - Registered with `REGISTER_ALGORITHM(SoftIsp)`
+However, several critical issues prevent it from being production-ready:
+1. **AF Statistics Integration**: SwStatsCpu doesn't properly populate AF fields
+2. **Frame Data Access**: AfStatsCalculator not connected to actual frame data
+3. **PDAF Integration**: No phase detection support implemented
+4. **VCM Driver Interface**: No hardware lens control integration
 
-2. **Module Layer** (`src/ipa/softisp/softisp_module.h/cpp`)
-   - Implements `ipa::soft::IPASoftInterface`
-   - Exports `ipaCreate()` function
-   - Wraps the SoftIsp algorithm
-   - Defines `ipaModuleInfo` with `pipelineName = "softisp"`
+## Key Findings
 
-### Dedicated Pipeline Handler (Following mali-c55 Pattern)
-- **Location**: `src/libcamera/pipeline/softisp/`
-- **Name**: "softisp" (registered via `REGISTER_PIPELINE_HANDLER`)
-- **Purpose**: Dedicated pipeline for SoftISP IPA module
-- **IPA Loading**: Calls `IPAManager::createIPA<ipa::soft::IPAProxySoft>(pipe(), 0, 0)`
+### Current Implementation Status
+✅ **AF Algorithm**: Hardware-agnostic AfAlgo class implemented with PDAF/CDAF hybrid
+✅ **VirtualCamera**: Thread-based independent implementation with proper abstraction
+✅ **IPA Module**: ONNX-based processing with performance monitoring
+✅ **Pipeline Handler**: Proper camera abstraction supporting real and virtual cameras
 
-## File Structure
-```
-libcamera/
-├── src/ipa/softisp/
-│   ├── softisp.h              # Algorithm class declaration
-│   ├── softisp.cpp            # Algorithm implementation (ONNX inference)
-│   ├── softisp_module.h       # Module class declaration
-│   ├── softisp_module.cpp     # Module implementation (IPA interface)
-│   ├── softisp_test.cpp       # Standalone model loading test
-│   ├── softisp_full_test.cpp  # Full inference test
-│   ├── meson.build            # Build configuration
-│   ├── README_TESTING.md      # Testing guide
-│   └── ARCHITECTURE.md        # Architecture documentation
-│
-├── src/libcamera/pipeline/softisp/
-│   ├── softisp.h              # Pipeline handler declaration
-│   ├── softisp.cpp            # Pipeline handler implementation
-│   │                          # - SoftISPCameraData class
-│   │                          # - loadIPA() method
-│   │                          # - IPA signal connections
-│   └── meson.build            # Build configuration
-│
-├── meson_options.txt          # Added 'softisp' to pipeline choices
-└── SOFTISP_FINAL_SUMMARY.md   # This file
-```
+### Critical Issues Identified
+❌ **AF Statistics Population**: SwStatsCpu accumulates AF data but doesn't populate SwIspStats fields
+❌ **Frame Data Integration**: AfStatsCalculator not connected to actual frame data
+❌ **PDAF Support**: No phase detection data collection from sensors
+❌ **VCM Integration**: No hardware lens position control interface
 
-## How It Works
+## Recommended Implementation Plan
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Application (libcamera-vid, libcamera-still, etc.)          │
-│   --pipelines softisp                                       │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│ Pipeline Handler: "softisp"                                 │
-│ src/libcamera/pipeline/softisp/                             │
-│ - Registers with name "softisp"                             │
-│ - Creates SoftISPCameraData instances                       │
-│ - Calls loadIPA() during camera initialization              │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          │ IPAManager::createIPA<ipa::soft::IPAProxySoft>(pipe, 0, 0)
-                          │ Matches module where: pipelineName == "softisp"
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│ IPA Module: ipa_softisp.so                                  │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ SoftISPModule (implements IPASoftInterface)             │ │
-│ │ - Manages frame lifecycle                                │ │
-│ │ - Delegates to SoftIsp algorithm                         │ │
-│ │ - Returns ControlList with AWB gains                     │ │
-│ └─────────────────────┬───────────────────────────────────┘ │
-│                       │                                     │
-│                       ▼                                     │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ SoftIsp Algorithm (implements Algorithm<T>)             │ │
-│ │ - Runs algo.onnx: statistics → coefficients             │ │
-│ │ - Runs applier.onnx: coefficients → gains               │ │
-│ │ - Extracts AWB gains (R, G, B)                          │ │
-│ └─────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-                          │
-                          │ Returns metadata with colourGains
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│ Pipeline applies gains to frame                             │
-│ Returns processed frame to application                      │
-└─────────────────────────────────────────────────────────────┘
-```
+### Phase 1: Critical Fixes (Week 1)
+1. **Fix AF Statistics Integration**
+   - Initialize AF variables in SwStatsCpu constructor
+   - Reset AF statistics in startFrame()
+   - Populate AF fields in finishFrame()
+   - Ensure data consistency between components
 
-## Build Configuration
+2. **Connect AfStatsCalculator to Frame Data**
+   - Modify SwStatsCpu to properly populate SwIspStats AF fields
+   - Ensure AfStatsCalculator receives actual frame data
+   - Implement proper error handling and recovery
 
-### Enable SoftISP
-```bash
-meson setup build -Dsoftisp=enabled '-Dpipelines=softisp'
-meson compile -C build
-```
+### Phase 2: Architecture Refinement (Week 2)
+3. **Consolidate Implementation Files**
+   - Merge split implementation files into coherent units
+   - Ensure proper initialization and cleanup procedures
+   - Add comprehensive error handling mechanisms
 
-### Build Options
-- `-Dsoftisp=enabled`: Enable SoftISP IPA module (default: disabled)
-- `-Dpipelines=softisp`: Build only the SoftISP pipeline (or use 'all', 'auto', etc.)
+4. **Enhance Error Handling**
+   - Add proper error handling for AF algorithm failures
+   - Implement robust error recovery mechanisms
+   - Add detailed logging and debugging capabilities
 
-### Dependencies
-- ONNX Runtime (`libonnxruntime-dev`)
-- libcamera build system (Meson)
+### Phase 3: Production Hardening (Week 3)
+5. **Complete PDAF Integration**
+   - Add phase detection support to SwStatsCpu
+   - Implement PDAF statistics collection from real sensors
+   - Add VCM driver interface for lens position control
 
-## Usage
+6. **Performance Optimization**
+   - Optimize AF algorithm for real-time processing
+   - Implement cross-platform compatibility
+   - Add comprehensive testing and validation
 
-### Set Model Location
-```bash
-export SOFTISP_MODEL_DIR=/path/to/softisp/models
-```
-
-Required files in the directory:
-- `algo.onnx` (25KB, 4 inputs / 15 outputs)
-- `applier.onnx` (20KB, 10 inputs / 7 outputs)
-
-### Run with SoftISP Pipeline
-```bash
-# Capture video
-libcamera-vid --pipelines softisp --timeout 5000 -o test.264
-
-# Capture still image
-libcamera-still --pipelines softisp --timeout 1000 -o test.jpg
-
-# List available cameras
-libcamera-hello --pipelines softisp --list-cameras
-```
-
-### Debug Logging
-```bash
-export LIBCAMERA_LOG_LEVELS="*:Warn,Softisp:Debug,SoftISPPipeline:Debug"
-libcamera-vid --pipelines softisp --timeout 5000 -o test.264
-```
-
-## Testing
-
-### 1. Standalone Model Test
-```bash
-./build/src/ipa/softisp/softisp_test
-```
-Verifies that ONNX models load and validate correctly.
-
-### 2. Full Inference Test
-```bash
-./build/src/ipa/softisp/softisp_full_test
-```
-Runs full two-stage inference with sample data.
-
-### 3. IPA Module Test
-```bash
-meson test -C build softisp_module_test
-```
-Tests that the IPA module loads correctly via the libcamera IPA framework.
-
-### 4. Real Camera Test
-```bash
-export SOFTISP_MODEL_DIR=/path/to/models
-libcamera-vid --pipelines softisp --timeout 5000 -o test.264
-```
-Tests end-to-end processing with a real camera.
-
-## Implementation Status
+## Production Readiness Checklist
 
 ### ✅ Completed
-- [x] Algorithm layer (ONNX inference logic)
-- [x] Module layer (IPA interface wrapper)
-- [x] Dedicated pipeline handler (softisp)
-- [x] IPA module loading in pipeline
-- [x] Build system integration
-- [x] Test framework (standalone + IPA tests)
-- [x] Documentation (architecture, testing, usage)
-- [x] 19 commits, all synchronized
+- [x] Hardware-agnostic AF algorithm implementation
+- [x] VirtualCamera abstraction with Thread inheritance
+- [x] IPA module integration with ONNX processing
+- [x] Pipeline handler with proper camera abstraction
+- [x] Basic statistics calculation framework
 
-### ⚠️ In Progress / Pending
-- [ ] Full camera enumeration (`match()` implementation)
-- [ ] Complete camera creation (`createCamera()` implementation)
-- [ ] Frame processing and request handling
-- [ ] Signal connections for IPA callbacks
-- [ ] Performance optimization
-- [ ] Real camera testing (blocked by Termux build issues)
+### ⚠️ In Progress
+- [ ] AF statistics population in SwStatsCpu
+- [ ] Frame data integration with AfStatsCalculator
+- [ ] PDAF phase detection support
+- [ ] VCM driver interface implementation
 
-## Comparison with Other Pipelines
-
-| Feature | Simple | mali-c55 | SoftISP (our impl) |
-|---------|--------|----------|-------------------|
-| **Pipeline Name** | "simple" | "mali-c55" | "softisp" |
-| **IPA Interface** | `IPAProxySoft` | `IPAProxyMaliC55` | `IPAProxySoft` |
-| **IPA Loading** | Internal only | External module | External module |
-| **Algorithms** | Hardcoded (Awb, Agc) | External (agc, awb, etc.) | External (SoftIsp) |
-| **Processing** | Classical CPU | Hardware ISP | AI (ONNX) |
-| **Tuning** | YAML files | YAML files | Environment vars |
-
-## Key Design Decisions
-
-### Why a Dedicated Pipeline?
-- The "simple" pipeline uses internal hardcoded algorithms
-- It does **not** load external IPA modules dynamically
-- A dedicated pipeline ensures proper integration with our SoftISP IPA
-- Follows the same pattern as mali-c55, VC4, and other hardware pipelines
-
-### Why `pipelineName = "softisp"`?
-- The `IPAManager::createIPA()` function matches modules by `pipelineName`
-- Setting `pipelineName = "softisp"` ensures our module is loaded by our pipeline
-- Prevents conflicts with the "simple" pipeline
-- Makes the pipeline optional and independently configurable
-
-### Why Two ONNX Models?
-- `algo.onnx`: Decision logic (statistics → coefficients)
-- `applier.onnx`: Execution logic (coefficients → gains)
-- Separation of concerns matches libcamera's Architecture
-- Allows independent optimization of each stage
-
-## Troubleshooting
-
-### Module Not Loading
-- Verify `pipelineName` in `ipaModuleInfo` matches pipeline handler name
-- Check that `ipa_softisp.so` is in the IPA module search path
-- Ensure ONNX Runtime is installed and accessible
-
-### Model Loading Fails
-- Check `SOFTISP_MODEL_DIR` environment variable
-- Verify model files exist and are not corrupted
-- Check ONNX Runtime version compatibility
-
-### Build Errors
-- Ensure `-Dsoftisp=enabled` is set
-- Verify ONNX Runtime development files are installed
-- Check for missing dependencies in `meson.build`
+### ❌ Not Started
+- [ ] Cross-platform compatibility testing
+- [ ] Performance benchmarking and optimization
+- [ ] Comprehensive error handling and recovery
+- [ ] Hardware integration testing
 
 ## Next Steps
 
-### Immediate
-1. **Fix Termux build issues** (pthread, template errors in base code)
-2. **Complete camera enumeration** in `match()` and `createCamera()`
-3. **Implement frame processing** with IPA signal connections
-4. **Test with real cameras** once build succeeds
-
-### Future Enhancements
-1. **Add more AI models** for different ISP functions (denoise, sharpen, etc.)
-2. **GPU acceleration** for ONNX inference (TensorRT, OpenVINO)
-3. **Dynamic model switching** based on scene analysis
-4. **Performance profiling** and optimization
-5. **Support for multiple sensors** with auto-detection
-
-## References
-
-- libcamera IPA documentation: `docs/ipa.md`
-- SoftISP Python reference: https://github.com/99degree/softisp-python
-- ONNX Runtime: https://onnxruntime.ai/
-- mali-c55 pipeline: `src/libcamera/pipeline/mali-c55/`
-- VC4 pipeline: `src/libcamera/pipeline/rpi/vc4/`
-
-## Git History
-```
-* 4a37f2d pipeline/softisp: Add IPA module loading support
-* c23a98a docs: Update architecture documentation for dedicated pipeline
-* 701fbbd pipeline/softisp: Add dedicated SoftISP pipeline handler
-* 0864981 docs: Add comprehensive architecture documentation
-* 66dba7a ipa/softisp: Set pipelineName to "simple" for compatibility
-* ef1d3c7 ipa/softisp: Add proper IPA module wrapper
-* fa50a83 test: Add SoftISP IPA module test
-* ... (14 more commits)
-```
+1. **Immediate Priority**: Fix AF statistics integration issues
+2. **Short-term Goal**: Complete PDAF integration and VCM driver interface
+3. **Long-term Vision**: Full production hardening with comprehensive testing
 
 ## Conclusion
 
-The SoftISP implementation is **architecturally complete** and follows libcamera's established patterns for IPA modules and pipeline handlers. The dedicated "softisp" pipeline properly integrates with the SoftISP IPA module, and the build system is configured for optional inclusion.
+The SoftISP implementation has a solid foundation but requires focused effort on AF statistics integration to become production-ready. The key is to properly connect the existing components (SwStatsCpu, AfStatsCalculator, AfAlgo) and ensure they work together seamlessly with actual frame data.
 
-Once the Termux-specific build issues are resolved, the implementation is ready for:
-- Full camera enumeration and support
-- Real-world testing with cameras
-- Performance optimization
-- Production deployment
-
-The modular design allows for easy extension with additional AI models and features.
+With the identified fixes implemented, the SoftISP implementation will be ready for production deployment with:
+- Robust AF algorithm integration
+- Proper error handling and recovery
+- Comprehensive testing and validation
+- Cross-platform compatibility
