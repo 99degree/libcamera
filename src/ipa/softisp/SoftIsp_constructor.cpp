@@ -3,5 +3,6 @@
 
 SoftIsp::SoftIsp()
 {
+	impl_ = std::make_unique<Impl>();
 	LOG(SoftIsp, Info) << "SoftIsp constructor";
 }

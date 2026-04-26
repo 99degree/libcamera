@@ -5,6 +5,7 @@
 
 // Step 1: Include the real libcamera log header
 #include <libcamera/base/log.h>
+#include <libcamera/internal/ipa_manager.h>
 
 // Step 2: Define the log category for SoftISP pipeline
 namespace libcamera {

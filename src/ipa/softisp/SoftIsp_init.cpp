@@ -10,29 +10,18 @@ int32_t SoftIsp::init(const IPASettings & /*settings*/,
 		      ControlInfoMap * /*ipaControls*/,
 		      bool * /*ccmEnabled*/)
 {
-	// Use default resolution
 	impl_->imageWidth = 1920;
 	impl_->imageHeight = 1080;
 
+#if 0
 	const char *modelDir = getenv("SOFTISP_MODEL_DIR");
-	if (!modelDir) {
-		LOG(SoftIsp, Error) << "SOFTISP_MODEL_DIR not set";
-		return -EINVAL;
+	if (modelDir) {
+		std::string algoModel = std::string(modelDir) + "/algo.onnx";
+		std::string applierModel = std::string(modelDir) + "/applier.onnx";
+		impl_->algoEngine.loadModel(algoModel);
+		impl_->applierEngine.loadModel(applierModel);
 	}
-
-	// Load ONNX models
-	std::string algoModel = std::string(modelDir) + "/algo.onnx";
-	std::string applierModel = std::string(modelDir) + "/applier.onnx";
-
-	if (impl_->algoEngine.loadModel(algoModel) < 0) {
-		LOG(SoftIsp, Error) << "Failed to load algo model: " << algoModel;
-		return -EINVAL;
-	}
-
-	if (impl_->applierEngine.loadModel(applierModel) < 0) {
-		LOG(SoftIsp, Error) << "Failed to load applier model: " << applierModel;
-		return -EINVAL;
-	}
+#endif
 
 	impl_->initialized = true;
 	LOG(SoftIsp, Info) << "SoftISP initialized: " << impl_->imageWidth << "x" << impl_->imageHeight;

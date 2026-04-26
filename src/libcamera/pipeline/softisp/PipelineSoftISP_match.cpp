@@ -5,20 +5,15 @@
 #include <algorithm>
 #include <set>
 
-// Static camera that persists across pipeline handler lifetimes
-static std::shared_ptr<Camera> s_persistentCamera;
-
 bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
 {
 	(void)enumerator;
 	LOG(SoftISPPipeline, Info) << "match() called";
 
-	// If we already have a persistent camera, just return true
-	if (s_persistentCamera) {
-		LOG(SoftISPPipeline, Info) << "using existing persistent camera";
-		registerCamera(s_persistentCamera);
-		return true;
-	}
+	// Only create the virtual camera once. Return false on subsequent
+	// calls so libcamera stops probing.
+	if (created_)
+		return false;
 
 	LOG(SoftISPPipeline, Info) << "creating new camera data";
 	auto data = std::make_unique<SoftISPCameraData>(this);
@@ -40,10 +35,8 @@ bool PipelineHandlerSoftISP::match(DeviceEnumerator *enumerator)
 		return false;
 	}
 
-	// Store the camera statically so it persists
-	s_persistentCamera = camera;
-
 	registerCamera(std::move(camera));
+	created_ = true;
 	LOG(SoftISPPipeline, Info) << "match() returning true";
 
 	return true;

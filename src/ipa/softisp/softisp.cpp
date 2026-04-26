@@ -25,6 +25,7 @@ SoftIsp::~SoftIsp() = default;
 #include "SoftIsp_queueRequest.cpp"
 #include "SoftIsp_computeParams.cpp"
 #include "SoftIsp_processStats.cpp"
+#include "SoftIsp_processFrame.cpp"
 #include "SoftIsp_logPrefix.cpp"
 
 } /* namespace soft */

@@ -4,5 +4,6 @@
 PipelineHandlerSoftISP::~PipelineHandlerSoftISP()
 {
 	LOG(SoftISPPipeline, Info) << "Destroying PipelineHandlerSoftISP";
-	created_ = false;
+	// NOTE: Do NOT reset created_ here - it must persist across
+	// multiple pipeline handler instances during probing.
 }

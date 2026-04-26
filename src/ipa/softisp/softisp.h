@@ -111,8 +111,10 @@ public:
 
 private:
 	struct Impl {
+#if 0
 		OnnxEngine algoEngine; // For stats → AWB/AE
 		OnnxEngine applierEngine; // For Bayer → RGB/YUV
+#endif
 		uint32_t imageWidth = 0;
 		uint32_t imageHeight = 0;
 		bool initialized = false;

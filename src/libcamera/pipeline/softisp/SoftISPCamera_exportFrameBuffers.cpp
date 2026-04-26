@@ -11,11 +11,37 @@ int SoftISPCameraData::exportFrameBuffers(
 		return -EINVAL;
 	}
 
+	/*
+	 * Clone the buffers from VirtualCamera. The Camera framework takes
+	 * ownership of the returned unique_ptr and manages them.
+	 * VirtualCamera keeps its own reference via buffers_.
+	 */
 	auto &genBuffers = frameGenerator_->getBuffers();
 	for (auto *buffer : genBuffers) {
-		buffers->push_back(
-			std::unique_ptr<FrameBuffer>(buffer));
+		if (!buffer)
+			continue;
+		if (buffer->planes().empty())
+			continue;
+
+		/* Clone the plane data so the Camera framework gets its own fd */
+		std::vector<FrameBuffer::Plane> planes;
+		for (const auto &plane : buffer->planes()) {
+			int clonedFd = dup(plane.fd.get());
+			if (clonedFd < 0) {
+				LOG(SoftISPPipeline, Error) << "Failed to dup fd";
+				return -errno;
+			}
+			FrameBuffer::Plane clonedPlane;
+			clonedPlane.fd = SharedFD(clonedFd);
+			clonedPlane.length = plane.length;
+			clonedPlane.offset = plane.offset;
+			planes.push_back(std::move(clonedPlane));
+		}
+
+		auto *cloned = new FrameBuffer(planes);
+		buffers->push_back(std::unique_ptr<FrameBuffer>(cloned));
 	}
 
+	LOG(SoftISPPipeline, Info) << "Exported " << buffers->size() << " frame buffers";
 	return 0;
 }

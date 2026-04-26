@@ -102,6 +102,7 @@ int VirtualCamera::allocateBuffers(unsigned int count)
         FrameBuffer::Plane plane;
         plane.fd = SharedFD(fd);
         plane.length = bufferSize;
+        plane.offset = 0;
         
         std::vector<FrameBuffer::Plane> planes;
         planes.push_back(std::move(plane));
@@ -267,12 +268,6 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, [[maybe_unused]] Request *
     {
         std::lock_guard<std::mutex> lock(bufferUsageMutex_);
         for (size_t i = 0; i < buffers_.size(); i++) {
-
-    // Call IPA processing if available
-    if (ipaInterface_) {
-        processWithIPA(buffer, request);
-    }
-
             if (buffers_[i] == buffer) {
                 bufferInUse_[i] = false;
                 break;
@@ -280,6 +275,8 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, [[maybe_unused]] Request *
         }
     }
 }
+
+
 
 void VirtualCamera::run()
 {
@@ -318,6 +315,11 @@ void VirtualCamera::run()
         }
         
         if (buffer) {
+            // Call IPA processing if available BEFORE processing the frame
+            if (ipaInterface_) {
+                processWithIPA(buffer, request);
+            }
+            
             processFrame(buffer, request);
         }
         
