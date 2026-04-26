@@ -189,8 +189,8 @@ AfStats AfStatsCalculator::calculate(const uint8_t *data, uint32_t width, uint32
 			float weight = weightedRoi.weight;
 
 			// Ensure ROI is within bounds
-			uint32_t x = std::min(roi.x, width - 1);
-			uint32_t y = std::min(roi.y, height - 1);
+			uint32_t x = std::min(static_cast<uint32_t>(roi.x), width - 1);
+			uint32_t y = std::min(static_cast<uint32_t>(roi.y), height - 1);
 			uint32_t w = std::min(roi.width, width - x);
 			uint32_t h = std::min(roi.height, height - y);
 
@@ -227,8 +227,8 @@ AfStats AfStatsCalculator::calculate(const uint8_t *data, uint32_t width, uint32
 		}
 	} else if (useRoi_) {
 		// Calculate contrast for single ROI
-		uint32_t x = std::min(roi_.x, width - 1);
-		uint32_t y = std::min(roi_.y, height - 1);
+		uint32_t x = std::min(static_cast<uint32_t>(roi_.x), width - 1);
+		uint32_t y = std::min(static_cast<uint32_t>(roi_.y), height - 1);
 		uint32_t w = std::min(roi_.width, width - x);
 		uint32_t h = std::min(roi_.height, height - y);
 

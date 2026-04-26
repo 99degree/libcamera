@@ -11,7 +11,7 @@
 
 #include <cstdint>
 #include <libcamera/geometry.h>
-#include <libcamera/span.h>
+#include <libcamera/base/span.h>
 
 namespace libcamera {
 namespace libipa {
