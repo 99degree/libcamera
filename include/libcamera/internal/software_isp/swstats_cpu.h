@@ -120,6 +120,10 @@ private:
 	std::vector<SwIspStats> stats_;
 	SharedMemObject<SwIspStats> sharedStats_;
 	Benchmark bench_;
+
+	/* AF statistics accumulation */
+	uint64_t afGradientSum_;   /* Sum of gradient magnitudes */
+	uint32_t afPixelCount_;    /* Number of pixels used in AF calculation */
 };
 
 } /* namespace libcamera */
