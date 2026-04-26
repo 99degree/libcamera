@@ -214,6 +214,18 @@ void SwStatsCpu::statsBGGR8Line0(const uint8_t *src[], SwIspStats &stats)
 		g = (g + g2) / 2;
 
 		SWSTATS_ACCUMULATE_LINE_STATS(1)
+
+		/* AF gradient: simple horizontal+vertical difference */
+		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad;
+		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
+
+		/* AF gradient: simple horizontal+vertical difference */
+		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad;
+		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 	}
 
 	SWSTATS_FINISH_LINE_STATS()
@@ -240,6 +252,18 @@ void SwStatsCpu::statsBGGR10Line0(const uint8_t *src[], SwIspStats &stats)
 
 		/* divide Y by 4 for 10 -> 8 bpp value */
 		SWSTATS_ACCUMULATE_LINE_STATS(4)
+
+		/* AF gradient: simple horizontal+vertical difference */
+		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad;
+		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
+
+		/* AF gradient: simple horizontal+vertical difference */
+		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad;
+		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 	}
 
 	SWSTATS_FINISH_LINE_STATS()
@@ -266,6 +290,18 @@ void SwStatsCpu::statsBGGR12Line0(const uint8_t *src[], SwIspStats &stats)
 
 		/* divide Y by 16 for 12 -> 8 bpp value */
 		SWSTATS_ACCUMULATE_LINE_STATS(16)
+
+		/* AF gradient: simple horizontal+vertical difference */
+		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad;
+		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
+
+		/* AF gradient: simple horizontal+vertical difference */
+		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad;
+		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 	}
 
 	SWSTATS_FINISH_LINE_STATS()
@@ -292,6 +328,12 @@ void SwStatsCpu::statsBGGR10PLine0(const uint8_t *src[], SwIspStats &stats)
 		g = (g + g2) / 2;
 		/* Data is already 8 bits, divide by 1 */
 		SWSTATS_ACCUMULATE_LINE_STATS(1)
+
+		/* AF gradient: simple horizontal+vertical difference */
+		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad;
+		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 	}
 
 	SWSTATS_FINISH_LINE_STATS()
@@ -314,10 +356,21 @@ void SwStatsCpu::statsGBRG10PLine0(const uint8_t *src[], SwIspStats &stats)
 		g = src0[x];
 		b = src0[x + 1];
 		r = src1[x];
+		/* AF gradient: simple horizontal+vertical difference */
+		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad;
+		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 		g2 = src1[x + 1];
 		g = (g + g2) / 2;
 		/* Data is already 8 bits, divide by 1 */
 		SWSTATS_ACCUMULATE_LINE_STATS(1)
+
+		/* AF gradient: simple horizontal+vertical difference */
+		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad;
+		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 	}
 
 	SWSTATS_FINISH_LINE_STATS()
