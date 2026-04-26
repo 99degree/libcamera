@@ -222,9 +222,9 @@ void SwStatsCpu::statsBGGR8Line0(const uint8_t *src[], SwIspStats &stats)
 		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 
 		/* AF gradient: simple horizontal+vertical difference */
-		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
-		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
-		afGradientSum_ += grad;
+		int32_t grad2 = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad2 += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad2;
 		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 	}
 
@@ -260,9 +260,9 @@ void SwStatsCpu::statsBGGR10Line0(const uint8_t *src[], SwIspStats &stats)
 		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 
 		/* AF gradient: simple horizontal+vertical difference */
-		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
-		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
-		afGradientSum_ += grad;
+		int32_t grad2 = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad2 += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad2;
 		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 	}
 
@@ -298,9 +298,9 @@ void SwStatsCpu::statsBGGR12Line0(const uint8_t *src[], SwIspStats &stats)
 		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 
 		/* AF gradient: simple horizontal+vertical difference */
-		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
-		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
-		afGradientSum_ += grad;
+		int32_t grad2 = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad2 += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad2;
 		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 	}
 
@@ -367,9 +367,9 @@ void SwStatsCpu::statsGBRG10PLine0(const uint8_t *src[], SwIspStats &stats)
 		SWSTATS_ACCUMULATE_LINE_STATS(1)
 
 		/* AF gradient: simple horizontal+vertical difference */
-		int32_t grad = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
-		grad += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
-		afGradientSum_ += grad;
+		int32_t grad2 = std::abs(static_cast<int32_t>(g) - static_cast<int32_t>(b));
+		grad2 += std::abs(static_cast<int32_t>(g2) - static_cast<int32_t>(r));
+		afGradientSum_ += grad2;
 		afPixelCount_ += 2; /* 2 pixels per 2x2 block */
 	}
 
