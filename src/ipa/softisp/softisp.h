@@ -124,6 +124,9 @@ private:
 		// Current AWB gains (updated by processStats, used by processFrame)
 		float currentRedGain = 1.0f;
 		float currentBlueGain = 1.0f;
+
+		// Cached statistics - always returned by processStats
+		ControlList cachedStats;
 	};
 
 	std::unique_ptr<Impl> impl_;

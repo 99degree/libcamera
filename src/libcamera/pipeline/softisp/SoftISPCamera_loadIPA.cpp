@@ -3,14 +3,10 @@
 
 int SoftISPCameraData::loadIPA()
 {
-	/*
-	 * IPA loading is unstable due to ORT initialization in Threaded proxy.
-	 * Set LIBCAMERA_SOFTISP_IPA=1 to enable (also requires
-	 * LIBCAMERA_IPA_NO_ISOLATION=1 and SOFTISP_MODEL_DIR).
-	 */
+	/* Build fingerprint: 20260427-0256 */
 	char *enable = getenv("LIBCAMERA_SOFTISP_IPA");
 	if (!enable || enable[0] == '\0') {
-		LOG(SoftISPPipeline, Info) << "IPA loading skipped (set LIBCAMERA_SOFTISP_IPA=1 to enable)";
+		LOG(SoftISPPipeline, Info) << "IPA loading disabled (set LIBCAMERA_SOFTISP_IPA=1)";
 		return 0;
 	}
 

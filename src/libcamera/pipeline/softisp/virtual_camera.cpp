@@ -220,6 +220,7 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, [[maybe_unused]] Request *
     }
 
     sequence_++;
+    auto _p_start = std::chrono::steady_clock::now();
     LOG(VirtualCamera, Info) << "Processing frame " << sequence_ 
                               << " (Bayer10 RGGB " << width_ << "x" << height_ << ")";
 
@@ -264,6 +265,10 @@ void VirtualCamera::processFrame(FrameBuffer *buffer, [[maybe_unused]] Request *
         uint32_t bufferId = plane.fd.get();
         frameDoneCallback_(sequence_, bufferId);
     }
+
+    auto _p_end = std::chrono::steady_clock::now();
+    auto _p_us = std::chrono::duration_cast<std::chrono::microseconds>(_p_end - _p_start).count();
+    LOG(VirtualCamera, Info) << "[VCAM] frame=" << sequence_ << " took " << _p_us << "us";
 
     {
         std::lock_guard<std::mutex> lock(bufferUsageMutex_);
@@ -315,8 +320,9 @@ void VirtualCamera::run()
         }
         
         if (buffer) {
-            // Call IPA processing if available BEFORE processing the frame
-            if (ipaInterface_) {
+            /* Throttle IPA: only process every 4th frame through IPA.
+             * processFrame runs every frame at full speed. */
+            if (ipaInterface_ && (sequence_ % 4 == 0)) {
                 processWithIPA(buffer, request);
             }
             
