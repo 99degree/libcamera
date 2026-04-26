@@ -3,30 +3,31 @@
 
 int SoftISPCameraData::loadIPA()
 {
-	LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA: begin";
-
-	LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA: calling createIPA...";
-	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(pipe(), 0, 0);
-	if (!ipa_) {
-		LOG(SoftISPPipeline, Warning) << "[PIPE] loadIPA: ipa_ is null";
+	/*
+	 * IPA loading is unstable due to ORT initialization in Threaded proxy.
+	 * Set LIBCAMERA_SOFTISP_IPA=1 to enable (also requires
+	 * LIBCAMERA_IPA_NO_ISOLATION=1 and SOFTISP_MODEL_DIR).
+	 */
+	char *enable = getenv("LIBCAMERA_SOFTISP_IPA");
+	if (!enable || enable[0] == '\0') {
+		LOG(SoftISPPipeline, Info) << "IPA loading skipped (set LIBCAMERA_SOFTISP_IPA=1 to enable)";
 		return 0;
 	}
 
-	LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA: checking isValid()...";
-	bool valid = ipa_->isValid();
-	LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA: isValid() = " << (valid ? "true" : "false");
+	LOG(SoftISPPipeline, Info) << "Loading SoftISP IPA";
 
-	if (valid) {
-		LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA: connecting metadataReady...";
-		ipa_->metadataReady.connect(this, &SoftISPCameraData::metadataReady);
-		LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA: connecting frameDone...";
-		ipa_->frameDone.connect(this, &SoftISPCameraData::frameDone);
-
-		LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA: calling ipa_->start()...";
-		ipa_->start();
-		LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA: start() complete";
+	ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(pipe(), 0, 0);
+	if (!ipa_) {
+		LOG(SoftISPPipeline, Warning) << "Failed to create SoftISP IPA";
+		return 0;
 	}
 
-	LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA: done";
+	if (ipa_->isValid()) {
+		ipa_->metadataReady.connect(this, &SoftISPCameraData::metadataReady);
+		ipa_->frameDone.connect(this, &SoftISPCameraData::frameDone);
+		ipa_->start();
+		LOG(SoftISPPipeline, Info) << "SoftISP IPA loaded and started";
+	}
+
 	return 0;
 }
