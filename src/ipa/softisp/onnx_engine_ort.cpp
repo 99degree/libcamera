@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#include "onnx_engine_ort.h"
+#include "onnx_engine.h"
 #include <libcamera/base/log.h>
 #include <unistd.h>
 

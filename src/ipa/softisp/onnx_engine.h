@@ -6,6 +6,19 @@
 #include <vector>
 #include <unordered_map>
 
+// ORT headers must be at file scope, not inside namespace
+#ifdef USE_ONNX_ORT
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#include <onnxruntime_cxx_api.h>
+#pragma GCC diagnostic pop
+#endif
+
 namespace libcamera {
 namespace ipa {
 namespace soft {
@@ -30,18 +43,7 @@ public:
 	virtual const std::unordered_map<std::string, TensorInfo> &getOutputInfo() const = 0;
 };
 
-/* ---- Picked by meson.build via onnx_backend option ---- */
 #ifdef USE_ONNX_ORT
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wextra-semi"
-#pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
-#pragma GCC diagnostic ignored "-Wshadow"
-#pragma GCC diagnostic ignored "-Wconversion"
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include <onnxruntime_cxx_api.h>
-#pragma GCC diagnostic pop
 
 class OnnxEngineOrt : public OnnxEngine {
 public:
