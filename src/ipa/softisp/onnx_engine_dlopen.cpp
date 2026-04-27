@@ -109,6 +109,7 @@ bool OnnxEngineDlopen::initOrt()
 	if (ortLib_) return true;
 
 	ortLib_ = dlopen("libonnxruntime.so", RTLD_LAZY | RTLD_GLOBAL);
+	if (!ortLib_) ortLib_ = dlopen("/data/data/com.termux/files/usr/lib/libonnxruntime.so", RTLD_LAZY | RTLD_GLOBAL);
 	if (!ortLib_) {
 		LOG(OnnxEngine, Warning) << "dlopen onnxruntime failed";
 		return false;

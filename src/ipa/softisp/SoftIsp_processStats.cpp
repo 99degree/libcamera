@@ -3,7 +3,7 @@
 #include <chrono>
 #include <libcamera/base/log.h>
 
-void SoftIsp::processStats(uint32_t frame, [[maybe_unused]] uint32_t bufferId, [[maybe_unused]] ControlList &stats)
+void SoftIsp::processStats(uint32_t frame, [[maybe_unused]] uint32_t bufferId, [[maybe_unused]] const ControlList &stats)
 {
 	auto _ps_start = std::chrono::high_resolution_clock::now();
 

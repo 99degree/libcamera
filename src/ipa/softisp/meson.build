@@ -4,7 +4,7 @@
 # Choose ONNX engine backend:
 #   'dlopen' = runtime dlopen (default, no compile-time ORT dependency)
 #   'ort'    = compile-time ORT C++ API (needs onnxruntime dep)
-onnx_backend = 'dlopen'
+onnx_backend = 'ort'
 
 softisp_cpp_args = []
 

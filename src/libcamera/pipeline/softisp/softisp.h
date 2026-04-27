@@ -100,7 +100,7 @@ public:
 	SoftISPFrames frameInfo_;
 
 	// IPA access
-	ipa::soft::IPAProxySoftIsp *ipa() const { return ipa_.get(); }
+	ipa::soft::IPAProxySoftIsp *ipa() const { return ipaProxy_.get(); }
 	std::unique_ptr<ipa::soft::IPAProxySoftIsp> ipa_;
 
 	// Virtual camera
@@ -112,7 +112,7 @@ public:
 
 	// IPA interface for virtual camera integration
 	libcamera::ipa::soft::IPASoftIspInterface *ipaInterface_ = nullptr;
-	std::unique_ptr<IPAInterface> ipaInterfaceOwned_;
+	std::unique_ptr<ipa::soft::IPAProxySoftIsp> ipaProxy_;
 
 	std::vector<StreamConfig> streamConfigs_;
 	bool running_ = false;

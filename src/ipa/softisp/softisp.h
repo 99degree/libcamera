@@ -2,13 +2,15 @@
 #pragma once
 
 #include <libcamera/ipa/ipa_interface.h>
-#include <libcamera/ipa/soft_ipa_interface.h>
+#include <libcamera/ipa/softisp_ipa_interface.h>
 #include <libcamera/base/shared_fd.h>
 #include <libcamera/base/signal.h>
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 #include <libcamera/geometry.h>
 #include <libcamera/base/log.h>
+
+#include <libcamera/ipa/softisp_ipa_interface.h>
 
 #include "onnx_engine.h"
 
@@ -26,7 +28,7 @@ namespace soft {
 
 class IPASoftIspInterface;
 
-class SoftIsp : public IPASoftInterface {
+class SoftIsp : public IPASoftIspInterface {
 public:
 	SoftIsp();
 	~SoftIsp();
@@ -40,20 +42,20 @@ public:
 		     const IPACameraSensorInfo &sensorInfo,
 		     const ControlInfoMap &sensorControls,
 		     ControlInfoMap *ipaControls,
-		     bool *ccmEnabled);
-	int32_t start();
-	void stop();
-	int32_t configure(const IPAConfigInfo &configInfo);
-	void queueRequest(const uint32_t frame, const ControlList &sensorControls);
-	void computeParams(const uint32_t frame);
-	void processStats(uint32_t frame, uint32_t bufferId, libcamera::ControlList &stats);
+		     bool *ccmEnabled) override;
+	int32_t start() override;
+	void stop() override;
+	int32_t configure(const IPAConfigInfo &configInfo) override;
+	void queueRequest(const uint32_t frame, const ControlList &sensorControls) override;
+	void computeParams(const uint32_t frame) override;
+	void processStats(uint32_t frame, uint32_t bufferId, const libcamera::ControlList &stats) override;
 	void processFrame(const uint32_t frame,
 			  uint32_t bufferId,
 			  const SharedFD &bufferFd,
 			  const int32_t planeIndex,
 			  const int32_t width,
 			  const int32_t height,
-			  const ControlList &results);
+			  const ControlList &results) override;
 
 	std::string logPrefix() const;
 	void ensureModelsLoaded();

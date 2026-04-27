@@ -289,7 +289,7 @@ IPAModule *IPAManager::module(PipelineHandler *pipe, uint32_t minVersion,
 bool IPAManager::isSignatureValid([[maybe_unused]] IPAModule *ipa) const
 {
 	return true;
-#if 0
+#if HAVE_IPA_PUBKEY
 	if (forceIsolation_) {
 		LOG(IPAManager, Debug)
 			<< "Isolation of IPA module " << ipa->path()

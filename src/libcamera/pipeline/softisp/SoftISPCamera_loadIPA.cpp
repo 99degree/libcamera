@@ -1,28 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include "softisp.h"
-#include <libcamera/ipa/core_ipa_interface.h>
-#include <libcamera/controls.h>
 
 int SoftISPCameraData::loadIPA()
 {
-	LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA() started";
+	LOG(SoftISPPipeline, Info) << "[PIPE] loadIPA() - creating IPA via IPAManager";
 
-	try {
-		ipa_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(pipe(), 0, 0);
-	} catch (const std::exception &e) {
-		LOG(SoftISPPipeline, Warning) << "IPA creation failed: " << e.what();
-		return 0;
-	} catch (...) {
-		LOG(SoftISPPipeline, Warning) << "IPA creation crashed, running without IPA";
+	ipaProxy_ = IPAManager::createIPA<ipa::soft::IPAProxySoftIsp>(pipe(), 0, 0);
+	if (!ipaProxy_) {
+		LOG(SoftISPPipeline, Warning) << "IPA creation failed, running without IPA";
 		return 0;
 	}
 
-	LOG(SoftISPPipeline, Info) << "[PIPE] createIPA returned: " << (ipa_ ? "ok" : "null");
-	if (!ipa_) return 0;
+	ipaInterface_ = ipaProxy_.get();
+	LOG(SoftISPPipeline, Info) << "[PIPE] IPA created and interface set";
 
-	ipa_->metadataReady.connect(this, &SoftISPCameraData::metadataReady);
-	ipa_->frameDone.connect(this, &SoftISPCameraData::frameDone);
-
+	// Initialize IPA with default settings
 	IPASettings settings;
 	ControlInfoMap ctrlInfoMap;
 	ControlInfoMap *ipaCtrls = &ctrlInfoMap;
@@ -30,13 +22,17 @@ int SoftISPCameraData::loadIPA()
 	IPACameraSensorInfo sensorInfo = {};
 	SharedFD statsFd, paramsFd;
 
-	int ret = ipa_->init(settings, statsFd, paramsFd,
-			    sensorInfo, ctrlInfoMap, ipaCtrls, &ccmEnabled);
-	if (ret < 0) { ipa_.reset(); return 0; }
+	int ret = ipaProxy_->init(settings, statsFd, paramsFd,
+				 sensorInfo, ctrlInfoMap, ipaCtrls, &ccmEnabled);
+	if (ret < 0) {
+		LOG(SoftISPPipeline, Warning) << "IPA init() failed";
+		ipaProxy_.reset();
+		ipaInterface_ = nullptr;
+		return 0;
+	}
 
-	ret = ipa_->start();
-	if (ret < 0) { ipa_.reset(); return 0; }
+	ipaProxy_->start();
+	LOG(SoftISPPipeline, Info) << "[PIPE] IPA started";
 
-	LOG(SoftISPPipeline, Info) << "[PIPE] IPA loaded and ready";
 	return 0;
 }
