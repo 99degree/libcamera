@@ -9,6 +9,12 @@ void SoftISPCameraData::tryCompleteRequest(SoftISPFrameInfo *info)
 	
 	// Check if both metadata and frame are ready
 	if (info->metadataReceived && info->frameReceived) {
+		// Add metadata to the request
+		if (!info->metadata.empty()) {
+			info->request->controls().merge(info->metadata, ControlList::MergePolicy::OverwriteExisting);
+			LOG(SoftISPPipeline, Debug) << "Added metadata to request for frame " << info->frame;
+		}
+		
 		// Complete the request
 		pipe()->completeRequest(info->request);
 		

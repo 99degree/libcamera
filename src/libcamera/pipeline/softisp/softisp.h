@@ -42,10 +42,11 @@ struct SoftISPFrameInfo {
 	FrameBuffer *buffer;
 	bool metadataReceived;
 	bool frameReceived;
+        ControlList metadata;
 
 	SoftISPFrameInfo(Request *req, FrameBuffer *buf, unsigned int id)
 		: frame(id), request(req), buffer(buf),
-		  metadataReceived(false), frameReceived(false)
+		  metadataReceived(false), frameReceived(false), metadata(ControlList())
 	{}
 };
 
@@ -122,6 +123,7 @@ public:
 
 	std::shared_ptr<MediaDevice> mediaDevice_;
 	bool isVirtualCamera = true;
+        ControlList latestMetadata_;
 
 	// Store placeholder streams (like SimplePipeline)
 	std::vector<PlaceholderStream> placeholderStreams_;
