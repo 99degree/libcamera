@@ -16,6 +16,32 @@ int32_t SoftIsp::init(const IPASettings & /*settings*/,
 	impl_->imageHeight = 1080;
 	impl_->initialized = true;
 
+	/*
+	 * Load algo.onnx early in init() so statistics models are ready
+	 * before the first frame arrives. applier.onnx loads lazily on
+	 * first processFrame() call.
+	 */
+	const char *modelDir = getenv("SOFTISP_MODEL_DIR");
+	if (modelDir) {
+		/* algo.onnx - statistics model */
+		if (!impl_->algoEngine.isLoaded()) {
+			std::string path = std::string(modelDir) + "/algo.onnx";
+			if (access(path.c_str(), R_OK) == 0) {
+				LOG(SoftIsp, Info) << "[IPA] init loading algo: " << path;
+				impl_->algoEngine.loadModel(path);
+			}
+		}
+
+		/* applier.onnx - image processing model */
+		if (!impl_->applierEngine.isLoaded()) {
+			std::string path = std::string(modelDir) + "/applier.onnx";
+			if (access(path.c_str(), R_OK) == 0) {
+				LOG(SoftIsp, Info) << "[IPA] init loading applier: " << path;
+				impl_->applierEngine.loadModel(path);
+			}
+		}
+	}
+
 	LOG(SoftIsp, Info) << "[IPA] SoftIsp::init() - end (ready)";
 
 	return 0;
@@ -31,9 +57,9 @@ void SoftIsp::ensureModelsLoaded()
 		return;
 	}
 
-	/* Log model directory and file existence for debugging */
 	LOG(SoftIsp, Info) << "[IPA] Model dir: " << modelDir;
 
+	/* algo.onnx already loaded in init() if available */
 	if (!impl_->algoEngine.isLoaded()) {
 		std::string path = std::string(modelDir) + "/algo.onnx";
 		if (access(path.c_str(), R_OK) == 0) {
@@ -44,6 +70,7 @@ void SoftIsp::ensureModelsLoaded()
 		}
 	}
 
+	/* applier.onnx loaded lazily here */
 	if (!impl_->applierEngine.isLoaded()) {
 		std::string path = std::string(modelDir) + "/applier.onnx";
 		if (access(path.c_str(), R_OK) == 0) {

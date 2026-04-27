@@ -18,13 +18,9 @@ void SoftIsp::processFrame(const uint32_t frame,
 		return;
 	}
 
-	ensureModelsLoaded();
-
-	ControlList metadata;
-	metadataReady.emit(frame, metadata);
 	frameDone.emit(frame, bufferId);
 
 	auto _pf_end = std::chrono::high_resolution_clock::now();
 	auto us = std::chrono::duration_cast<std::chrono::microseconds>(_pf_end - _pf_start).count();
-	LOG(SoftIsp, Info) << "[IPA-pF] frame=" << frame << " took " << us << "us";
+	LOG(SoftIsp, Info) << "[IPA-pF] frame=" << frame << " buf=" << bufferId << " dur=" << us << "us";
 }

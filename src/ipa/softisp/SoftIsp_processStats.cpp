@@ -7,31 +7,62 @@ void SoftIsp::processStats(uint32_t frame, [[maybe_unused]] uint32_t bufferId, [
 {
 	auto _ps_start = std::chrono::high_resolution_clock::now();
 
-	/*
-	 * Throttle: processStats runs on every frame but only re-computes
-	 * on every 4th frame. On skip frames, return cached stats immediately.
-	 */
+	const char *mode;
 	if (frame % 4 != 0) {
+		// Use cached stats
 		ControlList metadata = impl_->cachedStats;
 		metadataReady.emit(frame, metadata);
+		mode = "SKIP";
+	} else {
+		// Compute fresh stats via algo.onnx inference
+		ControlList fresh;
 
-		auto _ps_end = std::chrono::high_resolution_clock::now();
-		auto us = std::chrono::duration_cast<std::chrono::microseconds>(_ps_end - _ps_start).count();
-		LOG(SoftIsp, Info) << "[IPA-pS] frame=" << frame << " SKIPPED (cached) " << us << "us";
-		return;
+		if (impl_->algoEngine.isLoaded()) {
+			auto _inf_start = std::chrono::high_resolution_clock::now();
+
+			// Build input vector from current frame stats
+			std::vector<float> inputs = {
+				// Placeholder: real stats from stats parameter
+				0.0f, 0.0f, 0.0f, 0.0f
+			};
+			std::vector<float> outputs;
+
+			int ret = impl_->algoEngine.runInference(inputs, outputs);
+
+			auto _inf_us = std::chrono::duration_cast<std::chrono::microseconds>(
+				std::chrono::high_resolution_clock::now() - _inf_start).count();
+			LOG(SoftIsp, Info) << "[IPA-pS] inference dur=" << _inf_us << "us"
+					  << " ret=" << ret << " out_sz=" << outputs.size();
+
+			if (ret == 0 && !outputs.empty()) {
+				// Map ONNX outputs to ControlList by output name
+				const auto &outNames = impl_->algoEngine.getOutputNames();
+
+				for (size_t i = 0; i < outputs.size() && i < outNames.size(); i++) {
+					std::string name = outNames[i];
+					if (name == "red_gain")
+						fresh.set(controls::ColourGains,
+							  Span<const float, 2>({outputs[i], 0.0f}));
+					else if (name == "blue_gain")
+						fresh.set(controls::ColourGains,
+							  Span<const float, 2>({0.0f, outputs[i]}));
+					else if (name == "exposure_time")
+						fresh.set(controls::ExposureTime,
+							  static_cast<int32_t>(outputs[i]));
+					else if (name == "analogue_gain")
+						fresh.set(controls::AnalogueGain, outputs[i]);
+					// TODO: add more output mappings
+				}
+			}
+		}
+
+		impl_->cachedStats.merge(fresh);
+		metadataReady.emit(frame, impl_->cachedStats);
+		mode = "COMPUTE";
 	}
 
-	/*
-	 * Re-compute statistics from frame data.
-	 * TODO: Read stats from shared memory buffer, run libipa algorithms,
-	 *       update impl_->cachedStats with new AWB/AE/AF values.
-	 */
-	impl_->cachedStats.clear();  /* placeholder - real stats go here */
-
-	ControlList metadata = impl_->cachedStats;
-	metadataReady.emit(frame, metadata);
-
-	auto _ps_end = std::chrono::high_resolution_clock::now();
-	auto us = std::chrono::duration_cast<std::chrono::microseconds>(_ps_end - _ps_start).count();
-	LOG(SoftIsp, Info) << "[IPA-pS] frame=" << frame << " COMPUTED " << us << "us";
+	auto us = std::chrono::duration_cast<std::chrono::microseconds>(
+		std::chrono::high_resolution_clock::now() - _ps_start).count();
+	LOG(SoftIsp, Info) << "[IPA-pS] frame=" << frame << " buf=" << bufferId
+			   << " " << mode << " dur=" << us << "us";
 }
