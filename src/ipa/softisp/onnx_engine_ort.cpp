@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 namespace libcamera {
-
 LOG_DEFINE_CATEGORY(OnnxEngine)
 
 namespace ipa::soft {
@@ -28,26 +27,45 @@ int OnnxEngineOrt::loadModel(const std::string &modelPath)
 	}
 
 	try {
-		if (session_)
-			delete session_;
-
+		if (session_) delete session_;
 		session_ = new Ort::Session(env_, modelPath.c_str(), sessionOptions_);
-
 		Ort::AllocatorWithDefaultOptions allocator;
-		size_t nIn = session_->GetInputCount();
-		size_t nOut = session_->GetOutputCount();
 
+		// Get input information
+		size_t nIn = session_->GetInputCount();
 		for (size_t i = 0; i < nIn; i++) {
 			auto nm = session_->GetInputNameAllocated(i, allocator);
 			inputNames_.push_back(strdup(nm.get()));
+
+			// Get input type and shape
+			Ort::TypeInfo typeInfo = session_->GetInputTypeInfo(i);
+			const auto &tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+
+			TensorInfo info;
+			info.shape = tensorInfo.GetShape();
+			info.type = tensorInfo.GetElementType();
+			info.elementCount = tensorInfo.GetElementCount();
+			inputInfo_[nm.get()] = info;
 		}
+
+		// Get output information
+		size_t nOut = session_->GetOutputCount();
 		for (size_t i = 0; i < nOut; i++) {
 			auto nm = session_->GetOutputNameAllocated(i, allocator);
 			outputNames_.push_back(strdup(nm.get()));
+
+			// Get output type and shape
+			Ort::TypeInfo typeInfo = session_->GetOutputTypeInfo(i);
+			const auto &tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+
+			TensorInfo info;
+			info.shape = tensorInfo.GetShape();
+			info.type = tensorInfo.GetElementType();
+			info.elementCount = tensorInfo.GetElementCount();
+			outputInfo_[nm.get()] = info;
 		}
 
-		LOG(OnnxEngine, Info) << "Loaded: " << modelPath
-				      << " (" << nIn << " in, " << nOut << " out)";
+		LOG(OnnxEngine, Info) << "Loaded: " << modelPath << " (" << nIn << " in, " << nOut << " out)";
 		return 0;
 	} catch (const std::exception &e) {
 		LOG(OnnxEngine, Error) << "loadModel failed: " << e.what();
@@ -56,32 +74,62 @@ int OnnxEngineOrt::loadModel(const std::string &modelPath)
 }
 
 int OnnxEngineOrt::runInference(const std::vector<float> &inputs,
-				std::vector<float> &outputs)
+				   std::vector<float> &outputs)
 {
-	if (!session_)
-		return -EINVAL;
+	if (!session_) return -EINVAL;
 
 	try {
-		std::vector<int64_t> shape = {1, (int64_t)inputs.size()};
+		// Get input info
+		std::vector<Ort::Value> inputTensors;
+		std::vector<const char *> inPtrs;
+		size_t offset = 0;
 
-		auto inTensor = Ort::Value::CreateTensor<float>(
-			memoryInfo_, const_cast<float *>(inputs.data()),
-			inputs.size(), shape.data(), shape.size());
+		for (const auto &inputName : inputNames_) {
+			const auto &info = inputInfo_[inputName];
+			
+			// Check if we have enough input data
+			size_t count = info.elementCount;
+			if (offset + count > inputs.size()) {
+				LOG(OnnxEngine, Error) << "Input data too small, expected "
+					<< (offset + count) << " but got " << inputs.size();
+				return -EINVAL;
+			}
+			
+			// Create tensor
+			auto tensor = Ort::Value::CreateTensor<float>(
+				memoryInfo_,
+				const_cast<float *>(inputs.data() + offset),
+				count,
+				info.shape.data(),
+				info.shape.size());
+			
+			inputTensors.push_back(std::move(tensor));
+			inPtrs.push_back(inputName);
+			offset += count;
+		}
 
-		std::vector<const char *> inPtrs, outPtrs;
-		for (auto &n : inputNames_) inPtrs.push_back(n);
-		for (auto &n : outputNames_) outPtrs.push_back(n);
+		// Prepare output names
+		std::vector<const char *> outPtrs;
+		for (auto &n : outputNames_)
+			outPtrs.push_back(n);
 
-		auto outTensors = session_->Run(Ort::RunOptions{nullptr},
-						inPtrs.data(), &inTensor, inPtrs.size(),
-						outPtrs.data(), outPtrs.size());
+		// Run inference
+		auto outTensors = session_->Run(
+			Ort::RunOptions{nullptr},
+			inPtrs.data(),
+			inputTensors.data(),
+			inPtrs.size(),
+			outPtrs.data(),
+			outPtrs.size());
 
+		// Process outputs
 		outputs.clear();
 		for (auto &t : outTensors) {
 			float *d = t.GetTensorMutableData<float>();
 			size_t n = t.GetTensorTypeAndShapeInfo().GetElementCount();
 			outputs.insert(outputs.end(), d, d + n);
 		}
+
 		return 0;
 	} catch (const std::exception &e) {
 		LOG(OnnxEngine, Error) << "Inference failed: " << e.what();

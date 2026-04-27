@@ -349,18 +349,20 @@ void VirtualCamera::processWithIPA(FrameBuffer *buffer, [[maybe_unused]] Request
     uint32_t bufferId = plane.fd.get();
     uint32_t frameId = sequence_;
     
-    // Create control list for sensor controls (empty for now)
     ControlList sensorControls;
     
-    // Call IPA processFrame method
+    // Step 1: compute statistics (algo.onnx → AWB/AE/AF)
+    ipaInterface_->processStats(frameId, bufferId, sensorControls);
+    
+    // Step 2: apply controls to frame (applier.onnx → image processing)
     ipaInterface_->processFrame(
-        frameId,           // frame
-        bufferId,          // bufferId
-        plane.fd,           // bufferFd
-        0,                 // planeIndex
-        width_,            // width
-        height_,          // height
-        sensorControls    // results
+        frameId,
+        bufferId,
+        plane.fd,
+        0,
+        width_,
+        height_,
+        sensorControls
     );
     
     LOG(VirtualCamera, Info) << "IPA processFrame called for frame " << frameId << ", bufferId " << bufferId;
