@@ -359,7 +359,7 @@ void VirtualCamera::processWithIPA(FrameBuffer *buffer, [[maybe_unused]] Request
         frameId,
         bufferId,
         plane.fd,
-        0,
+        0, 1,
         width_,
         height_,
         sensorControls

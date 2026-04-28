@@ -1,24 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include "softisp.h"
-
 #include <libcamera/formats.h>
 
 int SoftISPCameraData::configure([[maybe_unused]] CameraConfiguration *config)
 {
 	LOG(SoftISPPipeline, Info) << "Configuring camera";
+
 	if (!frameGenerator_) {
 		LOG(SoftISPPipeline, Error) << "VirtualCamera not initialized";
 		return -EINVAL;
 	}
 
-	auto *softConfig = static_cast<SoftISPConfiguration *>(config);
+	// Configure IPA frame processing backend
+	if (ipaInterface_) {
+		int ret = ipaInterface_->configureFrameBackend(ipa::soft::Format::RGB, 2);
+		if (ret != 0) {
+			LOG(SoftISPPipeline, Error) << "Failed to configure IPA frame backend: " << ret;
+			return ret;
+		}
+		LOG(SoftISPPipeline, Info) << "IPA frame backend configured: RGB, 2 buffers";
+	}
 
+	auto *softConfig = static_cast<SoftISPConfiguration *>(config);
 	auto status = softConfig->validate();
 	if (status == CameraConfiguration::Invalid) {
 		LOG(SoftISPPipeline, Error) << "Invalid camera configuration";
 		return -EINVAL;
 	}
-
 	if (status == CameraConfiguration::Adjusted)
 		LOG(SoftISPPipeline, Info) << "Configuration adjusted";
 

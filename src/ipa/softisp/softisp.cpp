@@ -31,3 +31,4 @@ SoftIsp::~SoftIsp() = default;
 } /* namespace soft */
 } /* namespace ipa */
 } /* namespace libcamera */
+#include "SoftIsp_configureFrameBackend.cpp"

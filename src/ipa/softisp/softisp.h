@@ -49,10 +49,12 @@ public:
 	void queueRequest(const uint32_t frame, const ControlList &sensorControls) override;
 	void computeParams(const uint32_t frame) override;
 	void processStats(uint32_t frame, uint32_t bufferId, const libcamera::ControlList &stats) override;
+
+	virtual int32_t configureFrameBackend(const Format format, const uint32_t num_output_buffers) override;
 	void processFrame(const uint32_t frame,
 			  uint32_t bufferId,
 			  const SharedFD &bufferFd,
-			  const int32_t planeIndex,
+			  const int32_t planeIndexIn, const int32_t planeIndexOut,
 			  const int32_t width,
 			  const int32_t height,
 			  const ControlList &results) override;
@@ -77,6 +79,9 @@ private:
 		std::vector<float> ccmMatrix;      // 3x3 color correction matrix
 		float gammaValue = 1.0f;
 		float tonemapCurve = 1.0f;
+		Format targetFormat = Format::RGB;
+		uint32_t numOutputBuffers = 2;
+		virtual ~Impl() {}
 		std::vector<float> yuvMatrix;      // 3x3 RGB to YUV matrix
 		std::vector<float> subsampleScale; // 4 values
 	};
