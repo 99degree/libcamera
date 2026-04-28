@@ -31,3 +31,12 @@ ipa_module = shared_module('ipa_softisp',
     install_dir : ipa_install_dir,
     cpp_args : softisp_cpp_args,
 )
+
+# ONNX Simple Test Tool (for debugging)
+onnx_simple_test = executable('onnx_simple_test',
+    ['onnx_simple_test.cpp'] + onnx_engine_sources,
+    include_directories : [ipa_includes],
+    dependencies : [libcamera_private, libipa_dep, onnxruntime_dep],
+    cpp_args : softisp_cpp_args,
+    install : false,
+)

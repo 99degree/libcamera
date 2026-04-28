@@ -72,6 +72,13 @@ private:
 		float currentRedGain = 1.0f;
 		float currentBlueGain = 1.0f;
 		ControlList cachedStats;
+		// Parameters computed by algo.onnx
+		std::vector<float> awbGains;       // 3 gains (R,G,B)
+		std::vector<float> ccmMatrix;      // 3x3 color correction matrix
+		float gammaValue = 1.0f;
+		float tonemapCurve = 1.0f;
+		std::vector<float> yuvMatrix;      // 3x3 RGB to YUV matrix
+		std::vector<float> subsampleScale; // 4 values
 	};
 
 	std::unique_ptr<Impl> impl_;

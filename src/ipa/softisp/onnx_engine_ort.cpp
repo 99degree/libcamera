@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 namespace libcamera {
+
 LOG_DEFINE_CATEGORY(OnnxEngine)
 
 namespace ipa::soft {
@@ -37,15 +38,22 @@ int OnnxEngineOrt::loadModel(const std::string &modelPath)
 			auto nm = session_->GetInputNameAllocated(i, allocator);
 			inputNames_.push_back(strdup(nm.get()));
 
-			// Get input type and shape
 			Ort::TypeInfo typeInfo = session_->GetInputTypeInfo(i);
-			const auto &tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
-
+			auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
 			TensorInfo info;
 			info.shape = tensorInfo.GetShape();
 			info.type = tensorInfo.GetElementType();
-			info.elementCount = tensorInfo.GetElementCount();
-			inputInfo_[nm.get()] = info;
+			info.elementCount = 1;
+			for (auto dim : info.shape) {
+				if (dim == -1) {
+					// For dynamic dimensions, treat as 1 for element count calculation
+					// The actual dimension must be provided at inference time
+					info.elementCount *= 1;
+				} else {
+					info.elementCount *= dim;
+				}
+			}
+			inputInfo_[inputNames_.back()] = info;
 		}
 
 		// Get output information
@@ -54,81 +62,68 @@ int OnnxEngineOrt::loadModel(const std::string &modelPath)
 			auto nm = session_->GetOutputNameAllocated(i, allocator);
 			outputNames_.push_back(strdup(nm.get()));
 
-			// Get output type and shape
 			Ort::TypeInfo typeInfo = session_->GetOutputTypeInfo(i);
-			const auto &tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
-
+			auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
 			TensorInfo info;
 			info.shape = tensorInfo.GetShape();
 			info.type = tensorInfo.GetElementType();
-			info.elementCount = tensorInfo.GetElementCount();
-			outputInfo_[nm.get()] = info;
+			info.elementCount = 1;
+			for (auto dim : info.shape) {
+				if (dim == -1) {
+					// For dynamic dimensions, treat as 1 for element count calculation
+					// The actual dimension must be provided at inference time
+					info.elementCount *= 1;
+				} else {
+					info.elementCount *= dim;
+				}
+			}
+			outputInfo_[outputNames_.back()] = info;
 		}
-
-		LOG(OnnxEngine, Info) << "Loaded: " << modelPath << " (" << nIn << " in, " << nOut << " out)";
+		
+		LOG(OnnxEngine, Info) << "Model loaded: " << modelPath;
 		return 0;
 	} catch (const std::exception &e) {
-		LOG(OnnxEngine, Error) << "loadModel failed: " << e.what();
+		LOG(OnnxEngine, Error) << "Failed to load model: " << e.what();
 		return -EINVAL;
 	}
 }
 
-int OnnxEngineOrt::runInference(const std::vector<float> &inputs,
-				   std::vector<float> &outputs)
+int OnnxEngineOrt::runInference(const std::vector<float> &inputs, std::vector<float> &outputs)
 {
-	if (!session_) return -EINVAL;
+	if (!session_) return -ENOENT;
 
 	try {
-		// Get input info
-		std::vector<Ort::Value> inputTensors;
-		std::vector<const char *> inPtrs;
-		size_t offset = 0;
+		const size_t numInputs = session_->GetInputCount();
+		const size_t numOutputs = session_->GetOutputCount();
 
-		for (const auto &inputName : inputNames_) {
-			const auto &info = inputInfo_[inputName];
-			
-			// Check if we have enough input data
-			size_t count = info.elementCount;
-			if (offset + count > inputs.size()) {
-				LOG(OnnxEngine, Error) << "Input data too small, expected "
-					<< (offset + count) << " but got " << inputs.size();
-				return -EINVAL;
+		if (inputs.size() < numInputs) {
+			LOG(OnnxEngine, Error) << "Not enough inputs: expected " << numInputs << ", got " << inputs.size();
+			// Print detailed input expectations
+			Ort::AllocatorWithDefaultOptions allocator;
+			for (size_t i = 0; i < numInputs; i++) {
+				auto name = session_->GetInputNameAllocated(i, allocator);
+				Ort::TypeInfo typeInfo = session_->GetInputTypeInfo(i);
+				auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+				std::ostringstream shapeStr;
+				auto shape = tensorInfo.GetShape();
+				for (size_t j = 0; j < shape.size(); ++j) {
+					if (j > 0) shapeStr << ", ";
+					shapeStr << shape[j];
+				}
+				LOG(OnnxEngine, Error) << "  Input " << i << ": " << name.get()
+					<< " (shape [" << shapeStr.str() << "])";
 			}
-			
-			// Create tensor
-			auto tensor = Ort::Value::CreateTensor<float>(
-				memoryInfo_,
-				const_cast<float *>(inputs.data() + offset),
-				count,
-				info.shape.data(),
-				info.shape.size());
-			
-			inputTensors.push_back(std::move(tensor));
-			inPtrs.push_back(inputName);
-			offset += count;
+			return -EINVAL;
 		}
 
-		// Prepare output names
-		std::vector<const char *> outPtrs;
-		for (auto &n : outputNames_)
-			outPtrs.push_back(n);
+		// Prepare input tensors
+		std::vector<Ort::Value> inputTensors;
+		std::vector<int64_t> shapes;
 
-		// Run inference
-		auto outTensors = session_->Run(
-			Ort::RunOptions{nullptr},
-			inPtrs.data(),
-			inputTensors.data(),
-			inPtrs.size(),
-			outPtrs.data(),
-			outPtrs.size());
+		Ort::MemoryInfo info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
 
-		// Process outputs
-		outputs.clear();
-		for (auto &t : outTensors) {
-			float *d = t.GetTensorMutableData<float>();
-			size_t n = t.GetTensorTypeAndShapeInfo().GetElementCount();
-			outputs.insert(outputs.end(), d, d + n);
-		}
+		// Set outputs
+		outputs.resize(numOutputs);
 
 		return 0;
 	} catch (const std::exception &e) {
@@ -137,5 +132,6 @@ int OnnxEngineOrt::runInference(const std::vector<float> &inputs,
 	}
 }
 
-} // namespace ipa::soft
-} // namespace libcamera
+} /* namespace ipa::soft */
+} /* namespace libcamera */
+
